@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 import (
 	"errors"
@@ -618,6 +618,7 @@ func (pp *PublicParameter) intMatrixInnerProductWithReductionQc(a [][]int64, b [
 }
 
 // q is assumed to be an odd number
+//
 //	applied to q_a and q_c
 func reduceInt64(a int64, q int64) int64 {
 	r := a % q
@@ -634,7 +635,7 @@ func reduceInt64(a int64, q int64) int64 {
 	return r
 }
 
-//	intToBinary() returns the bit representation of v, supposing paramDc >= 64
+// intToBinary() returns the bit representation of v, supposing paramDc >= 64
 func (pp *PublicParameter) intToBinary(v uint64) (bits []int64) {
 	rstBits := make([]int64, pp.paramDC)
 	for i := 0; i < pp.paramDC; i++ {

@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 //const (
 //	//	PQRingCT, 2022.03.31

@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 import (
 	"bytes"
@@ -1946,7 +1946,7 @@ func (pp *PublicParameter) DeserializeElrsSignature(serializeElrsSignature []byt
 	}, nil
 }
 
-//	TrTxWitnessSerializeSizeApprox() returns the approximate size of TrTxWitnessSerializeSize, based on the inputRingSizes and outputTxoNum.
+// TrTxWitnessSerializeSizeApprox() returns the approximate size of TrTxWitnessSerializeSize, based on the inputRingSizes and outputTxoNum.
 func (pp *PublicParameter) TrTxWitnessSerializeSizeApprox(inputRingSizes []int, outputTxoNum int) int {
 	lenApprox := VarIntSerializeSize(uint64(len(inputRingSizes))) + len(inputRingSizes)*pp.PolyANTTSerializeSize() + // ma_ps      []*PolyANTT, each ring has a ma_ps
 		VarIntSerializeSize(uint64(len(inputRingSizes))) + len(inputRingSizes)*pp.ValueCommitmentSerializeSize() // cmt_ps     []*ValueCommitment, each ring has a cnt_ps
@@ -2237,7 +2237,7 @@ func (pp *PublicParameter) TrTxInputSerializeSize(trTxIn *TrTxInput) int {
 	return length
 }
 
-//	serializeTrTxInput() is called only SerializeTransferTx() to prepare TrTxCon to be authenticated.
+// serializeTrTxInput() is called only SerializeTransferTx() to prepare TrTxCon to be authenticated.
 func (pp *PublicParameter) serializeTrTxInput(trTxIn *TrTxInput) ([]byte, error) {
 	if trTxIn == nil || len(trTxIn.TxoList) == 0 {
 		return nil, errors.New("serializeTrTxInput: there is nil pointer in TrTxInput")

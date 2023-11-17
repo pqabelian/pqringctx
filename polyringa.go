@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 import (
 	"log"
@@ -382,7 +382,9 @@ func (pp *PublicParameter) PolyANTTVecScaleMul(polyANTTScale *PolyANTT, polyANTT
 // F -> F[0] + F[1]x^n
 // G-> G[0] + G[1]x^n
 // F*G = F[0]G[0]+(F[0]G[1]+F[1]G[0])x^n+F[1]G[1]x^(2n)
-//     = F[0]G[0]+{(F[0]+F[1])(G[0]+G[1])-F[0]G[0]-F[1]G[1]}x^n+F[1]G[1]x^(2n)
+//
+//	= F[0]G[0]+{(F[0]+F[1])(G[0]+G[1])-F[0]G[0]-F[1]G[1]}x^n+F[1]G[1]x^(2n)
+//
 // F[0]+F[1],G[0]+G[1],F[0]G[0],F[1]G[1] as intermediate variables
 // It uses several addition/subtraction to substitute  multiplication
 func (pp *PublicParameter) MulKaratsuba(a, b []int64, n int) []int64 {

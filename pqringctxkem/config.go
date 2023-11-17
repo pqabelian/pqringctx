@@ -1,11 +1,11 @@
-package pqringctkem
+package pqringctxkem
 
 import (
 	"bytes"
 	"errors"
 	"github.com/cryptosuite/kyber-go/kyber"
-	"github.com/cryptosuite/pqringct/pqringctkem/pqringctOQSKem"
-	"github.com/cryptosuite/pqringct/pqringctkem/pqringctkyber"
+	"github.com/cryptosuite/pqringctx/pqringctxkem/pqringctOQSKem"
+	"github.com/cryptosuite/pqringctx/pqringctxkem/pqringctkyber"
 	"log"
 )
 

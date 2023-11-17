@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 import (
 	"fmt"
@@ -400,7 +400,7 @@ func TestNaive_randomPolyAinEtaA(t *testing.T) {
 	}
 }
 
-//	retest done 0413
+// retest done 0413
 func TestNaive_randomPolyAinGammaA2(t *testing.T) {
 	pp := Initialize(nil)
 	count := make([]int, 5)
@@ -1136,7 +1136,7 @@ func TestRandomIntegerBound4Wrong(t *testing.T) {
 
 }
 
-//	This is a WRONG implementation.
+// This is a WRONG implementation.
 func randomIntegerBound4Wrong() ([]int64, error) {
 
 	seedUsed := RandomBytes(RandSeedBytesLen)

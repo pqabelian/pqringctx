@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 import (
 	"bytes"

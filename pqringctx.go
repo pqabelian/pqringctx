@@ -1,4 +1,4 @@
-package pqringct
+package pqringctx
 
 //	Based on v510 2022.04
 
@@ -2603,7 +2603,7 @@ func (pp *PublicParameter) ledgerTxoSerialNumberCompute(ma_p *PolyANTT) ([]byte,
 	//return res
 }
 
-// pqringct uses Kyber, where serializedVPk can be computed from serializedVSk, so that here serializedVPk is not used when calling pqringctkem.Decaps.
+// pqringct uses Kyber, where serializedVPk can be computed from serializedVSk, so that here serializedVPk is not used when calling pqringctxkem.Decaps.
 func (pp *PublicParameter) txoCoinReceive(txo *Txo, serializedAPk []byte, serializedVPk []byte, serializedVSk []byte) (valid bool, v uint64, err error) {
 	if txo == nil {
 		return false, 0, errors.New("nil txo in txoCoinReceive")
