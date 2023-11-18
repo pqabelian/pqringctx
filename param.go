@@ -2,7 +2,7 @@ package pqringctx
 
 import (
 	"errors"
-	"github.com/cryptosuite/pqringct/pqringctkem"
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"log"
 	"math/big"
 )
@@ -14,7 +14,7 @@ func NewPublicParameter(
 	paramEtaF int64, paramKeyGenSeedBytesLen int,
 	paramDCInv int64, paramKInv int64,
 	paramZetaA int64, paramZetaAOrder int,
-	paramZetaC int64, paramZetaCOrder int, paramSigmaPermutations [][]int, paramParameterSeedString []byte, paramKem *pqringctkem.ParamKem) (*PublicParameter, error) {
+	paramZetaC int64, paramZetaCOrder int, paramSigmaPermutations [][]int, paramParameterSeedString []byte, paramKem *pqringctxkem.ParamKem) (*PublicParameter, error) {
 
 	res := &PublicParameter{
 		paramDA:                 paramDA,
@@ -289,7 +289,7 @@ type PublicParameter struct {
 	paramMu *PolyCNTT
 
 	// paramKem defines the key encapsulate mechanism
-	paramKem *pqringctkem.ParamKem
+	paramKem *pqringctxkem.ParamKem
 }
 
 func (pp *PublicParameter) ParamSeedBytesLen() int {
@@ -504,8 +504,8 @@ func Initialize(paramterSeedString []byte) *PublicParameter {
 		},
 		paramterSeedString,
 		//[]byte("Welcome to Post Quantum World!")
-		&pqringctkem.ParamKem{
-			Version: pqringctkem.KEM_OQS_KYBER,
+		&pqringctxkem.ParamKem{
+			Version: pqringctxkem.KEM_OQS_KYBER,
 			//Kyber:   kyber.Kyber768,
 			Kyber:    nil,
 			OQSKyber: "Kyber768",
