@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cryptosuite/pqringct/pqringctkem"
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"io"
 )
 
@@ -919,7 +919,7 @@ func (pp *PublicParameter) TxoSerializeSize() int {
 	return pp.AddressPublicKeySerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
-		VarIntSerializeSize(uint64(pqringctkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctkem.GetKemCiphertextBytesLen(pp.paramKem)
+		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 }
 func (pp *PublicParameter) SerializeTxo(txo *Txo) ([]byte, error) {
 	if txo == nil || txo.AddressPublicKey == nil || txo.ValueCommitment == nil {
