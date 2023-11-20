@@ -9,6 +9,8 @@ const (
 	TxoAddressTypePublicKeyHashForSingle TxoAddressType = 1
 )
 
+//	PublicParameter is defined the alias of pqringctx.PublicParameter,
+//	to enable the caller only need to import api and apidao.
 type PublicParameter = pqringctx.PublicParameter
 
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
