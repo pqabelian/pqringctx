@@ -5,6 +5,12 @@ import (
 	"github.com/cryptosuite/pqringctx/apidao"
 )
 
+// InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
+// After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
+func InitializePQRingCTX(parameterSeedString []byte) *apidao.PublicParameter {
+	return pqringctx.Initialize(parameterSeedString)
+}
+
 // AddressKeyGenForRing generates coinAddress, coinSpendKey, and coinSnKey
 // for the key which will be used to host the coins with full-privacy.
 // Note that keys are purely in cryptography, we export bytes,

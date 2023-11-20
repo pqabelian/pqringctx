@@ -1,11 +1,15 @@
 package apidao
 
+import "github.com/cryptosuite/pqringctx"
+
 type TxoAddressType uint8
 
 const (
 	TxoAddressTypePublicKeyForRing       TxoAddressType = 0
 	TxoAddressTypePublicKeyHashForSingle TxoAddressType = 1
 )
+
+type PublicParameter = pqringctx.PublicParameter
 
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
 // As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels

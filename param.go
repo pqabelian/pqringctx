@@ -429,7 +429,7 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 }
 
 // Initialize is the init function, it must be called explicitly when using this package
-func Initialize(paramterSeedString []byte) *PublicParameter {
+func Initialize(parameterSeedString []byte) *PublicParameter {
 	var err error
 	var defaultPP *PublicParameter
 	defaultPP, err = NewPublicParameter(
@@ -502,7 +502,7 @@ func Initialize(paramterSeedString []byte) *PublicParameter {
 				80, 17, 82, 19, 84, 21, 86, 23, 88, 25, 90, 27, 92, 29, 94, 31,
 			},
 		},
-		paramterSeedString,
+		parameterSeedString,
 		//[]byte("Welcome to Post Quantum World!")
 		&pqringctxkem.ParamKem{
 			Version: pqringctxkem.KEM_OQS_KYBER,
