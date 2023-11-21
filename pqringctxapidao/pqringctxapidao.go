@@ -1,4 +1,4 @@
-package apidao
+package pqringctxapidao
 
 import "github.com/cryptosuite/pqringctx"
 
@@ -9,8 +9,8 @@ const (
 	TxoAddressTypePublicKeyHashForSingle TxoAddressType = 1
 )
 
-//	PublicParameter is defined the alias of pqringctx.PublicParameter,
-//	to enable the caller only need to import api and apidao.
+// PublicParameter is defined the alias of pqringctx.PublicParameter,
+// to enable the caller only need to import pqringctxapi and pqringctxapidao.
 type PublicParameter = pqringctx.PublicParameter
 
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.

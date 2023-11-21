@@ -1,13 +1,13 @@
-package api
+package pqringctxapi
 
 import (
 	"github.com/cryptosuite/pqringctx"
-	"github.com/cryptosuite/pqringctx/apidao"
+	"github.com/cryptosuite/pqringctx/pqringctxapidao"
 )
 
 // InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
 // After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
-func InitializePQRingCTX(parameterSeedString []byte) *apidao.PublicParameter {
+func InitializePQRingCTX(parameterSeedString []byte) *pqringctxapidao.PublicParameter {
 	return pqringctx.Initialize(parameterSeedString)
 }
 
@@ -40,23 +40,23 @@ func ValueKeyGen(pp *pqringctx.PublicParameter, seed []byte) (serializedValuePub
 // CoinbaseTxGen generates CoinbaseTx.
 // As the caller may decompose the components of the generated CoinbaseTx
 // to make a chain-layer transaction,
-// CoinbaseTxGen outputs an apidao.CoinbaseTxMLP, rather than a serialized Tx.
-func CoinbaseTxGen(pp *pqringctx.PublicParameter, vin uint64, txOutputDescs []*apidao.TxOutputDescMLP, txMemo []byte) (cbTx *apidao.CoinbaseTxMLP, err error) {
+// CoinbaseTxGen outputs an pqringctxapidao.CoinbaseTxMLP, rather than a serialized Tx.
+func CoinbaseTxGen(pp *pqringctx.PublicParameter, vin uint64, txOutputDescs []*pqringctxapidao.TxOutputDescMLP, txMemo []byte) (cbTx *pqringctxapidao.CoinbaseTxMLP, err error) {
 	return nil, err
 }
 
-func CoinbaseTxVerify(pp *pqringctx.PublicParameter, cbTx *apidao.CoinbaseTxMLP) (bool, error) {
+func CoinbaseTxVerify(pp *pqringctx.PublicParameter, cbTx *pqringctxapidao.CoinbaseTxMLP) (bool, error) {
 	return false, nil
 }
 
 // TransferTxGen generates TransferTx.
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
-// TransferTxGen outputs a apidao.TransferTxMLP, rather than a serialized Tx.
-func TransferTxGen(pp *pqringctx.PublicParameter, inputDescs []*apidao.TxInputDescMLP, outputDescs []*apidao.TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *apidao.TransferTxMLP, err error) {
+// TransferTxGen outputs a pqringctxapidao.TransferTxMLP, rather than a serialized Tx.
+func TransferTxGen(pp *pqringctx.PublicParameter, inputDescs []*pqringctxapidao.TxInputDescMLP, outputDescs []*pqringctxapidao.TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *pqringctxapidao.TransferTxMLP, err error) {
 	return nil, err
 }
 
-func TransferTxVerify(pp *pqringctx.PublicParameter, trTx *apidao.TransferTxMLP) (bool, error) {
+func TransferTxVerify(pp *pqringctx.PublicParameter, trTx *pqringctxapidao.TransferTxMLP) (bool, error) {
 	return false, nil
 }
