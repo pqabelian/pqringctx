@@ -428,6 +428,10 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 	return res, nil
 }
 
+func (pp *PublicParameter) GetParamSeedBytesLen() int {
+	return pp.paramKeyGenSeedBytesLen
+}
+
 // Initialize is the init function, it must be called explicitly when using this package
 func Initialize(parameterSeedString []byte) *PublicParameter {
 	var err error

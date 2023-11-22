@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cryptosuite/pqringct/pqringctkem"
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"math/big"
 )
 
@@ -17,15 +17,6 @@ type AddressPublicKey struct {
 type AddressSecretKey struct {
 	*AddressSecretKeySp
 	*AddressSecretKeySn
-}
-
-type AddressSecretKeySp struct {
-	//	s \in (S_{\gamma_a})^{L_a}, where \gamma_a is small, say 5 at this moment.
-	//	As s' infinity normal lies in [-5, 5], here we define s as PolyAVec, rather than PolyANTTVec.
-	s *PolyAVec
-}
-type AddressSecretKeySn struct {
-	ma *PolyANTT
 }
 
 func (ask *AddressSecretKey) checkMatchPublciKey(apk *AddressPublicKey, pp *PublicParameter) bool {
@@ -225,19 +216,19 @@ func (pp *PublicParameter) addressKeyVerify(apk *AddressPublicKey, ask *AddressS
 }
 
 func (pp *PublicParameter) valueKeyGen(seed []byte) ([]byte, []byte, error) {
-	return pqringctkem.KeyGen(pp.paramKem, seed, pp.paramKeyGenSeedBytesLen)
+	return pqringctxkem.KeyGen(pp.paramKem, seed, pp.paramKeyGenSeedBytesLen)
 }
 
 func (pp *PublicParameter) valueKeyVerify(vpk []byte, vsk []byte) (valid bool, hints string) {
 	//	From the caller, (vpk []byte, vsk []byte) was obtained by calling (pp *PublicParameter) valueKeyGen(seed []byte) ([]byte, []byte, error)
-	return pqringctkem.VerifyKeyPair(pp.paramKem, vpk, vsk)
+	return pqringctxkem.VerifyKeyPair(pp.paramKem, vpk, vsk)
 }
 
 // txoGen() returns a transaction output and the randomness used to generate the commitment.
 func (pp *PublicParameter) txoGen(apk *AddressPublicKey, vpk []byte, vin uint64) (txo *Txo, cmtr *PolyCNTTVec, err error) {
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
-	CtKemSerialized, kappa, err := pqringctkem.Encaps(pp.paramKem, vpk)
+	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, vpk)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1981,7 +1972,7 @@ func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs 
 		}
 
 		// run kem.decaps to get kappa
-		kappa, err := pqringctkem.Decaps(pp.paramKem, inputDescItem.lgrTxoList[inputDescItem.sidx].txo.CtKemSerialized, inputDescItem.serializedVSk)
+		kappa, err := pqringctxkem.Decaps(pp.paramKem, inputDescItem.lgrTxoList[inputDescItem.sidx].txo.CtKemSerialized, inputDescItem.serializedVSk)
 		if err != nil {
 			return nil, err
 		}
@@ -2621,7 +2612,7 @@ func (pp *PublicParameter) txoCoinReceive(txo *Txo, serializedAPk []byte, serial
 		return false, 0, nil
 	}
 
-	kappa, err := pqringctkem.Decaps(pp.paramKem, txo.CtKemSerialized, serializedVSk)
+	kappa, err := pqringctxkem.Decaps(pp.paramKem, txo.CtKemSerialized, serializedVSk)
 	if err != nil {
 		//log.Fatalln(err)
 		return false, 0, err

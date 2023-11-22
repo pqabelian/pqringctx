@@ -2,11 +2,11 @@ package pqringctxapidao
 
 import "github.com/cryptosuite/pqringctx"
 
-type TxoAddressType uint8
+type CoinAddressType uint8
 
 const (
-	TxoAddressTypePublicKeyForRing       TxoAddressType = 0
-	TxoAddressTypePublicKeyHashForSingle TxoAddressType = 1
+	CoinAddressTypePublicKeyForRing       CoinAddressType = 0
+	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 1
 )
 
 // PublicParameter is defined the alias of pqringctx.PublicParameter,
@@ -68,10 +68,10 @@ type TransferTxMLP struct {
 	txWitness []byte
 }
 
-// TxOutputDescMLP describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
+// TxOutputDesc describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
 // As the generated Txo will have privacy-level based on the coinAddress, TxOutputDescMLP is uniform for multi-privacy-levels.
 // In particular, to generate a coin on pseudonym-privacy address, the serializedVPK could be nil.
-type TxOutputDescMLP struct {
+type TxOutputDesc struct {
 	coinAddress   []byte
 	serializedVPK []byte //	This is optional, could be nil
 	value         uint64
