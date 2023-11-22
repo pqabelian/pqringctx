@@ -712,71 +712,71 @@ func (pp *PublicParameter) DeserializeAddressPublicKey(serialziedAPk []byte) (*A
 	return &AddressPublicKey{t, e}, nil
 }
 
-// AddressSecretKeySpSerializeSize() return the fixed size of AddressSecretKeySp
-func (pp *PublicParameter) AddressSecretKeySpSerializeSize() int {
-	// s polyAVec with length L_a, wih
-	return pp.paramLA * pp.PolyASerializeSizeGamma()
-}
-func (pp *PublicParameter) SerializeAddressSecretKeySp(asksp *AddressSecretKeySp) ([]byte, error) {
-	var err error
-	if asksp == nil || asksp.s == nil {
-		return nil, errors.New("SerializeAddressSecretKeySp: there is nil pointer in AddressSecretKeySp")
-	}
-
-	if len(asksp.s.polyAs) != pp.paramLA {
-		return nil, errors.New("the format of AddressSecretKeySp does not match the design")
-	}
-
-	// s is in its poly form and it has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 5 at this moment,
-	// we serialize its poly from.
-	askSpLen := pp.AddressSecretKeySpSerializeSize()
-	w := bytes.NewBuffer(make([]byte, 0, askSpLen))
-	for i := 0; i < pp.paramLA; i++ {
-		err = pp.writePolyAGamma(w, asksp.s.polyAs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return w.Bytes(), nil
-}
-
-func (pp *PublicParameter) DeserializeAddressSecretKeySp(serialziedASkSp []byte) (*AddressSecretKeySp, error) {
-	var err error
-	r := bytes.NewReader(serialziedASkSp)
-	s := pp.NewPolyAVec(pp.paramLA)
-	for i := 0; i < pp.paramLA; i++ {
-		s.polyAs[i], err = pp.readPolyAGamma(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &AddressSecretKeySp{s}, nil
-}
-
-func (pp *PublicParameter) AddressSecretKeySnSerializeSize() int {
-	return pp.PolyANTTSerializeSize()
-}
-func (pp *PublicParameter) SerializeAddressSecretKeySn(asksn *AddressSecretKeySn) ([]byte, error) {
-	var err error
-	if asksn == nil || asksn.ma == nil {
-		return nil, errors.New("SerializeAddressSecretKeySn: there is nil pointer in AddressSecretKeySn")
-	}
-	snLength := pp.AddressSecretKeySnSerializeSize()
-	w := bytes.NewBuffer(make([]byte, 0, snLength))
-	err = pp.writePolyANTT(w, asksn.ma)
-	if err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
-}
-func (pp *PublicParameter) DeserializeAddressSecretKeySn(serialziedASkSn []byte) (*AddressSecretKeySn, error) {
-	r := bytes.NewReader(serialziedASkSn)
-	ma, err := pp.readPolyANTT(r)
-	if err != nil {
-		return nil, err
-	}
-	return &AddressSecretKeySn{ma}, nil
-}
+//// AddressSecretKeySpSerializeSize() return the fixed size of AddressSecretKeySp
+//func (pp *PublicParameter) AddressSecretKeySpSerializeSize() int {
+//	// s polyAVec with length L_a, wih
+//	return pp.paramLA * pp.PolyASerializeSizeGamma()
+//}
+//func (pp *PublicParameter) SerializeAddressSecretKeySp(asksp *AddressSecretKeySp) ([]byte, error) {
+//	var err error
+//	if asksp == nil || asksp.s == nil {
+//		return nil, errors.New("SerializeAddressSecretKeySp: there is nil pointer in AddressSecretKeySp")
+//	}
+//
+//	if len(asksp.s.polyAs) != pp.paramLA {
+//		return nil, errors.New("the format of AddressSecretKeySp does not match the design")
+//	}
+//
+//	// s is in its poly form and it has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 5 at this moment,
+//	// we serialize its poly from.
+//	askSpLen := pp.AddressSecretKeySpSerializeSize()
+//	w := bytes.NewBuffer(make([]byte, 0, askSpLen))
+//	for i := 0; i < pp.paramLA; i++ {
+//		err = pp.writePolyAGamma(w, asksp.s.polyAs[i])
+//		if err != nil {
+//			return nil, err
+//		}
+//	}
+//	return w.Bytes(), nil
+//}
+//
+//func (pp *PublicParameter) DeserializeAddressSecretKeySp(serialziedASkSp []byte) (*AddressSecretKeySp, error) {
+//	var err error
+//	r := bytes.NewReader(serialziedASkSp)
+//	s := pp.NewPolyAVec(pp.paramLA)
+//	for i := 0; i < pp.paramLA; i++ {
+//		s.polyAs[i], err = pp.readPolyAGamma(r)
+//		if err != nil {
+//			return nil, err
+//		}
+//	}
+//	return &AddressSecretKeySp{s}, nil
+//}
+//
+//func (pp *PublicParameter) AddressSecretKeySnSerializeSize() int {
+//	return pp.PolyANTTSerializeSize()
+//}
+//func (pp *PublicParameter) SerializeAddressSecretKeySn(asksn *AddressSecretKeySn) ([]byte, error) {
+//	var err error
+//	if asksn == nil || asksn.ma == nil {
+//		return nil, errors.New("SerializeAddressSecretKeySn: there is nil pointer in AddressSecretKeySn")
+//	}
+//	snLength := pp.AddressSecretKeySnSerializeSize()
+//	w := bytes.NewBuffer(make([]byte, 0, snLength))
+//	err = pp.writePolyANTT(w, asksn.ma)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return w.Bytes(), nil
+//}
+//func (pp *PublicParameter) DeserializeAddressSecretKeySn(serialziedASkSn []byte) (*AddressSecretKeySn, error) {
+//	r := bytes.NewReader(serialziedASkSn)
+//	ma, err := pp.readPolyANTT(r)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return &AddressSecretKeySn{ma}, nil
+//}
 
 //
 //func (pp *PublicParameter) AddressSecretKeySize(ask *AddressSecretKey) (int, int) {
