@@ -71,10 +71,18 @@ type TransferTxMLP struct {
 // TxOutputDesc describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
 // As the generated Txo will have privacy-level based on the coinAddress, TxOutputDescMLP is uniform for multi-privacy-levels.
 // In particular, to generate a coin on pseudonym-privacy address, the serializedVPK could be nil.
-type TxOutputDesc struct {
+type TxOutputDescMLP struct {
 	coinAddress   []byte
 	serializedVPK []byte //	This is optional, could be nil
 	value         uint64
+}
+
+func NewTxOutputDescMLP(pp *PublicParameter, coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDesc {
+	return &TxOutputDescMLP{
+		coinAddress:   coinAddress,
+		serializedVPK: serializedVPK,
+		value:         value,
+	}
 }
 
 // TxInputDescMLP describe the information for a coin to be consumed, for generating TransferTx.
