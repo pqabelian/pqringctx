@@ -1,7 +1,5 @@
 package pqringctxapidao
 
-import "github.com/cryptosuite/pqringctx"
-
 type CoinAddressType uint8
 
 const (
@@ -9,35 +7,37 @@ const (
 	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 1
 )
 
-// PublicParameter is defined the alias of pqringctx.PublicParameter,
-// to enable the caller only need to import pqringctxapi and pqringctxapidao.
-type PublicParameter = pqringctx.PublicParameter
-
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
 // As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels
 // and consequently have different structures,
 // here we use []byte to denote Txo (in its serialized form).
 // type TxoMLP []byte
 // Note: We do not define standalone structure for Txo.
-// 		Instead, we directly use []byte in Txs to denote Txo, rather than using a structure.
-//		This is because:
-//		Txo is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of Txo.
-//		PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
+//
+//	Instead, we directly use []byte in Txs to denote Txo, rather than using a structure.
+//	This is because:
+//	Txo is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of Txo.
+//	PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
+type TxoMLP interface {
+}
 
 // TxWitnessMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
 // As the TxWitnessMLP for different CoinbaseTxMLP/TransferTxMLP instances could have different structures,
 // here we use []byte to denote Txo (in its serialized form).
 // type TxWitnessMLP []byte
 // Note: We do not define standalone structure for TxWitness.
-//		This is because:
-//		TxWitness is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of TxWitness.
-//		PQRINGCTX will be responsible for generating TxWitness and providing service/API on the generated TxWitness.
+//
+//	This is because:
+//	TxWitness is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of TxWitness.
+//	PQRINGCTX will be responsible for generating TxWitness and providing service/API on the generated TxWitness.
+type TxWitnessMLP interface {
+}
 
 // LgrTxoMLP consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/database.
 // TxoId-in-ledger is determined by the ledger layer.
 // In other words, a Txo becomes a coin (i.e., LgrTxo) only when it is assigned a unique txoId-in-ledger.
 type LgrTxoMLP struct {
-	txo []byte // we directly use []byte to denote Txo, rather than using a structure.
+	txo *TxoMLP
 	id  []byte
 }
 
@@ -53,19 +53,19 @@ type TxInputMLP struct {
 // CoinbaseTxMLP is defined for coinbaseTx.
 type CoinbaseTxMLP struct {
 	vin       uint64
-	txos      [][]byte
+	txos      []*TxoMLP
 	txMemo    []byte
-	txWitness []byte
+	txWitness *TxWitnessMLP
 }
 
 // TransferTxMLP is defined for transferTx.
 type TransferTxMLP struct {
 	//	Version uint32	//	crypto-layer does not care the (actually does not have the concept of) version of transferTx.
 	inputs    []*TxInputMLP
-	txos      [][]byte
+	txos      []*TxoMLP
 	fee       uint64
 	txMemo    []byte
-	txWitness []byte
+	txWitness *TxWitnessMLP
 }
 
 // TxOutputDesc describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
@@ -77,7 +77,7 @@ type TxOutputDescMLP struct {
 	value         uint64
 }
 
-func NewTxOutputDescMLP(pp *PublicParameter, coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDesc {
+func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
 	return &TxOutputDescMLP{
 		coinAddress:   coinAddress,
 		serializedVPK: serializedVPK,
