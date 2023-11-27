@@ -9,7 +9,9 @@ import (
 
 func NewPublicParameter(
 	paramDA int, paramQA int64, paramThetaA int, paramKA int, paramLambdaA int, paramGammaA int, paramEtaA int64, paramBetaA int16,
-	paramI int, paramJ int, paramN int,
+	paramI int, paramJ int,
+	paramISingle int, paramISingleDistinct, paramJSingle,
+	paramN int,
 	paramDC int, paramQC int64, paramK int, paramKC int, paramLambdaC int, paramEtaC int64, paramBetaC int16,
 	paramEtaF int64, paramKeyGenSeedBytesLen int,
 	paramDCInv int64, paramKInv int64,
@@ -28,6 +30,9 @@ func NewPublicParameter(
 		paramBetaA:              paramBetaA,
 		paramI:                  paramI,
 		paramJ:                  paramJ,
+		paramISingle:            paramISingle,
+		paramISingleDistinct:    paramISingleDistinct,
+		paramJSingle:            paramJSingle,
 		paramN:                  paramN,
 		paramDC:                 paramDC,
 		paramQC:                 paramQC,
@@ -197,12 +202,23 @@ type PublicParameter struct {
 	paramBetaA int16
 
 	// Parameter for Commit
-	// paramI defines the maximum number of consumed coins of a transfer transaction
+	// paramI defines the maximum number of consumed RingCT-privacy coins of a transfer transaction
 	// As we need to loop for paramI and paramJ, we define them with 'int' type.
 	paramI int
-	// paramJ defines the maximum number of generated coins of a transaction
+	// paramJ defines the maximum number of generated RingCT-privacy coins of a transaction
 	// As we need to loop for paramI and paramJ, we define them with 'int' type.
 	paramJ int
+
+	// paramISingle defines the maximum number of consumed Pseudonym-privacy coins of a transfer transaction
+	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
+	paramISingle int
+	// paramISingleDistinct defines the maximum number of the distinct coin-addresses of the consumed Pseudonym-privacy coins of a transfer transaction
+	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
+	paramISingleDistinct int
+	// paramJSingle defines the maximum number of generated Pseudonym-privacy coins of a transaction
+	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
+	paramJSingle int
+
 	// paramN defines the value of V by V=2^N - 1
 	// paramN <= paramDC
 	// As we need to loop for paramN, we define them with 'int' type.
@@ -428,10 +444,6 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 	return res, nil
 }
 
-func (pp *PublicParameter) GetParamSeedBytesLen() int {
-	return pp.paramKeyGenSeedBytesLen
-}
-
 // Initialize is the init function, it must be called explicitly when using this package
 func Initialize(parameterSeedString []byte) *PublicParameter {
 	var err error
@@ -447,6 +459,9 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 		120,
 		5,
 		5,
+		100, // todo(MLP): todo
+		20,  // todo(MLP): todo
+		100, // todo(MLP): todo
 		51,
 		128,
 		9007199254746113,
@@ -519,4 +534,28 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 		log.Fatalln(err)
 	}
 	return defaultPP
+}
+
+func (pp *PublicParameter) GetParamSeedBytesLen() int {
+	return pp.paramKeyGenSeedBytesLen
+}
+
+func (pp *PublicParameter) GetTxInputMaxNumForRing() int {
+	return pp.paramI
+}
+
+func (pp *PublicParameter) GetTxOutputMaxNumForRing() int {
+	return pp.paramJ
+}
+
+func (pp *PublicParameter) GetTxInputMaxNumForSingle() int {
+	return pp.paramISingle
+}
+
+func (pp *PublicParameter) GetTxInputMaxNumForSingleDistinct() int {
+	return pp.paramISingleDistinct
+}
+
+func (pp *PublicParameter) GetTxOutputMaxNumForSingle() int {
+	return pp.paramJSingle
 }

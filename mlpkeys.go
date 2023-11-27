@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"bytes"
 	"errors"
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
 type AddressSecretKeySp struct {
@@ -30,7 +31,95 @@ type AddressSecretKeyForSingle struct {
 	*AddressSecretKeySp
 }
 
-func (pp *PublicParameter) AddressKeyForRingGen(seed []byte) (apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing, err error) {
+// CoinAddressKeyForRingGen generates coinAddress, coinSpendKey, and coinSnKey
+// for the key which will be used to host the coins with full-privacy.
+// Note that keys are purely in cryptography, we export bytes,
+// and packages the cryptographic details in pqringctx.
+func (pp *PublicParameter) CoinAddressKeyForRingGen(randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
+	apk, ask, err := pp.addressKeyForRingGen(randSeed)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	serializedAPK, err := pp.SerializeAddressPublicKeyForRing(apk)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	serializedASKSp, err := pp.SerializeAddressSecretKeySp(ask.AddressSecretKeySp)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	serializedASKSn, err := pp.SerializeAddressSecretKeySn(ask.AddressSecretKeySn)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	coinAddress = make([]byte, 1+len(serializedAPK))
+	coinAddress[0] = byte(CoinAddressTypePublicKeyForRing)
+	copy(coinAddress[1:], serializedAPK)
+
+	coinSpendKey = make([]byte, 1+len(serializedASKSp))
+	coinSpendKey[0] = byte(CoinAddressTypePublicKeyForRing)
+	copy(coinSpendKey[1:], serializedASKSp)
+
+	coinSnKey = make([]byte, 1+len(serializedASKSn))
+	coinSnKey[0] = byte(CoinAddressTypePublicKeyForRing)
+	copy(coinSnKey[1:], serializedASKSn)
+
+	return coinAddress, coinSpendKey, coinSnKey, nil
+
+	//return nil, nil, nil, err
+}
+
+// CoinAddressKeyForSingleGen generates coinAddress and coinSpendKey
+// for the key which will be used to host the coins with pseudonym-privacy.
+// Note that keys are purely in cryptography, we export bytes,
+// and packages the cryptographic details in pqringctx.
+func (pp *PublicParameter) CoinAddressKeyForSingleGen(seed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
+	apk, ask, err := pp.addressKeyForSingleGen(seed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serializedAPK, err := pp.SerializeAddressPublicKeyForSingle(apk)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serializedASKSp, err := pp.SerializeAddressSecretKeySp(ask.AddressSecretKeySp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	apkHash, err := Hash(serializedAPK)
+	if err != nil {
+		return nil, nil, err
+	}
+	coinAddress = make([]byte, 1+HashOutputBytesLen)
+	coinAddress[0] = byte(CoinAddressTypePublicKeyHashForSingle)
+	copy(coinAddress[1:], apkHash)
+
+	coinSpendKey = make([]byte, 1+len(serializedASKSp))
+	coinSpendKey[0] = byte(CoinAddressTypePublicKeyHashForSingle)
+	copy(coinSpendKey[1:], serializedASKSp)
+
+	return coinAddress, coinSpendKey, nil
+
+	//	return nil, nil, err
+}
+
+// CoinValueKeyGen generates serializedValuePublicKey and serializedValueSecretKey,
+// which will be used to transmit the (value, randomness) pair of the value-commitment to the coin owner.
+// Note that by default, pqringctx transmits the (value, randomness) pair by on-chain data,
+// i.e., the ciphertexts are included in Txo.
+// As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
+// we use a standalone ValueKeyGen algorithm to generate these keys.
+func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (serializedValuePublicKey []byte, serializedValueSecretKey []byte, err error) {
+	return pqringctxkem.KeyGen(pp.paramKem, randSeed, pp.paramKeyGenSeedBytesLen)
+}
+
+func (pp *PublicParameter) addressKeyForRingGen(seed []byte) (apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing, err error) {
 	// check the validity of the length of seed
 	if seed != nil && len(seed) != pp.paramKeyGenSeedBytesLen {
 		return nil, nil, errors.New("AddressKeyForRingGen: the length of seed is invalid")
@@ -72,7 +161,7 @@ func (pp *PublicParameter) AddressKeyForRingGen(seed []byte) (apk *AddressPublic
 	return apk, ask, nil
 }
 
-func (pp *PublicParameter) AddressKeyForRingVerify(apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing) (valid bool, hints string) {
+func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing) (valid bool, hints string) {
 	//	verify the normal of ask.s
 	if !pp.isAddressSKspNormalInBound(ask.s) {
 		return false, "the normal of AddressSecretKeySp is not in the expected bound"
@@ -93,7 +182,7 @@ func (pp *PublicParameter) AddressKeyForRingVerify(apk *AddressPublicKeyForRing,
 	return true, ""
 }
 
-func (pp *PublicParameter) AddressKeyForSingleGen(seed []byte) (apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle, err error) {
+func (pp *PublicParameter) addressKeyForSingleGen(seed []byte) (apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle, err error) {
 	// check the validity of the length of seed
 	if seed != nil && len(seed) != pp.paramKeyGenSeedBytesLen {
 		return nil, nil, errors.New("AddressKeyForSingleGen: the length of seed is invalid")
@@ -135,7 +224,7 @@ func (pp *PublicParameter) AddressKeyForSingleGen(seed []byte) (apk *AddressPubl
 	return apk, ask, nil
 }
 
-func (pp *PublicParameter) AddressKeyForSingleVerify(apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle) (valid bool, hints string) {
+func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle) (valid bool, hints string) {
 	//	verify the normal of ask.s
 	if !pp.isAddressSKspNormalInBound(ask.s) {
 		return false, "the normal of AddressSecretKeySp is not in the expected bound"
@@ -311,4 +400,56 @@ func (pp *PublicParameter) DeserializeAddressSecretKeySn(serializedASKSn []byte)
 		return nil, err
 	}
 	return &AddressSecretKeySn{ma}, nil
+}
+
+func (pp *PublicParameter) ExtractCoinAddressType(coinAddress []byte) (CoinAddressType, error) {
+	n := len(coinAddress)
+	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
+	//	and those addresses are CoinAddressTypePublicKeyForRing in the setting of PQRingCTX.
+	//	To be compatible, we  first handle this.
+	//	Note that the underlying crypto-params of PQRingCTX are the same as PQRingCT,
+	//	and AddressPublicKeyForRing in PQRingCTX is the same as AddressPublicKey in PQRingCT.
+	if n == pp.AddressPublicKeyForRingSerializeSize() {
+		return CoinAddressTypePublicKeyForRingPre, nil
+	}
+
+	if n == 1+pp.AddressPublicKeyForRingSerializeSize() {
+		//	should be a coinAddress generated by AddressKeyForRingGen
+		coinAddressType := CoinAddressType(coinAddress[0])
+		if coinAddressType != CoinAddressTypePublicKeyForRing {
+			return 0, errors.New("ExtractCoinAddressType: the length of the input coinAddress and the extracted coinAddressType mismatch")
+		}
+
+		return CoinAddressTypePublicKeyForRing, nil
+	}
+
+	if n == 1+HashOutputBytesLen {
+		//	should be a coinAddress generated by AddressKeyForSingleGen
+		coinAddressType := CoinAddressType(coinAddress[0])
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+			return 0, errors.New("ExtractCoinAddressType: the length of the input coinAddress and the extracted coinAddressType mismatch")
+		}
+
+		return CoinAddressTypePublicKeyHashForSingle, nil
+	}
+
+	return 0, errors.New("ExtractCoinAddressType: the input coinAddress has a length that is not supported")
+}
+
+func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (int, error) {
+	switch coinAddressType {
+	case CoinAddressTypePublicKeyForRingPre:
+		return pp.AddressPublicKeyForRingSerializeSize(), nil
+	case CoinAddressTypePublicKeyForRing:
+		return 1 + pp.AddressPublicKeyForRingSerializeSize(), nil
+	case CoinAddressTypePublicKeyHashForSingle:
+		return 1 + HashOutputBytesLen, nil
+	default:
+		return 0, errors.New("GetCoinAddressSize: the input coinAddressType is not supported")
+	}
+}
+
+func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
+	// todo(MPL):
+	return 1188
 }
