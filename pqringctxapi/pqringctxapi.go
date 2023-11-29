@@ -10,9 +10,13 @@ type PublicParameter = pqringctx.PublicParameter
 type CoinAddressType = pqringctx.CoinAddressType
 
 type TxOutputDescMLP = pqringctx.TxOutputDescMLP
-type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
 type TxInputDescMLP = pqringctx.TxInputDescMLP
+
+type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
 type TransferTxMLP = pqringctx.TransferTxMLP
+
+type TxoMLP = pqringctx.TxoMLP
+type TxWitnessMLP = pqringctx.TxWitnessMLP
 
 // InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
 // After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
@@ -48,7 +52,7 @@ func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (serializedValuePubli
 }
 
 func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
-	return NewTxOutputDescMLP(coinAddress, serializedVPK, value)
+	return pqringctx.NewTxOutputDescMLP(coinAddress, serializedVPK, value)
 }
 
 // CoinbaseTxGen generates CoinbaseTx.
@@ -56,7 +60,11 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 // to make a chain-layer transaction,
 // CoinbaseTxGen outputs an pqringctxapidao.CoinbaseTxMLP, rather than a serialized Tx.
 func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDescMLP, txMemo []byte) (cbTx *CoinbaseTxMLP, err error) {
-	return nil, err
+	return pp.CoinbaseTxGenMLP(vin, txOutputDescs, txMemo)
+}
+
+func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness TxWitnessMLP) (cbTx *CoinbaseTxMLP) {
+	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitness)
 }
 
 func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
@@ -98,30 +106,54 @@ func GetCoinValuePublicKeySize(pp *PublicParameter) int {
 
 //	API for AddressKeys	end
 
-// API for Sizes	begin
+// API for CryptoSchemeParams	begin
 func GetParamSeedBytesLen(pp *PublicParameter) int {
 	return pp.GetParamSeedBytesLen()
 }
 
-//	API for Sizes	end
+// API for CryptoSchemeParams	end
 
-// approximate Size begin
-// GetTxoSerializeSizeApprox return the approximate size of a Txo on coinAddress.
-// Note that the Txos on coinAddresses with different types may have differet formats and sizes.
-func GetTxoSerializeSizeApprox(pp *PublicParameter, coinAddress []byte) (int, error) {
+// APIs	for TxIn	begin
+func GetNullSerialNumber(pp *PublicParameter) []byte {
+	return pp.GetNullSerialNumber()
+}
+
+// APIs	for TxIn	end
+
+// APIs	for Txo	begin
+
+// GetTxoSerializeSize return the size of a Txo on coinAddress.
+// Note that the Txos on coinAddresses with different types may have different formats and sizes.
+func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	coinAddressType, err := pp.ExtractCoinAddressType(coinAddress)
 	if err != nil {
 		return 0, nil
 	}
-	return pp.GetTxoMLPSerializeSizeApprox(coinAddressType)
+	return pp.GetTxoMLPSerializeSize(coinAddressType)
 }
+
+func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
+	return pp.SerializeTxoMLP(txo)
+}
+
+func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
+	return pp.DeserializeTxoMLP(serializedTxo)
+}
+
+// APIs	for Txo	end
+
+// APIs for Witness 	begin
 
 func GetCbTxWitnessSerializeSizeApprox(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
 	return pp.GetCbTxWitnessSerializeSizeApprox(coinAddressListPayTo)
 }
 
-// approximate Size end
-
-func GetNullSerialNumber(pp *PublicParameter) []byte {
-	return pp.GetNullSerialNumber()
+func SerializeTxWitness(pp *PublicParameter, txWitness TxWitnessMLP) ([]byte, error) {
+	return pp.SerializeTxWitness(txWitness)
 }
+
+func DeserializeTxWitness(pp *PublicParameter, serializedTxWitness []byte) (TxWitnessMLP, error) {
+	return pp.DeserializeTxWitnessMLP(serializedTxWitness)
+}
+
+// APIs for Witness 	end
