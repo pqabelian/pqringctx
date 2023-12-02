@@ -215,7 +215,7 @@ rpUlpProveMLPRestart:
 	//	fmt.Printf("delta_hats[%d] = %v\n", i, phips[i])
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPUL2PMLP(preMsg, psi, psip, phi, phips)
+	preMsgAll := pp.collectBytesForRPULP2MLP(preMsg, psi, psip, phi, phips)
 	chseed, err := Hash(preMsgAll)
 	if err != nil {
 		return nil, err
@@ -266,13 +266,21 @@ rpUlpProveMLPRestart:
 	return retrpulppi, nil
 }
 
-func (pp *PublicParameter) rpulpVerify(message []byte,
+func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
-	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte, I uint8, J uint8, m uint8, u_hats [][]int64,
+	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	rpulppi *rpulpProof) (valid bool) {
 
 	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
+		return false
+	}
+
+	if int(nL) > pp.paramI || int(nR) > pp.paramJ { // Note that pp.paramI == pp.paramJ
+		return false
+	}
+
+	if n != nL+nR { // nL (resp. nR) is the number of commitments on left (resp. right) side
 		return false
 	}
 
@@ -313,16 +321,17 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 		return false
 	} else {
 		for i := 0; i < len(u_hats); i++ {
-			if len(u_hats[0]) != pp.paramDC {
+			if len(u_hats[i]) != pp.paramDC {
 				return false
 			}
 		}
 
 	}
 	// check the well-formness of the \pi
-	if len(rpulppi.c_waves) != int(n) || len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC || len(rpulppi.zs) != pp.paramK || len(rpulppi.zs[0].polyCs) != pp.paramLC {
-		return false
-	}
+	//if len(rpulppi.c_waves) != int(n) || len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC || len(rpulppi.zs) != pp.paramK || len(rpulppi.zs[0].polyCs) != pp.paramLC {
+	//	return false
+	//}
+
 	if rpulppi == nil {
 		return false
 	}
@@ -331,6 +340,9 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	}
 
 	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || rpulppi.chseed == nil {
+		return false
+	}
+	if len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC {
 		return false
 	}
 
@@ -428,7 +440,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 
 	// splicing the data to be processed
 
-	preMsg := pp.collectBytesForRPULP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, I, J, m, u_hats,
+	preMsg := pp.collectBytesForRPULP1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats,
 		rpulppi.c_waves, rpulppi.c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg)
 	if err != nil {
@@ -484,7 +496,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	//fmt.Printf("Verify\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
-	p := pp.genUlpPolyCNTTs(rpulpType, binMatrixB, I, J, gammas)
+	p := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
 
 	//	phip
 	phip := pp.NewZeroPolyCNTT()
@@ -580,7 +592,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	//	}
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPULP2(preMsg, rpulppi.psi, psip, rpulppi.phi, phips)
+	preMsgAll := pp.collectBytesForRPULP2MLP(preMsg, rpulppi.psi, psip, rpulppi.phi, phips)
 	seed_ch, err := Hash(preMsgAll)
 	if err != nil {
 		return false
@@ -1116,7 +1128,7 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 }
 
 // collectBytesForRPULP2 is an auxiliary function for rpulpProve and rpulpVerify to collect some information into a byte slice
-func (pp *PublicParameter) collectBytesForRPUL2PMLP(
+func (pp *PublicParameter) collectBytesForRPULP2MLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
 
