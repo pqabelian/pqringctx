@@ -64,7 +64,7 @@ rpUlpProveMLPRestart:
 	}
 
 	// splicing the data to be processed
-	preMsg := pp.collectBytesForRPULPMLP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, I, J, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
+	preMsg := pp.collectBytesForRPULPMLP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg) // todo_DONE
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ rpUlpProveMLPRestart:
 	//fmt.Printf("Prove\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
-	p := pp.genUlpPolyCNTTs(rpulpType, binMatrixB, I, J, gammas)
+	p := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
 
 	//	phi
 	phi := pp.NewZeroPolyCNTT()
@@ -602,20 +602,29 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 	case RpUlpTypeCbTx2:
 		//	nL=0, nR >=2: A_{L0R2}
 		// n := J
-		n := nR
+		n := nR // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
 		n2 := n + 2
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
+
+			// p[t][0], ..., p[t][n-1]
 			for j := uint8(0); j < n; j++ {
-				p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
+				// p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
+				coeffs_r := make([]int64, pp.paramDC)
+				for i := 0; i < pp.paramDC; i++ {
+					coeffs_r[i] = gammas[t][0][i]
+				}
+
+				p[t][j] = &PolyCNTT{coeffs: coeffs_r}
 			}
+
 			//	p[t][n] = NTT^{-1}(F^T gamma[t][0] + F_1^T gamma[t][1] + B^T gamma[t][2])
-			coeffs := make([]int64, pp.paramDC)
+			coeffs_n := make([]int64, pp.paramDC)
 			for i := 0; i < pp.paramDC; i++ {
 				// F^T[i] gamma[t][0] + F_1^T[i] gamma[t][1] + B^T[i] gamma[t][2]
 				// B^T[i]: ith-col of B
-				coeffs[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
+				coeffs_n[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
 
 				if i < pp.paramDC-1 {
 					// i=0, ... d_c-2
@@ -623,7 +632,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 					//     is (0, ..., 0, -2, 1, 0, ..., 0), where -2 is the i-th coordinate and 1 is the (i+1)-th.
 					// The i-th row of F_1^T. i.e., the i-th column of F_1,
 					//     is (0, ..., 0), i.e., all zeros.
-					coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i]+gammas[t][0][i+1], pp.paramQC)
+					coeffs_n[i] = reduceInt64(coeffs_n[i]-2*gammas[t][0][i]+gammas[t][0][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
 				} else {
 					// i = d_c -1
@@ -631,7 +640,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 					//     is (0, ..., 0, 0, 0, 0, ..., -2), i.e., all zeros except the last coordinate is -2.
 					// The i-th row of F_1^T. i.e., the i-th column of F_1,
 					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
-					coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
+					coeffs_n[i] = reduceInt64(coeffs_n[i]-2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
 				}
 
 				//if i == 0 {
@@ -673,9 +682,15 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
 				//}
 			}
-			p[t][n] = &PolyCNTT{coeffs: coeffs}
+			p[t][n] = &PolyCNTT{coeffs: coeffs_n}
 
-			p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
+			// p[t][n+1]
+			// p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
+			coeffs_np1 := make([]int64, pp.paramDC)
+			for i := 0; i < pp.paramDC; i++ {
+				coeffs_np1[i] = gammas[t][2][i]
+			}
+			p[t][n+1] = &PolyCNTT{coeffs: coeffs_np1}
 		}
 	case RpUlpTypeTrTx1:
 		//	(nL==1 AND nR >=2) OR ( nL==1 AND (nR===1 AND vRPub>0) ): A_{L1R2}
@@ -686,22 +701,28 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
 
-			p[t][0] = &PolyCNTT{coeffs: gammas[t][0]}
-
-			minuscoeffs := make([]int64, pp.paramDC)
+			// p[t][0]
+			coeffs_l := make([]int64, pp.paramDC)
 			for i := 0; i < pp.paramDC; i++ {
-				minuscoeffs[i] = -gammas[t][0][i]
+				coeffs_l[i] = gammas[t][0][i]
 			}
+			p[t][0] = &PolyCNTT{coeffs: coeffs_l}
+
+			// p[t][1], ..., p[t][n-1]
 			for j := uint8(1); j < n; j++ {
-				p[t][j] = &PolyCNTT{coeffs: minuscoeffs}
+				coeffs_r := make([]int64, pp.paramDC)
+				for i := 0; i < pp.paramDC; i++ {
+					coeffs_r[i] = -gammas[t][0][i]
+				}
+				p[t][j] = &PolyCNTT{coeffs: coeffs_r}
 			}
 
 			//	p[t][n] = NTT^{-1}((-F)^T gamma[t][0] + F_1^T gamma[t][1] + B^T gamma[t][2])
-			coeffs := make([]int64, pp.paramDC)
+			coeffs_n := make([]int64, pp.paramDC)
 			for i := 0; i < pp.paramDC; i++ {
 				//(-F)^T[i] gamma[t][0] + F_1^T[i] gamma[t][1] + B^T[i] gamma[t][2]
 				// B^T[i]: ith-col of B
-				coeffs[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
+				coeffs_n[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
 
 				if i < pp.paramDC-1 {
 					// i=0, ... d_c-2
@@ -709,7 +730,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 					//     is (0, ..., 0, 2, -1, 0, ..., 0), where 2 is the i-th coordinate and -1 is the (i+1)-th.
 					// The i-th row of F_1^T. i.e., the i-th column of F_1,
 					//     is (0, ..., 0), i.e., all zeros.
-					coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i]-gammas[t][0][i+1], pp.paramQC)
+					coeffs_n[i] = reduceInt64(coeffs_n[i]+2*gammas[t][0][i]-gammas[t][0][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
 				} else {
 					// i = d_c -1
@@ -717,7 +738,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 					//     is (0, ..., 0, 0, 0, 0, ..., 2), i.e., all zeros except the last coordinate is 2.
 					// The i-th row of F_1^T. i.e., the i-th column of F_1,
 					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
-					coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
+					coeffs_n[i] = reduceInt64(coeffs_n[i]+2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
 				}
 
 				//if i == 0 {
@@ -759,10 +780,17 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
 				//}
 			}
-			p[t][n] = &PolyCNTT{coeffs: coeffs}
+			p[t][n] = &PolyCNTT{coeffs: coeffs_n}
 
-			p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
+			//	p[t][n+1]
+			// p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
+			coeffs_np1 := make([]int64, pp.paramDC)
+			for i := 0; i < pp.paramDC; i++ {
+				coeffs_np1[i] = gammas[t][2][i]
+			}
+			p[t][n+1] = &PolyCNTT{coeffs: coeffs_np1}
 		}
+
 	case RpUlpTypeTrTx2:
 		//	(nL>=2 AND nR >=2): A_{L2R2}
 		// n := int(I + J)
@@ -773,13 +801,27 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
 
+			// p[t][0], ..., p[t][nL-1]
 			for j := uint8(0); j < nL; j++ {
-				p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
-			}
-			for j := nL; j < nL+nR; j++ {
-				p[t][j] = &PolyCNTT{coeffs: gammas[t][1]}
+				// p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
+				coeffs_l := make([]int64, pp.paramDC)
+				for i := 0; i < pp.paramDC; i++ {
+					coeffs_l[i] = gammas[t][0][i]
+				}
+				p[t][j] = &PolyCNTT{coeffs: coeffs_l}
 			}
 
+			// p[t][nL], ..., p[t][nL+nR-1]
+			for j := nL; j < nL+nR; j++ {
+				// p[t][j] = &PolyCNTT{coeffs: gammas[t][1]}
+				coeffs_r := make([]int64, pp.paramDC)
+				for i := 0; i < pp.paramDC; i++ {
+					coeffs_r[i] = gammas[t][1][i]
+				}
+				p[t][j] = &PolyCNTT{coeffs: coeffs_r}
+			}
+
+			// p[t][n] where n = nL+nR
 			coeffs_n := make([]int64, pp.paramDC)
 			for i := 0; i < pp.paramDC; i++ {
 				//coeffs_n[i] = reduceToQc(int64(-gammas[t][0][i]) + int64(-gammas[t][1][i]))
@@ -920,14 +962,20 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 			}
 			p[t][n+2] = &PolyCNTT{coeffs: coeffs_np2}
 
-			p[t][n+3] = &PolyCNTT{coeffs: gammas[t][4]}
+			// p[t][n+3]
+			// p[t][n+3] = &PolyCNTT{coeffs: gammas[t][4]}
+			coeffs_np3 := make([]int64, pp.paramDC)
+			for i := 0; i < pp.paramDC; i++ {
+				coeffs_np3[i] = gammas[t][4][i]
+			}
+			p[t][n+3] = &PolyCNTT{coeffs: coeffs_np3}
 		}
 	}
 
 	return p
 }
 
-func (pp *PublicParameter) collectBytesForRPULPMLP1(message []byte, cmts []*ValueCommitment, n uint8,
+func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	c_waves []*PolyCNTT, c_hat_g *PolyCNTT, cmt_ws [][]*PolyCNTTVec,
