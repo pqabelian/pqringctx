@@ -5,10 +5,10 @@ import (
 	"math/big"
 )
 
-func (pp *PublicParameter) rpulpProve(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
+func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte,
-	I uint8, J uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProof, err error) {
+	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProof, err error) {
 
 	// c_waves[i] = <h_i, r_i> + m_i
 	c_waves := make([]*PolyCNTT, n)
@@ -17,7 +17,7 @@ func (pp *PublicParameter) rpulpProve(message []byte, cmts []*ValueCommitment, c
 		c_waves[i] = pp.PolyCNTTAdd(tmp, &PolyCNTT{coeffs: msg_hats[i]})
 	}
 
-rpUlpProveRestart:
+rpUlpProveMLPRestart:
 	tmpg, err := pp.samplePloyCWithLowZeros()
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ rpUlpProveRestart:
 	}
 
 	// splicing the data to be processed
-	preMsg := pp.collectBytesForRPULP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, I, J, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
+	preMsg := pp.collectBytesForRPULPMLP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, I, J, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg) // todo_DONE
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ rpUlpProveRestart:
 	//	fmt.Printf("delta_hats[%d] = %v\n", i, phips[i])
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPULP2(preMsg, psi, psip, phi, phips)
+	preMsgAll := pp.collectBytesForRPULPMLP2(preMsg, psi, psip, phi, phips)
 	chseed, err := Hash(preMsgAll)
 	if err != nil {
 		return nil, err
@@ -242,14 +242,14 @@ rpUlpProveRestart:
 
 			cmt_zs[t][i] = pp.NTTInvPolyCVec(cmt_zs_ntt[t][i])
 			if cmt_zs[t][i].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
-				goto rpUlpProveRestart
+				goto rpUlpProveMLPRestart
 			}
 		}
 
 		zs_ntt[t] = pp.PolyCNTTVecAdd(ys[t], pp.PolyCNTTVecScaleMul(sigma_t_ch, r_hat, pp.paramLC), pp.paramLC)
 		zs[t] = pp.NTTInvPolyCVec(zs_ntt[t])
 		if zs[t].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
-			goto rpUlpProveRestart
+			goto rpUlpProveMLPRestart
 		}
 	}
 
@@ -925,4 +925,184 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 	}
 
 	return p
+}
+
+func (pp *PublicParameter) collectBytesForRPULPMLP1(message []byte, cmts []*ValueCommitment, n uint8,
+	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
+	rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
+	c_waves []*PolyCNTT, c_hat_g *PolyCNTT, cmt_ws [][]*PolyCNTTVec,
+	delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT, ws []*PolyCNTTVec) []byte {
+
+	length := len(message) + // message
+		int(n)*(pp.paramKC+1)*pp.paramDC*8 + // cmts []*ValueCommitment length 8, (k_c+1) PolyCNTT
+		1 + // n
+		pp.paramKC*pp.paramDC*8 + // b_hat *PolyCNTTVec, length K_c
+		int(n2)*pp.paramDC*8 + // c_hats length n2 PolyCNTT
+		1 + 1 + // n2, n1
+		1 + // rpulpType
+		len(binMatrixB)*len(binMatrixB[0]) + 1 + 1 + 1 + // binMatrixB [][]byte, nL uint8, nR uint8, m uint8
+		int(m)*pp.paramDC*8 + // u_hats [][]int64
+		int(n)*pp.paramDC*8 + // c_waves []*PolyCNTT, length n
+		pp.paramDC*8 + // c_hat_g *PolyCNTT
+		pp.paramK*int(n)*(pp.paramLC*pp.paramDC*8) + //
+		int(n)*pp.paramK*pp.paramDC*8*2 + // delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT,
+		pp.paramK*(pp.paramLC*pp.paramDC*8) // ws []*PolyCNTTVec
+
+	rst := make([]byte, 0, length)
+
+	appendPolyNTTToBytes := func(a *PolyCNTT) {
+		for k := 0; k < pp.paramDC; k++ {
+			rst = append(rst, byte(a.coeffs[k]>>0))
+			rst = append(rst, byte(a.coeffs[k]>>8))
+			rst = append(rst, byte(a.coeffs[k]>>16))
+			rst = append(rst, byte(a.coeffs[k]>>24))
+			rst = append(rst, byte(a.coeffs[k]>>32))
+			rst = append(rst, byte(a.coeffs[k]>>40))
+			rst = append(rst, byte(a.coeffs[k]>>48))
+			rst = append(rst, byte(a.coeffs[k]>>56))
+		}
+	}
+	appendInt64ToBytes := func(a int64) {
+		rst = append(rst, byte(a>>0))
+		rst = append(rst, byte(a>>8))
+		rst = append(rst, byte(a>>16))
+		rst = append(rst, byte(a>>24))
+		rst = append(rst, byte(a>>32))
+		rst = append(rst, byte(a>>40))
+		rst = append(rst, byte(a>>48))
+		rst = append(rst, byte(a>>56))
+	}
+
+	// message
+	rst = append(rst, message...)
+
+	//	cmts with length n
+	for i := 0; i < len(cmts); i++ {
+		for j := 0; j < len(cmts[i].b.polyCNTTs); j++ {
+			appendPolyNTTToBytes(cmts[i].b.polyCNTTs[j])
+		}
+		appendPolyNTTToBytes(cmts[i].c)
+	}
+
+	//	n uint8
+	rst = append(rst, n)
+
+	// b_hat
+	for i := 0; i < pp.paramKC; i++ {
+		appendPolyNTTToBytes(b_hat.polyCNTTs[i])
+	}
+	// c_hats []*PolyCNTT with length n2
+	for i := 0; i < len(c_hats); i++ {
+		appendPolyNTTToBytes(c_hats[i])
+	}
+
+	//	n2 uint8
+	rst = append(rst, n2)
+
+	//	n1 uint8
+	rst = append(rst, n1)
+
+	//TODO_DONE:A = ulpType B I J m
+	rst = append(rst, byte(rpulpType))
+	// B
+	appendBinaryMartix := func(data [][]byte) {
+		for i := 0; i < len(data); i++ {
+			rst = append(rst, data[i]...)
+		}
+	}
+	appendBinaryMartix(binMatrixB)
+	// nL
+	rst = append(rst, nL)
+	// nR
+	rst = append(rst, nR)
+
+	// m
+	rst = append(rst, m)
+
+	//u_hats length m
+	for i := 0; i < len(u_hats); i++ {
+		for j := 0; j < len(u_hats[i]); j++ {
+			appendInt64ToBytes(u_hats[i][j])
+		}
+	}
+
+	//c_waves
+	for i := 0; i < len(c_waves); i++ {
+		appendPolyNTTToBytes(c_waves[i])
+	}
+
+	//c_hat_g [n2+1]
+	appendPolyNTTToBytes(c_hat_g)
+
+	// cmt_ws [][]*PolyCNTTVec
+	for i := 0; i < len(cmt_ws); i++ {
+		for j := 0; j < len(cmt_ws[i]); j++ {
+			for k := 0; k < len(cmt_ws[i][j].polyCNTTs); k++ {
+				appendPolyNTTToBytes(cmt_ws[i][j].polyCNTTs[k])
+			}
+		}
+	}
+
+	// delta_waves [][]*PolyCNTT
+	for i := 0; i < len(delta_waves); i++ {
+		for j := 0; j < len(delta_waves[i]); j++ {
+			appendPolyNTTToBytes(delta_waves[i][j])
+		}
+	}
+	// delta_hats [][]*PolyCNTT
+	for i := 0; i < len(delta_hats); i++ {
+		for j := 0; j < len(delta_hats[i]); j++ {
+			appendPolyNTTToBytes(delta_hats[i][j])
+
+		}
+	}
+
+	// ws []*PolyCNTTVec
+	for i := 0; i < len(ws); i++ {
+		for j := 0; j < len(ws[i].polyCNTTs); j++ {
+			appendPolyNTTToBytes(ws[i].polyCNTTs[j])
+		}
+	}
+
+	return rst
+}
+
+// collectBytesForRPULP2 is an auxiliary function for rpulpProve and rpulpVerify to collect some information into a byte slice
+func (pp *PublicParameter) collectBytesForRPULPMLP2(
+	preMsg []byte,
+	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
+
+	length := len(preMsg) + 3*pp.paramDC*8 + len(phips)*pp.paramDC*8
+	rst := make([]byte, 0, length)
+
+	appendPolyNTTToBytes := func(a *PolyCNTT) {
+		for k := 0; k < pp.paramDC; k++ {
+			rst = append(rst, byte(a.coeffs[k]>>0))
+			rst = append(rst, byte(a.coeffs[k]>>8))
+			rst = append(rst, byte(a.coeffs[k]>>16))
+			rst = append(rst, byte(a.coeffs[k]>>24))
+			rst = append(rst, byte(a.coeffs[k]>>32))
+			rst = append(rst, byte(a.coeffs[k]>>40))
+			rst = append(rst, byte(a.coeffs[k]>>48))
+			rst = append(rst, byte(a.coeffs[k]>>56))
+		}
+	}
+
+	// preMsg
+	rst = append(rst, preMsg...)
+
+	// psi
+	appendPolyNTTToBytes(psi)
+
+	// psip
+	appendPolyNTTToBytes(psip)
+
+	// phi
+	appendPolyNTTToBytes(phi)
+
+	// phips
+	for i := 0; i < len(phips); i++ {
+		appendPolyNTTToBytes(phips[i])
+	}
+	return rst
 }
