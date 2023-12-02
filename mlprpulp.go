@@ -592,7 +592,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	return true
 }
 
-func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]byte, I uint8, J uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
+func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
 	p := make([][]*PolyCNTT, pp.paramK)
 	//	var tmp1, tmp2 big.Int
 
@@ -600,7 +600,9 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 	case RpUlpTypeCbTx1:
 		break
 	case RpUlpTypeCbTx2:
-		n := J
+		//	nL=0, nR >=2: A_{L0R2}
+		// n := J
+		n := nR
 		n2 := n + 2
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
@@ -614,51 +616,71 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 				// F^T[i] gamma[t][0] + F_1^T[i] gamma[t][1] + B^T[i] gamma[t][2]
 				// B^T[i]: ith-col of B
 				coeffs[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
-				if i == 0 {
-					//coeffs[i] = pp.reduceBigInt(int64(coeffs[i] + gammas[t][1][i] + gammas[t][0][i]))
-					//					coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) + int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]+gammas[t][0][i], pp.paramQC)
+
+				if i < pp.paramDC-1 {
+					// i=0, ... d_c-2
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, -2, 1, 0, ..., 0), where -2 is the i-th coordinate and 1 is the (i+1)-th.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 0), i.e., all zeros.
+					coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i]+gammas[t][0][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs[i])
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else if i < (pp.paramN - 1) {
-					//coeffs[i] = reduceToQc()(int64(coeffs[i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
-					//coeffs[i] = reduceToQc(int64(coeffs[i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*				tmp1.SetInt64(coeffs[i])
-									tmp2.SetInt64(gammas[t][0][i-1])
-									tmp2.Add(&tmp2, &tmp2)
-									tmp1.Sub(&tmp1, &tmp2)
-									tmp2.SetInt64(gammas[t][0][i])
-									tmp1.Add(&tmp1, &tmp2)
-									coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else { // i in [N-1, d-1]
-					//coeffs[i] = reduceToQc()(int64(coeffs[i] + gammas[t][1][i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
-					//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs[i])
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Sub(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				} else {
+					// i = d_c -1
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, 0, 0, 0, ..., -2), i.e., all zeros except the last coordinate is -2.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
+					coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
 				}
+
+				//if i == 0 {
+				//	//coeffs[i] = pp.reduceBigInt(int64(coeffs[i] + gammas[t][1][i] + gammas[t][0][i]))
+				//	//					coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) + int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs[i])
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else if i < (pp.paramN - 1) {
+				//	//coeffs[i] = reduceToQc()(int64(coeffs[i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
+				//	//coeffs[i] = reduceToQc(int64(coeffs[i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*				tmp1.SetInt64(coeffs[i])
+				//					tmp2.SetInt64(gammas[t][0][i-1])
+				//					tmp2.Add(&tmp2, &tmp2)
+				//					tmp1.Sub(&tmp1, &tmp2)
+				//					tmp2.SetInt64(gammas[t][0][i])
+				//					tmp1.Add(&tmp1, &tmp2)
+				//					coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else { // i in [N-1, d-1]
+				//	//coeffs[i] = reduceToQc()(int64(coeffs[i] + gammas[t][1][i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
+				//	//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs[i])
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//}
 			}
 			p[t][n] = &PolyCNTT{coeffs: coeffs}
 
 			p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
 		}
 	case RpUlpTypeTrTx1:
-		n := I + J
+		//	(nL==1 AND nR >=2) OR ( nL==1 AND (nR===1 AND vRPub>0) ): A_{L1R2}
+		// n := I + J
+		n := nL + nR // n = 1+nR, note that the following computation is based on such a setting.
 		n2 := n + 2
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
@@ -680,61 +702,81 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 				//(-F)^T[i] gamma[t][0] + F_1^T[i] gamma[t][1] + B^T[i] gamma[t][2]
 				// B^T[i]: ith-col of B
 				coeffs[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][2], pp.paramDC)
-				if i == 0 {
-					//coeffs[i] = pp.reduceBigInt(int64(coeffs[i] + gammas[t][1][i] - gammas[t][0][i]))
-					//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) - int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]-gammas[t][0][i], pp.paramQC)
+
+				if i < pp.paramDC-1 {
+					// i=0, ... d_c-2
+					// The i-th row of (-F)^T. i.e., the i-th column of (-F),
+					//     is (0, ..., 0, 2, -1, 0, ..., 0), where 2 is the i-th coordinate and -1 is the (i+1)-th.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 0), i.e., all zeros.
+					coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i]-gammas[t][0][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs[i])
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Sub(&tmp1, &tmp2)
-										coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else if i < (pp.paramN - 1) {
-					//coeffs[i] = reduceToQc()(int64(coeffs[i] + 2*gammas[t][0][i-1] - gammas[t][0][i]))
-					//coeffs[i] = reduceToQc(int64(coeffs[i]) + 2*int64(gammas[t][0][i-1]) - int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i-1]-gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs[i])
-										tmp2.SetInt64(gammas[t][0][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Sub(&tmp1, &tmp2)
-										coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else { // i in [N-1, d-1]
-					//coeffs[i] = reduceToQc()(int64(coeffs[i] + gammas[t][1][i] + 2*gammas[t][0][i-1] - gammas[t][0][i]))
-					//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) + 2*int64(gammas[t][0][i-1]) - int64(gammas[t][0][i]))
-					coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]+2*gammas[t][0][i-1]-gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs[i])
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Sub(&tmp1, &tmp2)
-										coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				} else {
+					// i = d_c -1
+					// The i-th row of (-F)^T. i.e., the i-th column of (-F),
+					//     is (0, ..., 0, 0, 0, 0, ..., 2), i.e., all zeros except the last coordinate is 2.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
+					coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i]+gammas[t][1][i], pp.paramQC)
 				}
+
+				//if i == 0 {
+				//	//coeffs[i] = pp.reduceBigInt(int64(coeffs[i] + gammas[t][1][i] - gammas[t][0][i]))
+				//	//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) - int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]-gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs[i])
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else if i < (pp.paramN - 1) {
+				//	//coeffs[i] = reduceToQc()(int64(coeffs[i] + 2*gammas[t][0][i-1] - gammas[t][0][i]))
+				//	//coeffs[i] = reduceToQc(int64(coeffs[i]) + 2*int64(gammas[t][0][i-1]) - int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]+2*gammas[t][0][i-1]-gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs[i])
+				//						tmp2.SetInt64(gammas[t][0][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else { // i in [N-1, d-1]
+				//	//coeffs[i] = reduceToQc()(int64(coeffs[i] + gammas[t][1][i] + 2*gammas[t][0][i-1] - gammas[t][0][i]))
+				//	//coeffs[i] = reduceToQc(int64(coeffs[i]) + int64(gammas[t][1][i]) + 2*int64(gammas[t][0][i-1]) - int64(gammas[t][0][i]))
+				//	coeffs[i] = reduceInt64(coeffs[i]+gammas[t][1][i]+2*gammas[t][0][i-1]-gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs[i])
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						coeffs[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//}
 			}
 			p[t][n] = &PolyCNTT{coeffs: coeffs}
 
 			p[t][n+1] = &PolyCNTT{coeffs: gammas[t][2]}
 		}
 	case RpUlpTypeTrTx2:
-		n := int(I + J)
+		//	(nL>=2 AND nR >=2): A_{L2R2}
+		// n := int(I + J)
+		n := nL + nR
 		n2 := n + 4
 		//	B : d rows 2d columns
 		//	m = 5
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
 
-			for j := uint8(0); j < I; j++ {
+			for j := uint8(0); j < nL; j++ {
 				p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
 			}
-			for j := I; j < I+J; j++ {
+			for j := nL; j < nL+nR; j++ {
 				p[t][j] = &PolyCNTT{coeffs: gammas[t][1]}
 			}
 
@@ -755,44 +797,62 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 			for i := 0; i < pp.paramDC; i++ {
 				//F^T[i] gamma[t][0] + F_1^T[i] gamma[t][2] + B^T[i] gamma[t][4]
 				coeffs_np1[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, i), gammas[t][4], pp.paramDC)
-				if i == 0 {
-					//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] + gammas[t][2][i] + gammas[t][0][i]))
-					//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) + int64(gammas[t][2][i]) + int64(gammas[t][0][i]))
-					coeffs_np1[i] = reduceInt64(coeffs_np1[i]+gammas[t][2][i]+gammas[t][0][i], pp.paramQC)
+
+				if i < pp.paramDC-1 {
+					// i=0, ... d_c-2
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, -2, 1, 0, ..., 0), where -2 is the i-th coordinate and 1 is the (i+1)-th.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 0), i.e., all zeros.
+					coeffs_np1[i] = reduceInt64(coeffs_np1[i]-2*gammas[t][0][i]+gammas[t][0][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*				tmp1.SetInt64(coeffs_np1[i])
-									tmp2.SetInt64(gammas[t][2][i])
-									tmp1.Add(&tmp1, &tmp2)
-									tmp2.SetInt64(gammas[t][0][i])
-									tmp1.Add(&tmp1, &tmp2)
-									coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else if i < (pp.paramN - 1) {
-					//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
-					//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
-					coeffs_np1[i] = reduceInt64(coeffs_np1[i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs_np1[i])
-										tmp2.SetInt64(gammas[t][0][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Sub(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else { // i in [N-1, d-1]
-					//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] + gammas[t][2][i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
-					//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) + int64(gammas[t][2][i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
-					coeffs_np1[i] = reduceInt64(coeffs_np1[i]+gammas[t][2][i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs_np1[i])
-										tmp2.SetInt64(gammas[t][2][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Sub(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][0][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				} else {
+					// i = d_c -1
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, 0, 0, 0, ..., -2), i.e., all zeros except the last coordinate is -2.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
+					coeffs_np1[i] = reduceInt64(coeffs_np1[i]-2*gammas[t][0][i]+gammas[t][2][i], pp.paramQC)
 				}
+
+				//if i == 0 {
+				//	//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] + gammas[t][2][i] + gammas[t][0][i]))
+				//	//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) + int64(gammas[t][2][i]) + int64(gammas[t][0][i]))
+				//	coeffs_np1[i] = reduceInt64(coeffs_np1[i]+gammas[t][2][i]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*				tmp1.SetInt64(coeffs_np1[i])
+				//					tmp2.SetInt64(gammas[t][2][i])
+				//					tmp1.Add(&tmp1, &tmp2)
+				//					tmp2.SetInt64(gammas[t][0][i])
+				//					tmp1.Add(&tmp1, &tmp2)
+				//					coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else if i < (pp.paramN - 1) {
+				//	//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
+				//	//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
+				//	coeffs_np1[i] = reduceInt64(coeffs_np1[i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs_np1[i])
+				//						tmp2.SetInt64(gammas[t][0][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else { // i in [N-1, d-1]
+				//	//coeffs_np1[i] = reduceToQc()(int64(coeffs_np1[i] + gammas[t][2][i] - 2*gammas[t][0][i-1] + gammas[t][0][i]))
+				//	//coeffs_np1[i] = reduceToQc(int64(coeffs_np1[i]) + int64(gammas[t][2][i]) - 2*int64(gammas[t][0][i-1]) + int64(gammas[t][0][i]))
+				//	coeffs_np1[i] = reduceInt64(coeffs_np1[i]+gammas[t][2][i]-2*gammas[t][0][i-1]+gammas[t][0][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs_np1[i])
+				//						tmp2.SetInt64(gammas[t][2][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][0][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs_np1[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//}
 			}
 			p[t][n+1] = &PolyCNTT{coeffs: coeffs_np1}
 
@@ -801,44 +861,62 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 			for i := 0; i < pp.paramDC; i++ {
 				//F^T[i] gamma[t][1] + F_1^T[i] gamma[t][3] + B_2^T[i] gamma[t][4]
 				coeffs_np2[i] = pp.intVecInnerProductWithReductionQc(getMatrixColumn(binMatrixB, pp.paramDC, pp.paramDC+i), gammas[t][4], pp.paramDC)
-				if i == 0 {
-					//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] + gammas[t][3][i] + gammas[t][1][i]))
-					//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) + int64(gammas[t][3][i]) + int64(gammas[t][1][i]))
-					coeffs_np2[i] = reduceInt64(coeffs_np2[i]+gammas[t][3][i]+gammas[t][1][i], pp.paramQC)
+
+				if i < pp.paramDC-1 {
+					// i=0, ... d_c-2
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, -2, 1, 0, ..., 0), where -2 is the i-th coordinate and 1 is the (i+1)-th.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 0), i.e., all zeros.
+					coeffs_np2[i] = reduceInt64(coeffs_np2[i]-2*gammas[t][1][i]+gammas[t][1][i+1], pp.paramQC)
 					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs_np2[i])
-										tmp2.SetInt64(gammas[t][3][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else if i < (pp.paramN - 1) {
-					//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] - 2*gammas[t][1][i-1] + gammas[t][1][i]))
-					//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) - 2*int64(gammas[t][1][i-1]) + int64(gammas[t][1][i]))
-					coeffs_np2[i] = reduceInt64(coeffs_np2[i]-2*gammas[t][1][i-1]+gammas[t][1][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs_np2[i])
-										tmp2.SetInt64(gammas[t][1][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Sub(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
-				} else { // i in [N-1, d-1]
-					//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] + gammas[t][3][i] - 2*gammas[t][1][i-1] + gammas[t][1][i]))
-					//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) + int64(gammas[t][3][i]) - 2*int64(gammas[t][1][i-1]) + int64(gammas[t][1][i]))
-					coeffs_np2[i] = reduceInt64(coeffs_np2[i]+gammas[t][3][i]-2*gammas[t][1][i-1]+gammas[t][1][i], pp.paramQC)
-					// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
-					/*					tmp1.SetInt64(coeffs_np2[i])
-										tmp2.SetInt64(gammas[t][3][i])
-										tmp1.Add(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][1][i-1])
-										tmp2.Add(&tmp2, &tmp2)
-										tmp1.Sub(&tmp1, &tmp2)
-										tmp2.SetInt64(gammas[t][1][i])
-										tmp1.Add(&tmp1, &tmp2)
-										coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				} else {
+					// i = d_c -1
+					// The i-th row of F^T. i.e., the i-th column of F,
+					//     is (0, ..., 0, 0, 0, 0, ..., -2), i.e., all zeros except the last coordinate is -2.
+					// The i-th row of F_1^T. i.e., the i-th column of F_1,
+					//     is (0, ..., 1), i.e., all zeros, except the last coordinate is 1.
+					coeffs_np2[i] = reduceInt64(coeffs_np2[i]-2*gammas[t][1][i]+gammas[t][3][i], pp.paramQC)
 				}
+
+				//if i == 0 {
+				//	//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] + gammas[t][3][i] + gammas[t][1][i]))
+				//	//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) + int64(gammas[t][3][i]) + int64(gammas[t][1][i]))
+				//	coeffs_np2[i] = reduceInt64(coeffs_np2[i]+gammas[t][3][i]+gammas[t][1][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs_np2[i])
+				//						tmp2.SetInt64(gammas[t][3][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else if i < (pp.paramN - 1) {
+				//	//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] - 2*gammas[t][1][i-1] + gammas[t][1][i]))
+				//	//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) - 2*int64(gammas[t][1][i-1]) + int64(gammas[t][1][i]))
+				//	coeffs_np2[i] = reduceInt64(coeffs_np2[i]-2*gammas[t][1][i-1]+gammas[t][1][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs_np2[i])
+				//						tmp2.SetInt64(gammas[t][1][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//} else { // i in [N-1, d-1]
+				//	//coeffs_np2[i] = reduceToQc()(int64(coeffs_np2[i] + gammas[t][3][i] - 2*gammas[t][1][i-1] + gammas[t][1][i]))
+				//	//coeffs_np2[i] = reduceToQc(int64(coeffs_np2[i]) + int64(gammas[t][3][i]) - 2*int64(gammas[t][1][i-1]) + int64(gammas[t][1][i]))
+				//	coeffs_np2[i] = reduceInt64(coeffs_np2[i]+gammas[t][3][i]-2*gammas[t][1][i-1]+gammas[t][1][i], pp.paramQC)
+				//	// the addition of three numbers in [-(q_c-1)/2, (q_c-1)/] will not overflow
+				//	/*					tmp1.SetInt64(coeffs_np2[i])
+				//						tmp2.SetInt64(gammas[t][3][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][1][i-1])
+				//						tmp2.Add(&tmp2, &tmp2)
+				//						tmp1.Sub(&tmp1, &tmp2)
+				//						tmp2.SetInt64(gammas[t][1][i])
+				//						tmp1.Add(&tmp1, &tmp2)
+				//						coeffs_np2[i] = reduceBigInt(&tmp1, pp.paramQC)*/
+				//}
 			}
 			p[t][n+2] = &PolyCNTT{coeffs: coeffs_np2}
 
