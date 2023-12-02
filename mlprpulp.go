@@ -64,7 +64,7 @@ rpUlpProveMLPRestart:
 	}
 
 	// splicing the data to be processed
-	preMsg := pp.collectBytesForRPULPMLP1(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
+	preMsg := pp.collectBytesForRPULP1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg) // todo_DONE
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ rpUlpProveMLPRestart:
 	//	fmt.Printf("delta_hats[%d] = %v\n", i, phips[i])
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPULPMLP2(preMsg, psi, psip, phi, phips)
+	preMsgAll := pp.collectBytesForRPUL2PMLP(preMsg, psi, psip, phi, phips)
 	chseed, err := Hash(preMsgAll)
 	if err != nil {
 		return nil, err
@@ -1116,7 +1116,7 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 }
 
 // collectBytesForRPULP2 is an auxiliary function for rpulpProve and rpulpVerify to collect some information into a byte slice
-func (pp *PublicParameter) collectBytesForRPULPMLP2(
+func (pp *PublicParameter) collectBytesForRPUL2PMLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
 
