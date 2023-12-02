@@ -5,9 +5,17 @@ import (
 	"math/big"
 )
 
+type RpUlpTypeMLP uint8
+
+const (
+	RpUlpTypeL0Rn RpUlpTypeMLP = 0 //  A_{L0R2}
+	RpUlpTypeL1Rn RpUlpTypeMLP = 1 //	A_{L1R2}
+	RpUlpTypeLmRn RpUlpTypeMLP = 2 //	A_{L2R2}
+)
+
 func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
-	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte,
+	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte,
 	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProof, err error) {
 
 	// c_waves[i] = <h_i, r_i> + m_i
@@ -269,7 +277,7 @@ rpUlpProveMLPRestart:
 func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
-	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
+	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	rpulppi *rpulpProof) (valid bool) {
 
 	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
@@ -302,13 +310,13 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	} else {
 		for i := 0; i < len(binMatrixB); i++ {
 			switch rpulpType {
-			case RpUlpTypeCbTx2:
+			case RpUlpTypeL0Rn:
 				fallthrough
-			case RpUlpTypeTrTx1:
+			case RpUlpTypeL1Rn:
 				if len(binMatrixB[i]) != pp.paramDC/8 {
 					return false
 				}
-			case RpUlpTypeTrTx2:
+			case RpUlpTypeLmRn:
 				if len(binMatrixB[i]) != 2*pp.paramDC/8 {
 					return false
 				}
@@ -604,14 +612,12 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	return true
 }
 
-func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
+func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
 	p := make([][]*PolyCNTT, pp.paramK)
 	//	var tmp1, tmp2 big.Int
 
 	switch rpulpType {
-	case RpUlpTypeCbTx1:
-		break
-	case RpUlpTypeCbTx2:
+	case RpUlpTypeL0Rn:
 		//	nL=0, nR >=2: A_{L0R2}
 		// n := J
 		n := nR // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
@@ -704,7 +710,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 			}
 			p[t][n+1] = &PolyCNTT{coeffs: coeffs_np1}
 		}
-	case RpUlpTypeTrTx1:
+	case RpUlpTypeL1Rn:
 		//	(nL==1 AND nR >=2) OR ( nL==1 AND (nR===1 AND vRPub>0) ): A_{L1R2}
 		// n := I + J
 		n := nL + nR // n = 1+nR, note that the following computation is based on such a setting.
@@ -803,7 +809,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 			p[t][n+1] = &PolyCNTT{coeffs: coeffs_np1}
 		}
 
-	case RpUlpTypeTrTx2:
+	case RpUlpTypeLmRn:
 		//	(nL>=2 AND nR >=2): A_{L2R2}
 		// n := int(I + J)
 		n := nL + nR
@@ -989,7 +995,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpType, binMatrixB []
 
 func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
-	rpulpType RpUlpType, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
+	rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	c_waves []*PolyCNTT, c_hat_g *PolyCNTT, cmt_ws [][]*PolyCNTTVec,
 	delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT, ws []*PolyCNTTVec) []byte {
 
