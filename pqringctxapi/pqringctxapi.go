@@ -84,8 +84,8 @@ func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
 }
 
 // API for AddressKeys	begin
-func ExtractCoinAddressType(pp *PublicParameter, coinAddress []byte) (CoinAddressType, error) {
-	return pp.ExtractCoinAddressType(coinAddress)
+func ExtractCoinAddressTypeFromCoinAddress(pp *PublicParameter, coinAddress []byte) (CoinAddressType, error) {
+	return pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 }
 
 func GetCoinAddressSize(pp *PublicParameter, coinAddressType CoinAddressType) (int, error) {
@@ -125,7 +125,7 @@ func GetNullSerialNumber(pp *PublicParameter) []byte {
 // GetTxoSerializeSize return the size of a Txo on coinAddress.
 // Note that the Txos on coinAddresses with different types may have different formats and sizes.
 func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
-	coinAddressType, err := pp.ExtractCoinAddressType(coinAddress)
+	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 	if err != nil {
 		return 0, nil
 	}
@@ -149,7 +149,7 @@ func GetCbTxWitnessSerializeSizeApprox(pp *PublicParameter, coinAddressListPayTo
 }
 
 func SerializeTxWitness(pp *PublicParameter, txWitness TxWitnessMLP) ([]byte, error) {
-	return pp.SerializeTxWitness(txWitness)
+	return pp.SerializeTxWitnessMLP(txWitness)
 }
 
 func DeserializeTxWitness(pp *PublicParameter, serializedTxWitness []byte) (TxWitnessMLP, error) {

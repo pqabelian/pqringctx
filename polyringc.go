@@ -1,6 +1,7 @@
 package pqringctx
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 )
@@ -31,6 +32,27 @@ func (pp *PublicParameter) NewZeroPolyC() *PolyC {
 func (pp *PublicParameter) NewPolyCNTT() *PolyCNTT {
 	return &PolyCNTT{coeffs: make([]int64, pp.paramDC)}
 }
+
+// NewPolyCNTTUsingCoeffs will directly use the input coeffs as the coefficients of the returned PolyCNTT.
+func (pp *PublicParameter) NewPolyCNTTUsingCoeffs(coeffs []int64) (*PolyCNTT, error) {
+	if len(coeffs) != pp.paramDC {
+		return nil, fmt.Errorf("NewPolyCNTTUsingCoeffs: the input coeffs has length %d, rather than the expected %d", len(coeffs), pp.paramDC)
+	}
+	return &PolyCNTT{coeffs: coeffs}, nil
+}
+
+// NewPolyCNTTFromCoeffs will copy the sourceCoeffs to a new []int64, and use the new one as the coefficients of the returned PolyCNTT.
+func (pp *PublicParameter) NewPolyCNTTFromCoeffs(sourceCoeffs []int64) (*PolyCNTT, error) {
+	if len(sourceCoeffs) != pp.paramDC {
+		return nil, fmt.Errorf("NewPolyCNTTFromCoeffs: the input sourceCoeffs has length %d, rather than the expected %d", len(sourceCoeffs), pp.paramDC)
+	}
+	coeffs := make([]int64, pp.paramDC)
+	for i := 0; i < pp.paramDC; i++ {
+		coeffs[i] = sourceCoeffs[i]
+	}
+	return &PolyCNTT{coeffs: coeffs}, nil
+}
+
 func (pp *PublicParameter) NewZeroPolyCNTT() *PolyCNTT {
 	rst := &PolyCNTT{coeffs: make([]int64, pp.paramDC)}
 	for i := 0; i < pp.paramDC; i++ {

@@ -402,7 +402,7 @@ func (pp *PublicParameter) DeserializeAddressSecretKeySn(serializedASKSn []byte)
 	return &AddressSecretKeySn{ma}, nil
 }
 
-func (pp *PublicParameter) ExtractCoinAddressType(coinAddress []byte) (CoinAddressType, error) {
+func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []byte) (CoinAddressType, error) {
 	n := len(coinAddress)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
 	//	and those addresses are CoinAddressTypePublicKeyForRing in the setting of PQRingCTX.

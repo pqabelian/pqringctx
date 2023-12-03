@@ -13,7 +13,15 @@ type TxCase uint8
 const (
 	TxCaseCbTxI0C0 = 0
 	TxCaseCbTxI0C1 = 1
-	TxCaseCbTxI0C2 = 2
+	TxCaseCbTxI0Cn = 2
+)
+
+type BalanceProofCase uint8
+
+const (
+	BalanceProofCaseL0R1 = 0
+	BalanceProofCaseL1R1 = 1
+	BalanceProofCaseLmRn = 2
 )
 
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
@@ -87,18 +95,37 @@ func (txWitness *TxWitnessCbTxI0C0) TxCase() TxCase {
 }
 
 type TxWitnessCbTxI0C1 struct {
-	txCase TxCase
+	txCase       TxCase
+	balanceProof *balanceProofL0R1
 }
 
 func (txWitness *TxWitnessCbTxI0C1) TxCase() TxCase {
 	return txWitness.txCase
 }
 
-type TxWitnessCbTxI0C2 struct {
-	txCase TxCase
+type TxWitnessCbTxI0Cn struct {
+	txCase       TxCase
+	balanceProof *balanceProofLmRn
 }
 
-func (txWitness *TxWitnessCbTxI0C2) TxCase() TxCase {
+func (txWitness *TxWitnessCbTxI0Cn) TxCase() TxCase {
+	return txWitness.txCase
+}
+
+type TxWitnessTrTx struct {
+	txCase                     TxCase
+	ma_ps                      []*PolyANTT                  // length I_ring, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
+	cmt_ps                     []*ValueCommitment           // length I_ring, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
+	elrsSigs                   []*elrsSignatureMLP          // length I_ring, each for one RingCT-privacy Input.
+	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	simpsSigs                  []*simpsSignatureMLP         // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	b_hat                      *PolyCNTTVec
+	c_hats                     []*PolyCNTT //	length n_2: n_2 = I+J+2 for I=1, and n_2 = I+J+4 for I >= 2.
+	u_p                        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c (J+1) for I=1 and beta_f = D_c (I+J+1) for I >= 2.
+	rpulpproof                 *rpulpProofMLP
+}
+
+func (txWitness *TxWitnessTrTx) TxCase() TxCase {
 	return txWitness.txCase
 }
 
@@ -190,3 +217,110 @@ func (cbTx *CoinbaseTxMLP) GetTxWitness() TxWitnessMLP {
 }
 
 //	New and Get functions for Transactions	end
+
+// Signatures	begin
+type elrsSignatureMLP struct {
+	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
+	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
+	//	z_cs, z_cps, as the responses, need to have the infinite normal ina scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
+	//	That is why we use PolyAVec (resp. PolyCVec), rather than PolyANTTVec (resp. PolyCNTTVec).
+	z_as  []*PolyAVec   // length ringSize, each for a ring member. Each element lies in (S_{eta_a - beta_a})^{L_a}.
+	z_cs  [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
+	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
+}
+
+type simpsSignatureMLP struct {
+	seed []byte
+	//	z_a, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
+	//	That is why we use PolyAVec, rather than PolyANTTVec.
+	z_a *PolyAVec // lies in (S_{eta_a - beta_a})^{L_a}.
+
+}
+
+//	Signatures	end
+
+// BPFs	begin
+type rpulpProofMLP struct {
+	c_waves []*PolyCNTT //	lenth n
+	c_hat_g *PolyCNTT
+	psi     *PolyCNTT
+	phi     *PolyCNTT
+	chseed  []byte
+	//	cmt_zs and zs, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
+	//	That is why here we use PolyCVec rather than PolyCNTTVec.
+	cmt_zs [][]*PolyCVec //	length n (J for CbTxWitnessJ2, I+J for TrTxWitness), each length paramK, each in (S_{eta_c - beta_c})^{L_c}
+	zs     []*PolyCVec   //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+type balanceProof interface {
+	BalanceProofCase() BalanceProofCase
+	LeftCommNum() int
+	RightCommNum() int
+}
+
+type balanceProofL0R1 struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      int
+	rightCommNum     int
+	// bpf
+	chseed []byte
+	// zs, as the response, need to have infinite normal in a scopr, say [-(eta_c - beta_c), (eta_c - beta_c)].
+	// That is why we use PolyCVec rather than PolyCNTTVec.
+	zs []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+func (bpf *balanceProofL0R1) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofL0R1) LeftCommNum() int {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofL0R1) RightCommNum() int {
+	return bpf.rightCommNum
+}
+
+type balanceProofL1R1 struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      int
+	rightCommNum     int
+	// bpf
+	psi    *PolyCNTT
+	chseed []byte
+	//	zs1 and zs2, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
+	//	That is why here we use PolyCVec rather than PolyCNTTVec.
+	zs1 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+	zs2 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+func (bpf *balanceProofL1R1) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofL1R1) LeftCommNum() int {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofL1R1) RightCommNum() int {
+	return bpf.rightCommNum
+}
+
+type balanceProofLmRn struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      int
+	rightCommNum     int
+	// bpf
+	b_hat      *PolyCNTTVec
+	c_hats     []*PolyCNTT // length J+2
+	u_p        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c J.
+	rpulpproof *rpulpProof
+}
+
+func (bpf *balanceProofLmRn) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofLmRn) LeftCommNum() int {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofLmRn) RightCommNum() int {
+	return bpf.rightCommNum
+}
+
+//	BPFs	end
