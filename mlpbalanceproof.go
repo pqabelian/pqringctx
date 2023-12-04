@@ -2,17 +2,18 @@ package pqringctx
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 )
 
 type BalanceProofCase uint8
 
 const (
-	BalanceProofCaseL0R1 = 0
-	BalanceProofCaseL0Rn = 1
-	BalanceProofCaseL1R1 = 2
-	BalanceProofCaseL1Rn = 3
-	BalanceProofCaseLmRn = 4
+	BalanceProofCaseL0R1 BalanceProofCase = 0
+	BalanceProofCaseL0Rn BalanceProofCase = 1
+	BalanceProofCaseL1R1 BalanceProofCase = 2
+	BalanceProofCaseL1Rn BalanceProofCase = 3
+	BalanceProofCaseLmRn BalanceProofCase = 4
 )
 
 type RpUlpTypeMLP uint8
@@ -1289,6 +1290,103 @@ func (pp *PublicParameter) balanceProofL0R1SerializedSize() int {
 		HashOutputBytesLen + // chseed           []byte
 		+pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) // zs        []*PolyCVec : length pp.paramK, each Vec has length pp.paramLC
 	return n
+}
+
+func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *balanceProofL0R1) ([]byte, error) {
+
+	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R1SerializedSize()))
+
+	//	balanceProofCase BalanceProofCase
+	err := w.WriteByte(byte(bpf.balanceProofCase))
+	if err != nil {
+		return nil, err
+	}
+
+	//	leftCommNum      uint8
+	err = w.WriteByte(bpf.leftCommNum)
+	if err != nil {
+		return nil, err
+	}
+
+	//	rightCommNum      uint8
+	err = w.WriteByte(bpf.rightCommNum)
+	if err != nil {
+		return nil, err
+	}
+
+	//	chseed           []byte
+	_, err = w.Write(bpf.chseed)
+	if err != nil {
+		return nil, err
+	}
+	//if n != HashOutputBytesLen {
+	//	if err != nil {
+	//		return nil, fmt.Errorf("serializeBalanceProofL0R1: balanceProofL0R1.chseed should be a hash, namely []byte with length=%d", HashOutputBytesLen)
+	//	}
+	//}
+
+	//	zs               []*PolyCVec
+	//	fixed-length paramK
+	for i := 0; i < pp.paramK; i++ {
+		err = pp.writePolyCVecEta(w, bpf.zs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return w.Bytes(), nil
+}
+
+func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*balanceProofL0R1, error) {
+
+	r := bytes.NewReader(serializdBpfL0R1)
+
+	// balanceProofCase BalanceProofCase
+	balanceProofCase, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	if BalanceProofCase(balanceProofCase) != BalanceProofCaseL0R1 {
+		return nil, fmt.Errorf("deserializeBalanceProofL0R1: the deserialized balanceProofCase is not BalanceProofCaseL0R1")
+	}
+
+	//	leftCommNum      uint8
+	leftCommNum, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	//	rightCommNum      uint8
+	rightCommNum, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	//	chseed           []byte
+	chseed := make([]byte, HashOutputBytesLen)
+	_, err = r.Read(chseed)
+	if err != nil {
+		return nil, err
+	}
+
+	//	zs               []*PolyCVec
+	//	fixed-length paramK
+	zs := make([]*PolyCVec, pp.paramK)
+	for i := 0; i < pp.paramK; i++ {
+		zs[i], err = pp.readPolyCVecEta(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &balanceProofL0R1{
+		balanceProofCase: BalanceProofCaseL0R1,
+		leftCommNum:      leftCommNum,
+		rightCommNum:     rightCommNum,
+		chseed:           chseed,
+		zs:               zs,
+	}, nil
 }
 
 // balanceProofLmRnSerializedSizeByCommNum returns the serilaize size for balanceProofLmRn,

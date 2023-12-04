@@ -6,7 +6,7 @@ import (
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
-// CoinbaseTxGen() generates a coinbase transaction.
+// CoinbaseTxGenMLP generates a coinbase transaction.
 func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (cbTx *CoinbaseTxMLP, err error) {
 	V := uint64(1)<<pp.paramN - 1
 

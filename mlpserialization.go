@@ -465,6 +465,8 @@ func (pp *PublicParameter) SerializeTxWitnessMLP(txWitnessMLP TxWitnessMLP) (ser
 		}
 		return pp.serializeTxWitnessCbTxI0Cn(txWitnessInst)
 
+		// todo(MLP): more cases
+
 	default:
 		return nil, errors.New("SerializeTxWitness: the input TxWitnessMLP is not in the supported TxCases")
 	}
@@ -560,11 +562,65 @@ func (pp *PublicParameter) TxWitnessCbTxI0C1SerializeSize() int {
 	return n
 }
 
+// serializeTxWitnessCbTxI0C1 serialize the input txWitnessCbTxI0C1.
+// Finished and reviewed on 2023.12.04.
 func (pp *PublicParameter) serializeTxWitnessCbTxI0C1(txWitnessCbTxI0C1 *TxWitnessCbTxI0C1) ([]byte, error) {
-	return nil, nil
+	if txWitnessCbTxI0C1 == nil {
+		return nil, errors.New("serializeTxWitnessCbTxI0C1: the input txWitnessCbTxI0C1 is nil")
+	}
+
+	if txWitnessCbTxI0C1.txCase != TxCaseCbTxI0C1 {
+		return nil, fmt.Errorf("serializeTxWitnessCbTxI0C1: the TxCase of input txWitnessCbTxI0C1 is %d rather than the expected TxCaseCbTxI0C0 (%d)", txWitnessCbTxI0C1.txCase, TxCaseCbTxI0C1)
+	}
+
+	w := bytes.NewBuffer(make([]byte, 0, pp.TxWitnessCbTxI0C1SerializeSize()))
+
+	// txWitnessCbTxI0C0.txCase is fixed-length, say 1 byte
+	err := w.WriteByte(byte(txWitnessCbTxI0C1.txCase))
+	if err != nil {
+		return nil, err
+	}
+
+	//  balanceProof *balanceProofL0R1
+	serializedBpf, err := pp.serializeBalanceProofL0R1(txWitnessCbTxI0C1.balanceProof)
+	if err != nil {
+		return nil, err
+	}
+	_, err = w.Write(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+
+	return w.Bytes(), nil
 }
+
+// deserializeTxWitnessCbTxI0C1 deserialize the input serializedTxWitnessCbTxI0C1 into a txWitnessCbTxI0C1.
+// Finished and reviewed on 2023.12.04.
 func (pp *PublicParameter) deserializeTxWitnessCbTxI0C1(serializedTxWitnessCbTxI0C1 []byte) (*TxWitnessCbTxI0C1, error) {
-	return nil, nil
+	r := bytes.NewReader(serializedTxWitnessCbTxI0C1)
+
+	txCase, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	if txCase != byte(TxCaseCbTxI0C1) {
+		return nil, errors.New("deserializeTxWitnessCbTxI0C1: the deserialized TxCase is not TxCaseCbTxI0C1")
+	}
+
+	serializedBpf := make([]byte, pp.balanceProofL0R1SerializedSize())
+	_, err = r.Read(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+	bpf, err := pp.deserializeBalanceProofL0R1(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxWitnessCbTxI0C1{
+		txCase:       TxCaseCbTxI0C1,
+		balanceProof: bpf,
+	}, nil
 }
 
 // todo

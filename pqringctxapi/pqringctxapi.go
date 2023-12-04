@@ -58,7 +58,7 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 // CoinbaseTxGen generates CoinbaseTx.
 // As the caller may decompose the components of the generated CoinbaseTx
 // to make a chain-layer transaction,
-// CoinbaseTxGen outputs an pqringctxapidao.CoinbaseTxMLP, rather than a serialized Tx.
+// CoinbaseTxGen outputs a CoinbaseTxMLP, rather than a serialized Tx.
 func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDescMLP, txMemo []byte) (cbTx *CoinbaseTxMLP, err error) {
 	return pp.CoinbaseTxGenMLP(vin, txOutputDescs, txMemo)
 }
@@ -144,6 +144,7 @@ func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
 
 // APIs for Witness 	begin
 
+// GetCbTxWitnessSerializeSizeByDesc return the accurate size of the TxWitness for a coinbaseTx, according to the coinAddressListPayTo.
 func GetCbTxWitnessSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
 	return pp.GetCbTxWitnessSerializeSizeByDesc(coinAddressListPayTo)
 }
