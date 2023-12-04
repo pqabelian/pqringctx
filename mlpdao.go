@@ -97,6 +97,7 @@ func (txWitness *TxWitnessCbTxI0C1) TxCase() TxCase {
 
 type TxWitnessCbTxI0Cn struct {
 	txCase       TxCase
+	outForRing   uint8
 	balanceProof *balanceProofLmRn
 }
 

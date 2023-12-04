@@ -2,6 +2,7 @@ package pqringctx
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -1283,7 +1284,7 @@ func (pp *PublicParameter) collectBytesForRPULP2MLP(
 // balanceProofL0R1SerializedSize returned the serialized size for balanceProofL0R1.
 // finished and reviewed on 2023.12.04
 // todo(MLP): whether need to serialize leftCommNum and rightCommNum
-func (pp *PublicParameter) balanceProofL0R1SerializedSize() int {
+func (pp *PublicParameter) balanceProofL0R1SerializeSize() int {
 	n := 1 + // balanceProofCase BalanceProofCase
 		1 + // leftCommNum      uint8
 		1 + // rightCommNum     uint8
@@ -1294,7 +1295,7 @@ func (pp *PublicParameter) balanceProofL0R1SerializedSize() int {
 
 func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *balanceProofL0R1) ([]byte, error) {
 
-	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R1SerializedSize()))
+	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R1SerializeSize()))
 
 	//	balanceProofCase BalanceProofCase
 	err := w.WriteByte(byte(bpf.balanceProofCase))
@@ -1393,7 +1394,7 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) 
 // according to the left-side commitment number nL and the right-side commitment number nR.
 // finished and reviewed on 2023.12.04.
 // todo(MLP): whether need to serialize leftCommNum and rightCommNum
-func (pp *PublicParameter) balanceProofLmRnSerializedSizeByCommNum(nL uint8, nR uint8) int {
+func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	length := 1 + // balanceProofCase BalanceProofCase
 		1 + // leftCommNum      uint8
 		1 + // rightCommNum     uint8
@@ -1412,30 +1413,402 @@ func (pp *PublicParameter) balanceProofLmRnSerializedSizeByCommNum(nL uint8, nR 
 		n2 = n + 4 // m_{sum}, f_L, f_R, e
 	}
 
-	length = length + VarIntSerializeSize(uint64(n2))    // n
-	length = length + int(n2)*pp.PolyCNTTSerializeSize() // c_hats           []*PolyCNTT
-	length = length + pp.paramDC*8                       //	u_p              []int64	, with length pp.paramDC
+	length = length + VarIntSerializeSize(uint64(n2))     // n
+	length = length + int(n2)*pp.PolyCNTTSerializeSize()  // c_hats           []*PolyCNTT
+	length = length + pp.CarryVectorRProofSerializeSize() //	u_p              []int64	, bounded \beta_f
 	length = length + pp.rpulpProofMLPSerializeSizeByCommNum(nL, nR)
 
 	return length
 }
 
-// rpulpProofMLPSerializeSizeByCommNum returns the serilaized size for a range and balance proof among n commitments.
+func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *balanceProofLmRn) ([]byte, error) {
+
+	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofLmRnSerializeSizeByCommNum(bpf.leftCommNum, bpf.rightCommNum)))
+
+	//	balanceProofCase BalanceProofCase
+	err := w.WriteByte(byte(bpf.balanceProofCase))
+	if err != nil {
+		return nil, err
+	}
+
+	//	leftCommNum      uint8
+	err = w.WriteByte(bpf.leftCommNum)
+	if err != nil {
+		return nil, err
+	}
+
+	//	rightCommNum      uint8
+	err = w.WriteByte(bpf.rightCommNum)
+	if err != nil {
+		return nil, err
+	}
+
+	// b_hat            *PolyCNTTVec
+	err = pp.writePolyCNTTVec(w, bpf.b_hat)
+	if err != nil {
+		return nil, err
+	}
+
+	// c_hats           []*PolyCNTT
+	nL := bpf.leftCommNum
+	nR := bpf.rightCommNum
+	n := nL + nR // the number of commitments to call rpulpProofMLPProve
+	n2 := n      //	the number of commitments for c_hats
+	if nL == 0 {
+		//	A_{L0R2}
+		n2 = n + 2 // f_R, e
+	} else if nL == 1 {
+		// A_{L1R2}
+		n2 = n + 2 // f_R, e
+	} else {
+		// nL >= 2
+		// A_{L2R2}
+		n2 = n + 4 // m_{sum}, f_L, f_R, e
+	}
+	for i := 0; i < int(n2); i++ {
+		err = pp.writePolyCNTT(w, bpf.c_hats[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// u_p              []int64
+	err = pp.writeCarryVectorRProof(w, bpf.u_p)
+	if err != nil {
+		return nil, err
+	}
+
+	// rpulpproof       *rpulpProofMLP
+	serializedBpf, err := pp.serializeRpulpProofMLP(bpf.rpulpproof)
+	_, err = w.Write(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+
+	return w.Bytes(), nil
+}
+
+func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte) (*balanceProofLmRn, error) {
+	r := bytes.NewReader(serializedBpfLmRn)
+
+	// balanceProofCase BalanceProofCase
+	balanceProofCase, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	if BalanceProofCase(balanceProofCase) != BalanceProofCaseLmRn {
+		return nil, fmt.Errorf("deserializeBalanceProofLmRn: the deserialized balanceProofCase is not BalanceProofCaseLmRn")
+	}
+
+	//	leftCommNum      uint8
+	leftCommNum, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	//	rightCommNum      uint8
+	rightCommNum, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	// b_hat            *PolyCNTTVec
+	b_hat, err := pp.readPolyCNTTVec(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// c_hats           []*PolyCNTT
+	nL := leftCommNum
+	nR := rightCommNum
+	n := nL + nR // the number of commitments to call rpulpProofMLPProve
+	n2 := n      //	the number of commitments for c_hats
+	if nL == 0 {
+		//	A_{L0R2}
+		n2 = n + 2 // f_R, e
+	} else if nL == 1 {
+		// A_{L1R2}
+		n2 = n + 2 // f_R, e
+	} else {
+		//	nL >= 2
+		// A_{L2R2}
+		n2 = n + 4 // m_{sum}, f_L, f_R, e
+	}
+	c_hats := make([]*PolyCNTT, n2)
+	for i := 0; i < int(n2); i++ {
+		c_hats[i], err = pp.readPolyCNTT(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// u_p              []int64
+	u_p, err := pp.readCarryVectorRProof(r)
+	if err != nil {
+		return nil, err
+	}
+
+	//	zs               []*PolyCVec
+	//	fixed-length paramK
+	zs := make([]*PolyCVec, pp.paramK)
+	for i := 0; i < pp.paramK; i++ {
+		zs[i], err = pp.readPolyCVecEta(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// rpulpproof       *rpulpProofMLP
+	serializedRpUlpProof := make([]byte, pp.rpulpProofMLPSerializeSizeByCommNum(leftCommNum, rightCommNum))
+	rpUlpProof, err := pp.deserializeRpulpProofMLP(serializedRpUlpProof)
+	if err != nil {
+		return nil, err
+	}
+
+	return &balanceProofLmRn{
+		balanceProofCase: BalanceProofCaseLmRn,
+		leftCommNum:      leftCommNum,
+		rightCommNum:     rightCommNum,
+		b_hat:            b_hat,
+		c_hats:           c_hats,
+		u_p:              u_p,
+		rpulpproof:       rpUlpProof,
+	}, nil
+}
+
+// rpulpProofMLPSerializeSizeByCommNum returns the serialized size for a range and balance proof among n commitments.
 // Input two params nL and nR, rather than n = nL + nR, to avoid confusion.
-//
-//	finished and review on 2023.12.04
+// finished and review on 2023.12.04
 func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
 
 	n := nL + nR
-	length := VarIntSerializeSize(uint64(n)) + // n
+	length := 3 + //	rpUlpType, nL, nR
 		int(n)*lengthOfPolyCNTT + // c_waves   []*PolyCNTT, with length n
 		3*lengthOfPolyCNTT + // c_hat_g,psi,phi  *PolyCNTT
 		HashOutputBytesLen + // chseed    []byte
-		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec, with length [pp.paramK][n], each PolyCVec ahs length pp.paramLC
+		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec, with dimension [pp.paramK][n], each PolyCVec ahs length pp.paramLC
 		pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) //	zs        []*PolyCVec,	with length [pp.paramK], each PolyCVec ahs length pp.paramLC
 
 	return length
 }
+
+// serializeRpulpProofMLP serialize the input rpulpProofMLP to []byte.
+// finished and review on 2023.12.04
+func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, error) {
+	if prf == nil || prf.c_waves == nil ||
+		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
+		len(prf.chseed) == 0 ||
+		prf.cmt_zs == nil || prf.zs == nil {
+		return nil, errors.New("SerializeRpulpProofMLP: there is nil pointer in the input rpulpProofMLP")
+	}
+
+	var err error
+	length := pp.rpulpProofMLPSerializeSizeByCommNum(prf.nL, prf.nR)
+	w := bytes.NewBuffer(make([]byte, 0, length))
+
+	// rpUlpType RpUlpTypeMLP
+	err = w.WriteByte(byte(prf.rpUlpType))
+	if err != nil {
+		return nil, err
+	}
+
+	// nL        uint8
+	err = w.WriteByte(byte(prf.nL))
+	if err != nil {
+		return nil, err
+	}
+
+	// nR        uint8
+	err = w.WriteByte(byte(prf.nR))
+	if err != nil {
+		return nil, err
+	}
+
+	n := int(prf.nL + prf.nR)
+
+	// c_waves []*PolyCNTT; length n
+	for i := 0; i < n; i++ {
+		err = pp.writePolyCNTT(w, prf.c_waves[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//c_hat_g *PolyCNTT
+	err = pp.writePolyCNTT(w, prf.c_hat_g)
+	if err != nil {
+		return nil, err
+	}
+
+	//psi     *PolyCNTT
+	err = pp.writePolyCNTT(w, prf.psi)
+	if err != nil {
+		return nil, err
+	}
+
+	//phi     *PolyCNTT
+	err = pp.writePolyCNTT(w, prf.phi)
+	if err != nil {
+		return nil, err
+	}
+
+	//chseed  []byte
+	_, err = w.Write(prf.chseed)
+	if err != nil {
+		return nil, err
+	}
+
+	//cmt_zs  [][]*PolyCVec eta; dimension [paramK][n]
+	for i := 0; i < pp.paramK; i++ {
+		for j := 0; j < n; j++ {
+			err = pp.writePolyCVecEta(w, prf.cmt_zs[i][j])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	//zs      []*PolyCVec eta; dimension [paramK]
+	for i := 0; i < pp.paramK; i++ {
+		err = pp.writePolyCVecEta(w, prf.zs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return w.Bytes(), nil
+}
+
+// deserializeRpulpProofMLP deserialize the input serializedRpulpProofMLP to a rpulpProofMLP
+// finished and review on 2023.12.04
+func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*rpulpProofMLP, error) {
+
+	r := bytes.NewReader(serializedRpulpProofMLP)
+
+	// rpUlpType RpUlpTypeMLP
+	rpUlpType, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	// nL        uint8
+	nL, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	// nR        uint8
+	nR, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	n := int(nL + nR)
+
+	// c_waves []*PolyCNTT; length n
+	c_waves := make([]*PolyCNTT, n)
+	for i := 0; i < n; i++ {
+		c_waves[i], err = pp.readPolyCNTT(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//c_hat_g *PolyCNTT
+	c_hat_g, err := pp.readPolyCNTT(r)
+	if err != nil {
+		return nil, err
+	}
+
+	//psi     *PolyCNTT
+	psi, err := pp.readPolyCNTT(r)
+	if err != nil {
+		return nil, err
+	}
+
+	//phi     *PolyCNTT
+	phi, err := pp.readPolyCNTT(r)
+	if err != nil {
+		return nil, err
+	}
+
+	//chseed  []byte
+	chseed := make([]byte, HashOutputBytesLen)
+	_, err = r.Read(chseed)
+	if err != nil {
+		return nil, err
+	}
+
+	//cmt_zs  [][]*PolyCVec eta; dimension [paramK][n]
+	cmt_zs := make([][]*PolyCVec, pp.paramK)
+	for i := 0; i < pp.paramK; i++ {
+		cmt_zs[i] = make([]*PolyCVec, n)
+		for j := 0; j < n; j++ {
+			cmt_zs[i][j], err = pp.readPolyCVecEta(r)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	//zs      []*PolyCVec eta; dimension [paramK]
+	zs := make([]*PolyCVec, pp.paramK)
+	for i := 0; i < pp.paramK; i++ {
+		zs[i], err = pp.readPolyCVecEta(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &rpulpProofMLP{
+		rpUlpType: RpUlpTypeMLP(rpUlpType),
+		nL:        nL,
+		nR:        nR,
+		c_waves:   c_waves,
+		c_hat_g:   c_hat_g,
+		psi:       psi,
+		phi:       phi,
+		chseed:    chseed,
+		cmt_zs:    cmt_zs,
+		zs:        zs,
+	}, nil
+}
+
+//func (pp *PublicParameter) decideRpUlpType(nL uint8, nR uint8, vRPub uint64) (RpUlpTypeMLP, error) {
+//	if int(nL) > pp.paramI || int(nR) > pp.paramJ {
+//		return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the input nL(%d) or nR(%d) exceeds the allowed maximum scope [0, %d] (input-side), [0, %d] (output-side)", nL, nR, pp.paramI, pp.paramJ)
+//	}
+//	if nL == 0 {
+//		if nR == 0 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
+//		} else if nR == 1 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
+//		} else {
+//			// nR >= 2
+//			return RpUlpTypeL0Rn, nil
+//		}
+//	} else if nL == 1 {
+//		if nR == 0 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
+//		} else if nR == 1 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
+//		} else {
+//			// nR >= 2
+//			return RpUlpTypeL1Rn, nil
+//		}
+//	} else {
+//		// nL >= 2
+//		if nR == 0 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) should implemented by (nL=%d, nR=%d)", nL, nR, nR, nL)
+//		} else if nR == 1 {
+//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
+//		} else {
+//			// nR >= 2
+//			return RpUlpTypeLmRn, nil
+//		}
+//	}
+//}
 
 //	BPF		end

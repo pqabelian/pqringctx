@@ -390,6 +390,7 @@ func (pp *PublicParameter) genTxWitnessCbTxI0Cn(cbTxCon []byte, vL uint64, cmtRs
 
 	return &TxWitnessCbTxI0Cn{
 		txCase:       TxCaseCbTxI0Cn,
+		outForRing:   uint8(len(cmtRs)),
 		balanceProof: bpf,
 	}, nil
 }

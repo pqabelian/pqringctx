@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cryptosuite/pqringct/pqringctkem"
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"log"
 	"reflect"
 	"testing"
@@ -2554,7 +2554,7 @@ func TestPublicParameter_SerializeTxo_DeserializeTxo(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	Ckem := RandomBytes(pqringctkem.GetKemCiphertextBytesLen(pp.paramKem))
+	Ckem := RandomBytes(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))
 
 	txo := &Txo{
 		AddressPublicKey: apk,
@@ -2628,7 +2628,7 @@ func TestPublicParameter_SerializeLgrTxo_DeserializeLgrTxo(t *testing.T) {
 	length := pp.TxoValueBytesLen()
 	vct := RandomBytes(length)
 
-	Ckem := RandomBytes(pqringctkem.GetKemCiphertextBytesLen(pp.paramKem))
+	Ckem := RandomBytes(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))
 
 	txo := &Txo{
 		AddressPublicKey: apk,

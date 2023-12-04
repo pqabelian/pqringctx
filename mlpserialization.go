@@ -501,7 +501,7 @@ func (pp *PublicParameter) DeserializeTxWitnessMLP(serializedTxWitness []byte) (
 	case TxCaseCbTxI0C1:
 		return pp.deserializeTxWitnessCbTxI0C1(serializedTxWitness)
 	case TxCaseCbTxI0Cn:
-		return pp.deserializeTxWitnessCbTxI0C2(serializedTxWitness)
+		return pp.deserializeTxWitnessCbTxI0Cn(serializedTxWitness)
 	default:
 		return nil, errors.New("DeserializeTxWitnessMLP: the input serializedTxWitness has a TxCase that is not supported")
 	}
@@ -558,7 +558,7 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C0(serializedTxWitnessCbTxI
 // Finished and reviewed on 2023.12.04.
 func (pp *PublicParameter) TxWitnessCbTxI0C1SerializeSize() int {
 	n := 1 + //	txCase       TxCase
-		pp.balanceProofL0R1SerializedSize() //	balanceProof *balanceProofL0R1
+		pp.balanceProofL0R1SerializeSize() //	balanceProof *balanceProofL0R1
 	return n
 }
 
@@ -607,7 +607,7 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C1(serializedTxWitnessCbTxI
 		return nil, errors.New("deserializeTxWitnessCbTxI0C1: the deserialized TxCase is not TxCaseCbTxI0C1")
 	}
 
-	serializedBpf := make([]byte, pp.balanceProofL0R1SerializedSize())
+	serializedBpf := make([]byte, pp.balanceProofL0R1SerializeSize())
 	_, err = r.Read(serializedBpf)
 	if err != nil {
 		return nil, err
@@ -623,18 +623,80 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C1(serializedTxWitnessCbTxI
 	}, nil
 }
 
-// todo
+// TxWitnessCbTxI0CnSerializeSizeByDesc returns the serialized size of TxWitnessCbTxI0Cn, according to the number of RingCT-privacy coins at the output side.
 func (pp *PublicParameter) TxWitnessCbTxI0CnSerializeSize(outForRing uint8) int {
 	n := 1 + //	txCase       TxCase
-		pp.balanceProofLmRnSerializedSizeByCommNum(0, outForRing) //	balanceProof *balanceProofLmRn
+		1 + // outForRing uint8
+		pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing) //	balanceProof *balanceProofLmRn
 	return n
 }
 
-func (pp *PublicParameter) serializeTxWitnessCbTxI0Cn(txWitnessCbTxI0C2 *TxWitnessCbTxI0Cn) ([]byte, error) {
-	return nil, nil
+func (pp *PublicParameter) serializeTxWitnessCbTxI0Cn(txWitnessCbTxI0Cn *TxWitnessCbTxI0Cn) ([]byte, error) {
+	if txWitnessCbTxI0Cn == nil {
+		return nil, errors.New("serializeTxWitnessCbTxI0Cn: the input txWitnessCbTxI0Cn is nil")
+	}
+
+	if txWitnessCbTxI0Cn.txCase != TxCaseCbTxI0Cn {
+		return nil, fmt.Errorf("serializeTxWitnessCbTxI0Cn: the TxCase of input txWitnessCbTxI0Cn is %d rather than the expected TxCaseCbTxI0Cn (%d)", txWitnessCbTxI0Cn.txCase, TxCaseCbTxI0Cn)
+	}
+
+	w := bytes.NewBuffer(make([]byte, 0, pp.TxWitnessCbTxI0CnSerializeSize(txWitnessCbTxI0Cn.outForRing)))
+
+	// txCase       TxCase
+	err := w.WriteByte(byte(txWitnessCbTxI0Cn.txCase))
+	if err != nil {
+		return nil, err
+	}
+
+	// outForRing   uint8
+	err = w.WriteByte(txWitnessCbTxI0Cn.outForRing)
+	if err != nil {
+		return nil, err
+	}
+
+	//  balanceProof *balanceProofL0Rn
+	serializedBpf, err := pp.serializeBalanceProofLmRn(txWitnessCbTxI0Cn.balanceProof)
+	if err != nil {
+		return nil, err
+	}
+	_, err = w.Write(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+
+	return w.Bytes(), nil
 }
-func (pp *PublicParameter) deserializeTxWitnessCbTxI0C2(serializedTxWitnessCbTxI0C2 []byte) (*TxWitnessCbTxI0Cn, error) {
-	return nil, nil
+func (pp *PublicParameter) deserializeTxWitnessCbTxI0Cn(serializedTxWitnessCbTxI0Cn []byte) (*TxWitnessCbTxI0Cn, error) {
+	r := bytes.NewReader(serializedTxWitnessCbTxI0Cn)
+
+	txCase, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	if txCase != byte(TxCaseCbTxI0Cn) {
+		return nil, errors.New("deserializeTxWitnessCbTxI0Cn: the deserialized TxCase is not TxCaseCbTxI0Cn")
+	}
+
+	outForRing, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	serializedBpf := make([]byte, pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing))
+	_, err = r.Read(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+	bpf, err := pp.deserializeBalanceProofLmRn(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxWitnessCbTxI0Cn{
+		txCase:       TxCaseCbTxI0Cn,
+		outForRing:   outForRing,
+		balanceProof: bpf,
+	}, nil
 }
 
 //	TxWitness Serialization	end
