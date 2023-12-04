@@ -11,7 +11,7 @@ func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOu
 	V := uint64(1)<<pp.paramN - 1
 
 	if vin > V {
-		return nil, errors.New("CoinbaseTxGenMLP: vin is not in [0, V]")
+		return nil, fmt.Errorf("CoinbaseTxGenMLP: vin (%d) is not in [0, V= %d]", vin, V)
 	}
 
 	if len(txOutputDescMLPs) == 0 || len(txOutputDescMLPs) > pp.paramJ+pp.paramJSingle {
@@ -72,11 +72,11 @@ func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOu
 	// generate the output using txoGen
 	for j, txOutputDescMLP := range txOutputDescMLPs {
 		if txOutputDescMLP.value > V {
-			return nil, fmt.Errorf("txOutputDescMLPs[%d].value is not in [0, V]", j)
+			return nil, fmt.Errorf("txOutputDescMLPs[%d].value (%d) is not in [0, %d]", j, txOutputDescMLP.value, V)
 		}
 		vout += txOutputDescMLP.value
 		if vout > V {
-			return nil, fmt.Errorf("the total output value is not in [0, V]")
+			return nil, fmt.Errorf("the total output value is not in [0, %d]", V)
 		}
 
 		coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(txOutputDescMLP.coinAddress)
@@ -315,7 +315,7 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, vin uint64) (txo *TxoSD
 
 //	TxWitness		begin
 
-func (pp *PublicParameter) GetCbTxWitnessSerializeSizeApprox(coinAddressList [][]byte) (int, error) {
+func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
 	if len(coinAddressList) == 0 {
 		return 0, errors.New("GetCbTxWitnessSerializeSizeApprox: the input coinAddressList is empty")
 
@@ -352,15 +352,14 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeApprox(coinAddressList [][
 		return 0, errors.New(errStr)
 	}
 
-	// todo(MLP):
 	//	Note that coinbaseTx's witness contains only bpf.
 	if outForRing == 0 {
-		return pp.TxWitnessCbTxI0C0SerializeSize()
+		return pp.TxWitnessCbTxI0C0SerializeSize(), nil
 	} else if outForRing == 1 {
-		return pp.TxWitnessCbTxI0C1SerializeSize()
+		return pp.TxWitnessCbTxI0C1SerializeSize(), nil
 	} else {
 		// outForRing > 1
-		return pp.TxWitnessCbTxI0CnSerializeSize(uint8(outForRing)) // Note that outForRing < pp.GetTxOutputMaxNumForRing(), should be in the scope of uint8.
+		return pp.TxWitnessCbTxI0CnSerializeSize(uint8(outForRing)), nil // Note that outForRing < pp.GetTxOutputMaxNumForRing(), should be in the scope of uint8.
 	}
 }
 
@@ -657,7 +656,7 @@ balanceProofL0RnRestart:
 	return &balanceProofLmRn{
 		balanceProofCase: BalanceProofCaseLmRn,
 		leftCommNum:      0,
-		rightCommNum:     nR,
+		rightCommNum:     uint8(nR), // Note that nR has been checked previously, being smaller than paramJ
 		// bpf
 		b_hat:      b_hat,
 		c_hats:     c_hats,
@@ -781,16 +780,3 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uin
 }
 
 //	TxWitness		end
-
-// BPF		begin
-func (pp *PublicParameter) GetBpfL0R1Size() (int, error) {
-	// todo(MLP): todo
-	return 0, nil
-}
-
-func (pp *PublicParameter) GetBpfL0R2Size(nR int) (int, error) {
-	// todo(MLP): todo
-	return 0, nil
-}
-
-//	BPF		end

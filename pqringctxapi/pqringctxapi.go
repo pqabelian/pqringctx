@@ -144,8 +144,9 @@ func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
 
 // APIs for Witness 	begin
 
+// todo rename,as this is accurate size
 func GetCbTxWitnessSerializeSizeApprox(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
-	return pp.GetCbTxWitnessSerializeSizeApprox(coinAddressListPayTo)
+	return pp.GetCbTxWitnessSerializeSizeByDesc(coinAddressListPayTo)
 }
 
 func SerializeTxWitness(pp *PublicParameter, txWitness TxWitnessMLP) ([]byte, error) {

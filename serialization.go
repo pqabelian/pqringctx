@@ -471,6 +471,13 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 	return polyCNTT, nil
 }
 
+func (pp *PublicParameter) PolyCNTTVecSerializeSizeByVecLen(vecLen int) int {
+	if vecLen <= 0 {
+		return VarIntSerializeSize(0)
+	}
+	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyCNTTSerializeSize()
+}
+
 func (pp *PublicParameter) PolyCNTTVecSerializeSize(c *PolyCNTTVec) int {
 	if c == nil {
 		return VarIntSerializeSize(0)
@@ -609,6 +616,14 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 		}
 	}
 	return rst, nil
+}
+
+// PolyCVecSerializeSizeEtaByVecLen can compute the seralized size for a PolyCVec with vecLen.
+func (pp *PublicParameter) PolyCVecSerializeSizeEtaByVecLen(vecLen int) int {
+	if vecLen <= 0 {
+		return VarIntSerializeSize(0)
+	}
+	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyCSerializeSizeEta()
 }
 
 func (pp *PublicParameter) PolyCVecSerializeSizeEta(a *PolyCVec) int {

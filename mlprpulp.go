@@ -5,6 +5,16 @@ import (
 	"math/big"
 )
 
+type BalanceProofCase uint8
+
+const (
+	BalanceProofCaseL0R1 = 0
+	BalanceProofCaseL0Rn = 1
+	BalanceProofCaseL1R1 = 2
+	BalanceProofCaseL1Rn = 3
+	BalanceProofCaseLmRn = 4
+)
+
 type RpUlpTypeMLP uint8
 
 const (
@@ -13,10 +23,99 @@ const (
 	RpUlpTypeLmRn RpUlpTypeMLP = 2 //	A_{L2R2}
 )
 
+type rpulpProofMLP struct {
+	rpUlpType RpUlpTypeMLP
+	nL        uint8
+	nR        uint8
+	// proof
+	c_waves []*PolyCNTT //	lenth n
+	c_hat_g *PolyCNTT
+	psi     *PolyCNTT
+	phi     *PolyCNTT
+	chseed  []byte
+	//	cmt_zs and zs, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
+	//	That is why here we use PolyCVec rather than PolyCNTTVec.
+	cmt_zs [][]*PolyCVec //	length n (J for CbTxWitnessJ2, I+J for TrTxWitness), each length paramK, each in (S_{eta_c - beta_c})^{L_c}
+	zs     []*PolyCVec   //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+type balanceProof interface {
+	BalanceProofCase() BalanceProofCase
+	LeftCommNum() uint8
+	RightCommNum() uint8
+}
+
+// balanceProofL0R1 is for the case of v = cmt
+type balanceProofL0R1 struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      uint8
+	rightCommNum     uint8
+	// bpf
+	chseed []byte
+	// zs, as the response, need to have infinite normal in a scopr, say [-(eta_c - beta_c), (eta_c - beta_c)].
+	// That is why we use PolyCVec rather than PolyCNTTVec.
+	zs []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+func (bpf *balanceProofL0R1) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofL0R1) LeftCommNum() uint8 {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofL0R1) RightCommNum() uint8 {
+	return bpf.rightCommNum
+}
+
+// todo
+type balanceProofL1R1 struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      uint8
+	rightCommNum     uint8
+	// bpf
+	psi    *PolyCNTT
+	chseed []byte
+	//	zs1 and zs2, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
+	//	That is why here we use PolyCVec rather than PolyCNTTVec.
+	zs1 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+	zs2 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+}
+
+func (bpf *balanceProofL1R1) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofL1R1) LeftCommNum() uint8 {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofL1R1) RightCommNum() uint8 {
+	return bpf.rightCommNum
+}
+
+type balanceProofLmRn struct {
+	balanceProofCase BalanceProofCase
+	leftCommNum      uint8
+	rightCommNum     uint8
+	// bpf
+	b_hat      *PolyCNTTVec
+	c_hats     []*PolyCNTT // length J+2
+	u_p        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c J.
+	rpulpproof *rpulpProofMLP
+}
+
+func (bpf *balanceProofLmRn) BalanceProofCase() BalanceProofCase {
+	return bpf.balanceProofCase
+}
+func (bpf *balanceProofLmRn) LeftCommNum() uint8 {
+	return bpf.leftCommNum
+}
+func (bpf *balanceProofLmRn) RightCommNum() uint8 {
+	return bpf.rightCommNum
+}
+
 func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte,
-	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProof, err error) {
+	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProofMLP, err error) {
 
 	// c_waves[i] = <h_i, r_i> + m_i
 	c_waves := make([]*PolyCNTT, n)
@@ -261,14 +360,17 @@ rpUlpProveMLPRestart:
 		}
 	}
 
-	retrpulppi := &rpulpProof{
-		c_waves: c_waves,
-		c_hat_g: c_hat_g,
-		psi:     psi,
-		phi:     phi,
-		chseed:  chseed,
-		cmt_zs:  cmt_zs,
-		zs:      zs,
+	retrpulppi := &rpulpProofMLP{
+		rpUlpType: rpulpType,
+		nL:        nL,
+		nR:        nR,
+		c_waves:   c_waves,
+		c_hat_g:   c_hat_g,
+		psi:       psi,
+		phi:       phi,
+		chseed:    chseed,
+		cmt_zs:    cmt_zs,
+		zs:        zs,
 	}
 
 	return retrpulppi, nil
@@ -278,7 +380,11 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
-	rpulppi *rpulpProof) (valid bool) {
+	rpulppi *rpulpProofMLP) (valid bool) {
+
+	if rpulppi.rpUlpType != rpulpType || rpulppi.nL != nL || rpulppi.nR != nR {
+		return false
+	}
 
 	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
 		return false
@@ -1172,3 +1278,66 @@ func (pp *PublicParameter) collectBytesForRPULP2MLP(
 	}
 	return rst
 }
+
+// balanceProofL0R1SerializedSize returned the serialized size for balanceProofL0R1.
+// finished and reviewed on 2023.12.04
+// todo(MLP): whether need to serialize leftCommNum and rightCommNum
+func (pp *PublicParameter) balanceProofL0R1SerializedSize() int {
+	n := 1 + // balanceProofCase BalanceProofCase
+		1 + // leftCommNum      uint8
+		1 + // rightCommNum     uint8
+		HashOutputBytesLen + // chseed           []byte
+		+pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) // zs        []*PolyCVec : length pp.paramK, each Vec has length pp.paramLC
+	return n
+}
+
+// balanceProofLmRnSerializedSizeByCommNum returns the serilaize size for balanceProofLmRn,
+// according to the left-side commitment number nL and the right-side commitment number nR.
+// finished and reviewed on 2023.12.04.
+// todo(MLP): whether need to serialize leftCommNum and rightCommNum
+func (pp *PublicParameter) balanceProofLmRnSerializedSizeByCommNum(nL uint8, nR uint8) int {
+	length := 1 + // balanceProofCase BalanceProofCase
+		1 + // leftCommNum      uint8
+		1 + // rightCommNum     uint8
+		pp.PolyCNTTVecSerializeSizeByVecLen(pp.paramKC) // b_hat            *PolyCNTTVec, with length pp.paramKC
+
+	n := nL + nR // the number of commitments to call rpulpProofMLPProve
+	n2 := n      //	the number of commitments for c_hats
+	if nL == 0 {
+		//	A_{L0R2}
+		n2 = n + 2 // f_R, e
+	} else if nL == 1 {
+		// A_{L1R2}
+		n2 = n + 2 // f_R, e
+	} else if nL >= 2 {
+		// A_{L2R2}
+		n2 = n + 4 // m_{sum}, f_L, f_R, e
+	}
+
+	length = length + VarIntSerializeSize(uint64(n2))    // n
+	length = length + int(n2)*pp.PolyCNTTSerializeSize() // c_hats           []*PolyCNTT
+	length = length + pp.paramDC*8                       //	u_p              []int64	, with length pp.paramDC
+	length = length + pp.rpulpProofMLPSerializeSizeByCommNum(nL, nR)
+
+	return length
+}
+
+// rpulpProofMLPSerializeSizeByCommNum returns the serilaized size for a range and balance proof among n commitments.
+// Input two params nL and nR, rather than n = nL + nR, to avoid confusion.
+//
+//	finished and review on 2023.12.04
+func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
+	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
+
+	n := nL + nR
+	length := VarIntSerializeSize(uint64(n)) + // n
+		int(n)*lengthOfPolyCNTT + // c_waves   []*PolyCNTT, with length n
+		3*lengthOfPolyCNTT + // c_hat_g,psi,phi  *PolyCNTT
+		HashOutputBytesLen + // chseed    []byte
+		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec, with length [pp.paramK][n], each PolyCVec ahs length pp.paramLC
+		pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) //	zs        []*PolyCVec,	with length [pp.paramK], each PolyCVec ahs length pp.paramLC
+
+	return length
+}
+
+//	BPF		end

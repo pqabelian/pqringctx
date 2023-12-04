@@ -31,6 +31,8 @@ func (pp *PublicParameter) GetTxoMLPSerializeSize(coinAddressType CoinAddressTyp
 	}
 }
 
+// TxoMLPSerializeSize returns the serializedSize for the input TxoMLP.
+// reviewed on 2023.12.04
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
 		return 0, errors.New("TxoMLPSerializeSize: the input TxoMLP is nil")
@@ -109,6 +111,8 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 	}
 }
 
+// TxoRCTPreSerializeSize returns the serialized size for TxoRCTPre.
+// review on 2023.12.04.
 func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 	return pp.AddressPublicKeyForRingSerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
@@ -205,6 +209,8 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 		ctKem}, nil
 }
 
+// TxoRCTSerializeSize returns the serialized size for TxoRCT.
+// review on 2023.12.04.
 func (pp *PublicParameter) TxoRCTSerializeSize() int {
 	return 1 + // for coinAddressType
 		pp.AddressPublicKeyForRingSerializeSize() +
@@ -317,6 +323,8 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 		ctKem}, nil
 }
 
+// TxoSDNSerializeSize returns the serialized size for TxoSDN.
+// review on 2023.12.04.
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
@@ -387,6 +395,14 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoRCT []byte) (*TxoSDN, 
 //	Txo Serialization	end
 
 // TxWitness Serialization	begin
+
+// todo
+func (pp *PublicParameter) TxWitnessMLPSerializeSizeByDesc() (int, error) {
+	return 0, nil
+}
+
+// TxWitnessMLPSerializeSize returns the serialized size for the input TxWitnessMLP.
+// reviewed on 2023.12.04 todo
 func (pp *PublicParameter) TxWitnessMLPSerializeSize(txWitnessMLP TxWitnessMLP) (int, error) {
 	if txWitnessMLP == nil {
 		return 0, errors.New("TxWitnessMLPSerializeSize: the input txWitnessMLP is nil")
@@ -398,27 +414,30 @@ func (pp *PublicParameter) TxWitnessMLPSerializeSize(txWitnessMLP TxWitnessMLP) 
 			errStr := fmt.Sprintf("TxWitnessMLPSerializeSize: the input txWitnessMLP is TxWitnessCbTxI0C0, but the TxCase %d does not match", txWitnessMLP.TxCase())
 			return 0, errors.New(errStr)
 		}
-		return pp.TxWitnessCbTxI0C0SerializeSize()
+		return pp.TxWitnessCbTxI0C0SerializeSize(), nil
 
 	case *TxWitnessCbTxI0C1:
 		if txWitnessMLP.TxCase() != TxCaseCbTxI0C1 {
 			errStr := fmt.Sprintf("TxWitnessMLPSerializeSize: the input txWitnessMLP is TxWitnessCbTxI0C1, but the TxCase %d does not match", txWitnessMLP.TxCase())
 			return 0, errors.New(errStr)
 		}
-		return pp.TxWitnessCbTxI0C1SerializeSize()
+		return pp.TxWitnessCbTxI0C1SerializeSize(), nil
 
 	case *TxWitnessCbTxI0Cn:
 		if txWitnessMLP.TxCase() != TxCaseCbTxI0Cn {
 			errStr := fmt.Sprintf("TxWitnessMLPSerializeSize: the input txWitnessMLP is TxWitnessCbTxI0Cn, but the TxCase %d does not match", txWitnessMLP.TxCase())
 			return 0, errors.New(errStr)
 		}
-		return pp.TxWitnessCbTxI0CnSerializeSize(uint8(txWitnessInst.balanceProof.RightCommNum()))
+		return pp.TxWitnessCbTxI0CnSerializeSize(txWitnessInst.balanceProof.RightCommNum()), nil
+
+		// todo: more cases
 
 	default:
 		return 0, errors.New("TxoMLPSerializeSize: the input TxoMLP is not TxoRCTPre, TxoRCT, TxoSDN")
 	}
 }
 
+// todo(MLP): to finish and review, 2023.12.04
 func (pp *PublicParameter) SerializeTxWitnessMLP(txWitnessMLP TxWitnessMLP) (serializedTxWitness []byte, err error) {
 	if txWitnessMLP == nil {
 		return nil, errors.New("SerializeTxWitness: the input TxWitnessMLP is nil")
@@ -486,11 +505,15 @@ func (pp *PublicParameter) DeserializeTxWitnessMLP(serializedTxWitness []byte) (
 	}
 }
 
-func (pp *PublicParameter) TxWitnessCbTxI0C0SerializeSize() (int, error) {
+// TxWitnessCbTxI0C0SerializeSize returns the serialized size for TxWitnessCbTxI0C0.
+// reviewed on 2023.12.04
+func (pp *PublicParameter) TxWitnessCbTxI0C0SerializeSize() int {
 	// TxWitnessCbTxI0C0 actually does not contain any witness, and only contain its TxCase.
-	return 1, nil
+	return 1
 }
 
+// serializeTxWitnessCbTxI0C0 serializes the input txWitnessCbTxI0C0.
+// reviewed on 2023.12.04
 func (pp *PublicParameter) serializeTxWitnessCbTxI0C0(txWitnessCbTxI0C0 *TxWitnessCbTxI0C0) ([]byte, error) {
 	if txWitnessCbTxI0C0 == nil {
 		return nil, errors.New("serializeTxWitnessCbTxI0C0: the input txWitnessCbTxI0C0 is nil")
@@ -511,6 +534,8 @@ func (pp *PublicParameter) serializeTxWitnessCbTxI0C0(txWitnessCbTxI0C0 *TxWitne
 	return w.Bytes(), nil
 }
 
+// deserializeTxWitnessCbTxI0C0 deserializes the input []byte to a txWitnessCbTxI0C0.
+// reviewed on 2023.12.04
 func (pp *PublicParameter) deserializeTxWitnessCbTxI0C0(serializedTxWitnessCbTxI0C0 []byte) (*TxWitnessCbTxI0C0, error) {
 	r := bytes.NewReader(serializedTxWitnessCbTxI0C0)
 
@@ -527,13 +552,12 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C0(serializedTxWitnessCbTxI
 	}, nil
 }
 
-// todo
-func (pp *PublicParameter) TxWitnessCbTxI0C1SerializeSize() (int, error) {
-	//if txWitnessCbTxI0C1 == nil {
-	//	return 0, errors.New("TxWitnessCbTxI0C1SerializeSize: the input txWitnessCbTxI0C1 is nil")
-	//}
-	//// TxWitnessCbTxI0C0 actually does not contain any witness, and only contain its TxCase.
-	return 1, nil
+// TxWitnessCbTxI0C1SerializeSize returns the serilaized size for TxWitnessCbTxI0C1.
+// Finished and reviewed on 2023.12.04.
+func (pp *PublicParameter) TxWitnessCbTxI0C1SerializeSize() int {
+	n := 1 + //	txCase       TxCase
+		pp.balanceProofL0R1SerializedSize() //	balanceProof *balanceProofL0R1
+	return n
 }
 
 func (pp *PublicParameter) serializeTxWitnessCbTxI0C1(txWitnessCbTxI0C1 *TxWitnessCbTxI0C1) ([]byte, error) {
@@ -544,12 +568,10 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C1(serializedTxWitnessCbTxI
 }
 
 // todo
-func (pp *PublicParameter) TxWitnessCbTxI0CnSerializeSize(nR uint8) (int, error) {
-	//if txWitnessCbTxI0C1 == nil {
-	//	return 0, errors.New("TxWitnessCbTxI0C1SerializeSize: the input txWitnessCbTxI0C1 is nil")
-	//}
-	//// TxWitnessCbTxI0C0 actually does not contain any witness, and only contain its TxCase.
-	return 1, nil
+func (pp *PublicParameter) TxWitnessCbTxI0CnSerializeSize(outForRing uint8) int {
+	n := 1 + //	txCase       TxCase
+		pp.balanceProofLmRnSerializedSizeByCommNum(0, outForRing) //	balanceProof *balanceProofLmRn
+	return n
 }
 
 func (pp *PublicParameter) serializeTxWitnessCbTxI0Cn(txWitnessCbTxI0C2 *TxWitnessCbTxI0Cn) ([]byte, error) {
@@ -563,6 +585,8 @@ func (pp *PublicParameter) deserializeTxWitnessCbTxI0C2(serializedTxWitnessCbTxI
 
 // Tx Serialization	begin
 
+// CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.
+// reviewed on 2023.12.04
 func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWitness bool) (int, error) {
 	var length int
 

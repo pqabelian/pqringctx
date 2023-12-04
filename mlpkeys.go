@@ -246,6 +246,8 @@ func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSin
 	return true, ""
 }
 
+// AddressPublicKeyForRingSerializeSize returns the serialized size for AddressPublicKeyForRing.
+// review on 2023.12.04.
 func (pp *PublicParameter) AddressPublicKeyForRingSerializeSize() int {
 	//return pp.PolyANTTVecSerializeSize(a.t) + pp.PolyANTTSerializeSize()
 	return (pp.paramKA + 1) * pp.PolyANTTSerializeSize()

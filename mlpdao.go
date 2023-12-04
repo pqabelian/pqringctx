@@ -16,14 +16,6 @@ const (
 	TxCaseCbTxI0Cn = 2
 )
 
-type BalanceProofCase uint8
-
-const (
-	BalanceProofCaseL0R1 = 0
-	BalanceProofCaseL1R1 = 1
-	BalanceProofCaseLmRn = 2
-)
-
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
 // As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels
 // and consequently have different structures,
@@ -238,89 +230,3 @@ type simpsSignatureMLP struct {
 }
 
 //	Signatures	end
-
-// BPFs	begin
-type rpulpProofMLP struct {
-	c_waves []*PolyCNTT //	lenth n
-	c_hat_g *PolyCNTT
-	psi     *PolyCNTT
-	phi     *PolyCNTT
-	chseed  []byte
-	//	cmt_zs and zs, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
-	//	That is why here we use PolyCVec rather than PolyCNTTVec.
-	cmt_zs [][]*PolyCVec //	length n (J for CbTxWitnessJ2, I+J for TrTxWitness), each length paramK, each in (S_{eta_c - beta_c})^{L_c}
-	zs     []*PolyCVec   //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
-}
-
-type balanceProof interface {
-	BalanceProofCase() BalanceProofCase
-	LeftCommNum() int
-	RightCommNum() int
-}
-
-type balanceProofL0R1 struct {
-	balanceProofCase BalanceProofCase
-	leftCommNum      int
-	rightCommNum     int
-	// bpf
-	chseed []byte
-	// zs, as the response, need to have infinite normal in a scopr, say [-(eta_c - beta_c), (eta_c - beta_c)].
-	// That is why we use PolyCVec rather than PolyCNTTVec.
-	zs []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
-}
-
-func (bpf *balanceProofL0R1) BalanceProofCase() BalanceProofCase {
-	return bpf.balanceProofCase
-}
-func (bpf *balanceProofL0R1) LeftCommNum() int {
-	return bpf.leftCommNum
-}
-func (bpf *balanceProofL0R1) RightCommNum() int {
-	return bpf.rightCommNum
-}
-
-type balanceProofL1R1 struct {
-	balanceProofCase BalanceProofCase
-	leftCommNum      int
-	rightCommNum     int
-	// bpf
-	psi    *PolyCNTT
-	chseed []byte
-	//	zs1 and zs2, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
-	//	That is why here we use PolyCVec rather than PolyCNTTVec.
-	zs1 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
-	zs2 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
-}
-
-func (bpf *balanceProofL1R1) BalanceProofCase() BalanceProofCase {
-	return bpf.balanceProofCase
-}
-func (bpf *balanceProofL1R1) LeftCommNum() int {
-	return bpf.leftCommNum
-}
-func (bpf *balanceProofL1R1) RightCommNum() int {
-	return bpf.rightCommNum
-}
-
-type balanceProofLmRn struct {
-	balanceProofCase BalanceProofCase
-	leftCommNum      int
-	rightCommNum     int
-	// bpf
-	b_hat      *PolyCNTTVec
-	c_hats     []*PolyCNTT // length J+2
-	u_p        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c J.
-	rpulpproof *rpulpProof
-}
-
-func (bpf *balanceProofLmRn) BalanceProofCase() BalanceProofCase {
-	return bpf.balanceProofCase
-}
-func (bpf *balanceProofLmRn) LeftCommNum() int {
-	return bpf.leftCommNum
-}
-func (bpf *balanceProofLmRn) RightCommNum() int {
-	return bpf.rightCommNum
-}
-
-//	BPFs	end
