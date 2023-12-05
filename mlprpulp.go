@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -14,22 +15,30 @@ const (
 	RpUlpTypeLmRn RpUlpTypeMLP = 2 //	A_{L2R2}
 )
 
+// rpulpProofMLP define the range-proof and unstructed-linear-relation-proof.
+// All the three cases, say (RpUlpTypeL0Rn, RpUlpTypeL1Rn, and RpUlpTypeLmRn), have the same structures.
+// Concrete rpulpProofMLP instances may have different sizes, depending on the number of commitments, say n := nL + nR.
+// Here we give explicit nL and nR, rather than n, to keep more fine-grained data, in case the future extension. In addition,
+// rpUlpType is actually computed from nL and nR by the caller/creator or rpulpProofMLP instance. To be self-contained, we put (nL, nR) in rpulpProofMLP.
+// reviewed on 2023.12.05.
 type rpulpProofMLP struct {
 	rpUlpType RpUlpTypeMLP
 	nL        uint8
 	nR        uint8
 	// proof
-	c_waves []*PolyCNTT //	lenth n
+	c_waves []*PolyCNTT //	length n := nL + nR
 	c_hat_g *PolyCNTT
 	psi     *PolyCNTT
 	phi     *PolyCNTT
 	chseed  []byte
 	//	cmt_zs and zs, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
 	//	That is why here we use PolyCVec rather than PolyCNTTVec.
-	cmt_zs [][]*PolyCVec //	length n (J for CbTxWitnessJ2, I+J for TrTxWitness), each length paramK, each in (S_{eta_c - beta_c})^{L_c}
-	zs     []*PolyCVec   //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
+	cmt_zs [][]*PolyCVec //	dimension [paramK][n], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
+	zs     []*PolyCVec   //	dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
 }
 
+// rpulpProveMLP generates rpulpProofMLP for the input cmts, including range proof and unstructured-linear-relation proof.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte,
@@ -148,7 +157,10 @@ rpUlpProveMLPRestart:
 	//fmt.Printf("Prove\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
-	p := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
+	p, err := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
+	if err != nil {
+		return nil, err
+	}
 
 	//	phi
 	phi := pp.NewZeroPolyCNTT()
@@ -294,11 +306,17 @@ rpUlpProveMLPRestart:
 	return retrpulppi, nil
 }
 
+// rpulpVerifyMLP verifies rpulpProofMLP for the input cmts, range proof and unstructured-linear-relation proof.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	rpulppi *rpulpProofMLP) (valid bool) {
+
+	if rpulppi == nil {
+		return false
+	}
 
 	if rpulppi.rpUlpType != rpulpType || rpulppi.nL != nL || rpulppi.nR != nR {
 		return false
@@ -364,9 +382,6 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//	return false
 	//}
 
-	if rpulppi == nil {
-		return false
-	}
 	if len(rpulppi.c_waves) != int(n) {
 		return false
 	}
@@ -528,7 +543,10 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//fmt.Printf("Verify\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
-	p := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
+	p, err := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
+	if err != nil {
+		return false
+	}
 
 	//	phip
 	phip := pp.NewZeroPolyCNTT()
@@ -636,7 +654,9 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	return true
 }
 
-func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
+// genUlpPolyCNTTsMLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
+// reviewed on 2023.12.05
+func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, gammas [][][]int64) (ps [][]*PolyCNTT, err error) {
 	p := make([][]*PolyCNTT, pp.paramK)
 	//	var tmp1, tmp2 big.Int
 
@@ -644,7 +664,10 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 	case RpUlpTypeL0Rn:
 		//	nL=0, nR >=2: A_{L0R2}
 		// n := J
-		n := nR // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
+		if nL != 0 {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL0Rn, but nL(%d) is not 0 as expected", nL)
+		}
+		n := nL + nR // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
 		n2 := n + 2
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
@@ -737,6 +760,9 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 	case RpUlpTypeL1Rn:
 		//	(nL==1 AND nR >=2) OR ( nL==1 AND (nR===1 AND vRPub>0) ): A_{L1R2}
 		// n := I + J
+		if nL != 1 {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL1Rn, but nL(%d) is not 1 as expected", nL)
+		}
 		n := nL + nR // n = 1+nR, note that the following computation is based on such a setting.
 		n2 := n + 2
 		// m = 3
@@ -834,8 +860,11 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 		}
 
 	case RpUlpTypeLmRn:
-		//	(nL>=2 AND nR >=2): A_{L2R2}
+		//	(nL>=2 AND nR >=1): A_{L2R2}
 		// n := int(I + J)
+		if nL < 2 {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL1Rn, but nL(%d) is not >=2 as expected", nL)
+		}
 		n := nL + nR
 		n2 := n + 4
 		//	B : d rows 2d columns
@@ -1014,9 +1043,11 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 		}
 	}
 
-	return p
+	return p, nil
 }
 
+// collectBytesForRPULP1MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
+// reviewed on 2023.12.05
 func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
@@ -1034,9 +1065,9 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 		int(m)*pp.paramDC*8 + // u_hats [][]int64
 		int(n)*pp.paramDC*8 + // c_waves []*PolyCNTT, length n
 		pp.paramDC*8 + // c_hat_g *PolyCNTT
-		pp.paramK*int(n)*(pp.paramLC*pp.paramDC*8) + //
-		int(n)*pp.paramK*pp.paramDC*8*2 + // delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT,
-		pp.paramK*(pp.paramLC*pp.paramDC*8) // ws []*PolyCNTTVec
+		pp.paramK*int(n)*(pp.paramKC*pp.paramDC*8) + // cmt_ws [][]*PolyCNTTVec
+		pp.paramK*int(n)*pp.paramDC*8*2 + // delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT,
+		pp.paramK*(pp.paramKC*pp.paramDC*8) // ws []*PolyCNTTVec
 
 	rst := make([]byte, 0, length)
 
@@ -1078,7 +1109,7 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 	rst = append(rst, n)
 
 	// b_hat
-	for i := 0; i < pp.paramKC; i++ {
+	for i := 0; i < len(b_hat.polyCNTTs); i++ {
 		appendPolyNTTToBytes(b_hat.polyCNTTs[i])
 	}
 	// c_hats []*PolyCNTT with length n2
@@ -1157,7 +1188,8 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 	return rst
 }
 
-// collectBytesForRPULP2 is an auxiliary function for rpulpProve and rpulpVerify to collect some information into a byte slice
+// collectBytesForRPULP2MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
+// reviewed on 2023.12.05
 func (pp *PublicParameter) collectBytesForRPULP2MLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
@@ -1200,6 +1232,7 @@ func (pp *PublicParameter) collectBytesForRPULP2MLP(
 // rpulpProofMLPSerializeSizeByCommNum returns the serialized size for a range and balance proof among n commitments.
 // Input two params nL and nR, rather than n = nL + nR, to avoid confusion.
 // finished and review on 2023.12.04
+// reviewed on 2023.12.05
 func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
 
@@ -1208,14 +1241,15 @@ func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint
 		int(n)*lengthOfPolyCNTT + // c_waves   []*PolyCNTT, with length n
 		3*lengthOfPolyCNTT + // c_hat_g,psi,phi  *PolyCNTT
 		HashOutputBytesLen + // chseed    []byte
-		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec, with dimension [pp.paramK][n], each PolyCVec ahs length pp.paramLC
-		pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) //	zs        []*PolyCVec,	with length [pp.paramK], each PolyCVec ahs length pp.paramLC
+		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec: dimension [pp.paramK][n], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
+		pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) //	zs        []*PolyCVec: dimension [pp.paramK], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
 
 	return length
 }
 
 // serializeRpulpProofMLP serialize the input rpulpProofMLP to []byte.
 // finished and review on 2023.12.04
+// reviewed on 2023.12.05
 func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, error) {
 	if prf == nil || prf.c_waves == nil ||
 		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
@@ -1280,7 +1314,7 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, e
 		return nil, err
 	}
 
-	//cmt_zs  [][]*PolyCVec eta; dimension [paramK][n]
+	//cmt_zs  [][]*PolyCVec eta: dimension [paramK][n]
 	for i := 0; i < pp.paramK; i++ {
 		for j := 0; j < n; j++ {
 			err = pp.writePolyCVecEta(w, prf.cmt_zs[i][j])
@@ -1290,7 +1324,7 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, e
 		}
 	}
 
-	//zs      []*PolyCVec eta; dimension [paramK]
+	//zs      []*PolyCVec eta: dimension [paramK]
 	for i := 0; i < pp.paramK; i++ {
 		err = pp.writePolyCVecEta(w, prf.zs[i])
 		if err != nil {
@@ -1303,6 +1337,7 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, e
 
 // deserializeRpulpProofMLP deserialize the input serializedRpulpProofMLP to a rpulpProofMLP
 // finished and review on 2023.12.04
+// reviewed on 2023.12.05
 func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*rpulpProofMLP, error) {
 
 	r := bytes.NewReader(serializedRpulpProofMLP)
@@ -1361,7 +1396,7 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 		return nil, err
 	}
 
-	//cmt_zs  [][]*PolyCVec eta; dimension [paramK][n]
+	//cmt_zs  [][]*PolyCVec eta: dimension [paramK][n]
 	cmt_zs := make([][]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
 		cmt_zs[i] = make([]*PolyCVec, n)
@@ -1373,7 +1408,7 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 		}
 	}
 
-	//zs      []*PolyCVec eta; dimension [paramK]
+	//zs      []*PolyCVec eta: dimension [paramK]
 	zs := make([]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
 		zs[i], err = pp.readPolyCVecEta(r)
