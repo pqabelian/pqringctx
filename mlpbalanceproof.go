@@ -15,14 +15,14 @@ const (
 	BalanceProofCaseLmRn BalanceProofCase = 4
 )
 
-type balanceProof interface {
+type BalanceProof interface {
 	BalanceProofCase() BalanceProofCase
 	LeftCommNum() uint8
 	RightCommNum() uint8
 }
 
 // balanceProofL0R1 is for the case of v = cmt
-type balanceProofL0R1 struct {
+type BalanceProofL0R1 struct {
 	balanceProofCase BalanceProofCase
 	leftCommNum      uint8
 	rightCommNum     uint8
@@ -33,18 +33,18 @@ type balanceProofL0R1 struct {
 	zs []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
 }
 
-func (bpf *balanceProofL0R1) BalanceProofCase() BalanceProofCase {
+func (bpf *BalanceProofL0R1) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
-func (bpf *balanceProofL0R1) LeftCommNum() uint8 {
+func (bpf *BalanceProofL0R1) LeftCommNum() uint8 {
 	return bpf.leftCommNum
 }
-func (bpf *balanceProofL0R1) RightCommNum() uint8 {
+func (bpf *BalanceProofL0R1) RightCommNum() uint8 {
 	return bpf.rightCommNum
 }
 
 // todo
-type balanceProofL1R1 struct {
+type BalanceProofL1R1 struct {
 	balanceProofCase BalanceProofCase
 	leftCommNum      uint8
 	rightCommNum     uint8
@@ -57,17 +57,17 @@ type balanceProofL1R1 struct {
 	zs2 []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
 }
 
-func (bpf *balanceProofL1R1) BalanceProofCase() BalanceProofCase {
+func (bpf *BalanceProofL1R1) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
-func (bpf *balanceProofL1R1) LeftCommNum() uint8 {
+func (bpf *BalanceProofL1R1) LeftCommNum() uint8 {
 	return bpf.leftCommNum
 }
-func (bpf *balanceProofL1R1) RightCommNum() uint8 {
+func (bpf *BalanceProofL1R1) RightCommNum() uint8 {
 	return bpf.rightCommNum
 }
 
-type balanceProofLmRn struct {
+type BalanceProofLmRn struct {
 	balanceProofCase BalanceProofCase
 	leftCommNum      uint8
 	rightCommNum     uint8
@@ -78,13 +78,13 @@ type balanceProofLmRn struct {
 	rpulpproof *rpulpProofMLP
 }
 
-func (bpf *balanceProofLmRn) BalanceProofCase() BalanceProofCase {
+func (bpf *BalanceProofLmRn) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
-func (bpf *balanceProofLmRn) LeftCommNum() uint8 {
+func (bpf *BalanceProofLmRn) LeftCommNum() uint8 {
 	return bpf.leftCommNum
 }
-func (bpf *balanceProofLmRn) RightCommNum() uint8 {
+func (bpf *BalanceProofLmRn) RightCommNum() uint8 {
 	return bpf.rightCommNum
 }
 
@@ -100,7 +100,7 @@ func (pp *PublicParameter) balanceProofL0R1SerializeSize() int {
 	return n
 }
 
-func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *balanceProofL0R1) ([]byte, error) {
+func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *BalanceProofL0R1) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R1SerializeSize()))
 
@@ -145,7 +145,7 @@ func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *balanceProofL0R1) ([]b
 	return w.Bytes(), nil
 }
 
-func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*balanceProofL0R1, error) {
+func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*BalanceProofL0R1, error) {
 
 	r := bytes.NewReader(serializdBpfL0R1)
 
@@ -188,7 +188,7 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) 
 		}
 	}
 
-	return &balanceProofL0R1{
+	return &BalanceProofL0R1{
 		balanceProofCase: BalanceProofCaseL0R1,
 		leftCommNum:      leftCommNum,
 		rightCommNum:     rightCommNum,
@@ -228,7 +228,7 @@ func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR u
 	return length
 }
 
-func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *balanceProofLmRn) ([]byte, error) {
+func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofLmRnSerializeSizeByCommNum(bpf.leftCommNum, bpf.rightCommNum)))
 
@@ -295,7 +295,7 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *balanceProofLmRn) ([]b
 	return w.Bytes(), nil
 }
 
-func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte) (*balanceProofLmRn, error) {
+func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte) (*BalanceProofLmRn, error) {
 	r := bytes.NewReader(serializedBpfLmRn)
 
 	// balanceProofCase BalanceProofCase
@@ -373,7 +373,7 @@ func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte)
 		return nil, err
 	}
 
-	return &balanceProofLmRn{
+	return &BalanceProofLmRn{
 		balanceProofCase: BalanceProofCaseLmRn,
 		leftCommNum:      leftCommNum,
 		rightCommNum:     rightCommNum,
