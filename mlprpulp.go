@@ -15,13 +15,13 @@ const (
 	RpUlpTypeLmRn RpUlpTypeMLP = 2 //	A_{L2R2}
 )
 
-// rpulpProofMLP define the range-proof and unstructed-linear-relation-proof.
+// RpulpProofMLP define the range-proof and unstructed-linear-relation-proof.
 // All the three cases, say (RpUlpTypeL0Rn, RpUlpTypeL1Rn, and RpUlpTypeLmRn), have the same structures.
 // Concrete rpulpProofMLP instances may have different sizes, depending on the number of commitments, say n := nL + nR.
 // Here we give explicit nL and nR, rather than n, to keep more fine-grained data, in case the future extension. In addition,
 // rpUlpType is actually computed from nL and nR by the caller/creator or rpulpProofMLP instance. To be self-contained, we put (nL, nR) in rpulpProofMLP.
 // reviewed on 2023.12.05.
-type rpulpProofMLP struct {
+type RpulpProofMLP struct {
 	rpUlpType RpUlpTypeMLP
 	nL        uint8
 	nR        uint8
@@ -42,7 +42,7 @@ type rpulpProofMLP struct {
 func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte,
-	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *rpulpProofMLP, err error) {
+	nL uint8, nR uint8, m uint8, u_hats [][]int64) (rpulppi *RpulpProofMLP, err error) {
 
 	// c_waves[i] = <h_i, r_i> + m_i
 	c_waves := make([]*PolyCNTT, n)
@@ -290,7 +290,7 @@ rpUlpProveMLPRestart:
 		}
 	}
 
-	retrpulppi := &rpulpProofMLP{
+	retrpulppi := &RpulpProofMLP{
 		rpUlpType: rpulpType,
 		nL:        nL,
 		nR:        nR,
@@ -312,7 +312,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
-	rpulppi *rpulpProofMLP) (valid bool) {
+	rpulppi *RpulpProofMLP) (valid bool) {
 
 	if rpulppi == nil {
 		return false
@@ -1250,7 +1250,7 @@ func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint
 // serializeRpulpProofMLP serialize the input rpulpProofMLP to []byte.
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
-func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, error) {
+func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, error) {
 	if prf == nil || prf.c_waves == nil ||
 		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
 		len(prf.chseed) == 0 ||
@@ -1338,7 +1338,7 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *rpulpProofMLP) ([]byte, e
 // deserializeRpulpProofMLP deserialize the input serializedRpulpProofMLP to a rpulpProofMLP
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
-func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*rpulpProofMLP, error) {
+func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*RpulpProofMLP, error) {
 
 	r := bytes.NewReader(serializedRpulpProofMLP)
 
@@ -1417,7 +1417,7 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 		}
 	}
 
-	return &rpulpProofMLP{
+	return &RpulpProofMLP{
 		rpUlpType: RpUlpTypeMLP(rpUlpType),
 		nL:        nL,
 		nR:        nR,
