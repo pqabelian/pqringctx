@@ -2,6 +2,7 @@ package pqringctx
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 )
 

@@ -16,55 +16,6 @@ const (
 	TxCaseCbTxI0Cn = 2
 )
 
-// TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
-// As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels
-// and consequently have different structures,
-// here we use []byte to denote Txo (in its serialized form).
-// type TxoMLP []byte
-// Note: We do not define standalone structure for Txo.
-//
-//	Instead, we directly use []byte in Txs to denote Txo, rather than using a structure.
-//	This is because:
-//	Txo is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of Txo.
-//	PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
-type TxoMLP interface {
-	CoinAddressType() CoinAddressType
-}
-
-type TxoRCTPre struct {
-	coinAddressType         CoinAddressType
-	addressPublicKeyForRing *AddressPublicKeyForRing
-	valueCommitment         *ValueCommitment
-	vct                     []byte //	value ciphertext
-	ctKemSerialized         []byte //  ciphertext for kem
-}
-
-func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
-	return txoRCTPre.coinAddressType
-}
-
-type TxoRCT struct {
-	coinAddressType         CoinAddressType
-	addressPublicKeyForRing *AddressPublicKeyForRing
-	valueCommitment         *ValueCommitment
-	vct                     []byte //	value ciphertext
-	ctKemSerialized         []byte //  ciphertext for kem
-}
-
-func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
-	return txoRCT.coinAddressType
-}
-
-type TxoSDN struct {
-	coinAddressType               CoinAddressType
-	addressPublicKeyForSingleHash []byte
-	value                         uint64
-}
-
-func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
-	return txoSDN.coinAddressType
-}
-
 // LgrTxoMLP consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/database.
 // TxoId-in-ledger is determined by the ledger layer.
 // In other words, a Txo becomes a coin (i.e., LgrTxo) only when it is assigned a unique txoId-in-ledger.
