@@ -19,10 +19,17 @@ import (
 //	This is because:
 //	Txo is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of Txo.
 //	PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
+//
+
+// TxoMLP defines the interface for Txo.
+// reviewed on 2023.12.05
 type TxoMLP interface {
 	CoinAddressType() CoinAddressType
 }
 
+// TxoRCTPre defines the Txo with RingCT-privacy, but the coinAddress has the initial format.
+// This is to achieve back-compatibility with the previous Txos (with RingCT-privacy).
+// reviewed on 2023.12.05
 type TxoRCTPre struct {
 	coinAddressType         CoinAddressType
 	addressPublicKeyForRing *AddressPublicKeyForRing
@@ -31,10 +38,14 @@ type TxoRCTPre struct {
 	ctKemSerialized         []byte //  ciphertext for kem
 }
 
+// CoinAddressType is the method that all TxoMLP instance shall implement.
+// reviewed on 2023.12.05
 func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
 	return txoRCTPre.coinAddressType
 }
 
+// TxoRCT defines the Txo with RingCT-privacy.
+// reviewed on 2023.12.05
 type TxoRCT struct {
 	coinAddressType         CoinAddressType
 	addressPublicKeyForRing *AddressPublicKeyForRing
@@ -43,22 +54,27 @@ type TxoRCT struct {
 	ctKemSerialized         []byte //  ciphertext for kem
 }
 
+// CoinAddressType is the method that all TxoMLP instance shall implement.
+// reviewed on 2023.12.05
 func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 	return txoRCT.coinAddressType
 }
 
+// TxoSDN defines the Txo with Pseudonym-privacy.
+// reviewed on 2023.12.05
 type TxoSDN struct {
 	coinAddressType               CoinAddressType
 	addressPublicKeyForSingleHash []byte
 	value                         uint64
 }
 
+// CoinAddressType is the method that all TxoMLP instance shall implement.
+// reviewed on 2023.12.05
 func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
 
-// Txo Serialization	begin
-func (pp *PublicParameter) GetTxoMLPSerializeSize(coinAddressType CoinAddressType) (int, error) {
+func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
 		return pp.TxoRCTPreSerializeSize(), nil
@@ -67,7 +83,7 @@ func (pp *PublicParameter) GetTxoMLPSerializeSize(coinAddressType CoinAddressTyp
 	case CoinAddressTypePublicKeyHashForSingle:
 		return pp.TxoSDNSerializeSize(), nil
 	default:
-		return 0, errors.New("TxoMLPSerializeSize: unsupported coinAddressType")
+		return 0, fmt.Errorf("TxoMLPSerializeSize: unsupported coinAddressType")
 	}
 }
 
@@ -75,69 +91,63 @@ func (pp *PublicParameter) GetTxoMLPSerializeSize(coinAddressType CoinAddressTyp
 // reviewed on 2023.12.04
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
-		return 0, errors.New("TxoMLPSerializeSize: the input TxoMLP is nil")
+		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is nil")
 	}
 
 	switch txoMLP.(type) {
 	case *TxoRCTPre:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRingPre {
-			errStr := fmt.Sprintf("TxoMLPSerializeSize: the input TxoMLP is TxoRCTPre, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return 0, errors.New(errStr)
+			return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is TxoRCTPre, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.TxoRCTPreSerializeSize(), nil
 
 	case *TxoRCT:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRing {
-			errStr := fmt.Sprintf("TxoMLPSerializeSize: the input TxoMLP is TxoRCT, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return 0, errors.New(errStr)
+			return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is TxoRCT, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.TxoRCTSerializeSize(), nil
 
 	case *TxoSDN:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
-			errStr := fmt.Sprintf("TxoMLPSerializeSize: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return 0, errors.New(errStr)
+			return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.TxoSDNSerializeSize(), nil
 	default:
-		return 0, errors.New("TxoMLPSerializeSize: the input TxoMLP is not TxoRCTPre, TxoRCT, TxoSDN")
+		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is not TxoRCTPre, TxoRCT, TxoSDN")
 	}
 }
 
 func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte, err error) {
 	if txoMLP == nil {
-		return nil, errors.New("SerializeTxoMLP: the input TxoMLP is nil")
+		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is nil")
 	}
 
 	switch txoInst := txoMLP.(type) {
 	case *TxoRCTPre:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRingPre {
-			errStr := fmt.Sprintf("SerializeTxoMLP: the input TxoMLP is TxoRCTPre, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return nil, errors.New(errStr)
+			return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is TxoRCTPre, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.serializeTxoRCTPre(txoInst)
 
 	case *TxoRCT:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRing {
-			errStr := fmt.Sprintf("SerializeTxoMLP: the input TxoMLP is TxoRCT, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return nil, errors.New(errStr)
+			return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is TxoRCT, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.serializeTxoRCT(txoInst)
 
 	case *TxoSDN:
 		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
-			errStr := fmt.Sprintf("SerializeTxoMLP: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
-			return nil, errors.New(errStr)
+			return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.serializeTxoSDN(txoInst)
 	default:
-		return nil, errors.New("SerializeTxoMLP: the input TxoMLP is not TxoRCTPre, TxoRCT, TxoSDN")
+		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is not TxoRCTPre, TxoRCT, TxoSDN")
 	}
 }
 
 func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoMLP, err error) {
 	if serializedTxo == nil {
-		return nil, errors.New("DeserializeTxoMLP: the input serializedTxo is nil")
+		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo is nil")
 	}
 	n := len(serializedTxo)
 	if n == pp.TxoRCTPreSerializeSize() {
@@ -153,15 +163,19 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 
 // TxoRCTPreSerializeSize returns the serialized size for TxoRCTPre.
 // review on 2023.12.04.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
-	return pp.AddressPublicKeyForRingSerializeSize() +
+	return pp.addressPublicKeyForRingSerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
 		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 }
 
+// serializeTxoRCTPre serialize the input TxoRCTPre into []byte.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, error) {
-	if txoRCTPre == nil || txoRCTPre.addressPublicKeyForRing == nil || txoRCTPre.valueCommitment == nil {
+	if txoRCTPre == nil || txoRCTPre.addressPublicKeyForRing == nil || txoRCTPre.valueCommitment == nil ||
+		len(txoRCTPre.vct) == 0 || len(txoRCTPre.ctKemSerialized) == 0 {
 		return nil, errors.New("serializeTxoRCTPre: there is nil pointer in the input txoRCTPre")
 	}
 
@@ -170,7 +184,7 @@ func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, err
 	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	serializedAddressPublicKey is fixed-length
-	serializedAddressPublicKeyForRing, err := pp.SerializeAddressPublicKeyForRing(txoRCTPre.addressPublicKeyForRing)
+	serializedAddressPublicKeyForRing, err := pp.serializeAddressPublicKeyForRing(txoRCTPre.addressPublicKeyForRing)
 	if err != nil {
 		return nil, err
 	}
@@ -204,17 +218,19 @@ func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, err
 	return w.Bytes(), nil
 }
 
+// deserializeTxoRCTPre deserialize the input []byte to a TxoRCTPre.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*TxoRCTPre, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCTPre)
 
 	var apk *AddressPublicKeyForRing
-	tmp := make([]byte, pp.AddressPublicKeyForRingSerializeSize())
+	tmp := make([]byte, pp.addressPublicKeyForRingSerializeSize())
 	_, err = r.Read(tmp)
 	if err != nil {
 		return nil, err
 	}
-	apk, err = pp.DeserializeAddressPublicKeyForRing(tmp)
+	apk, err = pp.deserializeAddressPublicKeyForRing(tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -249,19 +265,23 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 		ctKem}, nil
 }
 
-// TxoRCTSerializeSize returns the serialized size for TxoRCT.
+// TxoRCTSerializeSize returns the serialize size for TxoRCT.
 // review on 2023.12.04.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) TxoRCTSerializeSize() int {
 	return 1 + // for coinAddressType
-		pp.AddressPublicKeyForRingSerializeSize() +
+		pp.addressPublicKeyForRingSerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
 		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 }
 
+// serializeTxoRCT serialize the input TxoRCT to []byte.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
-	if txoRCT == nil || txoRCT.addressPublicKeyForRing == nil || txoRCT.valueCommitment == nil {
-		return nil, errors.New("serializeTxoRCT: there is nil pointer in the input txoRCT")
+	if txoRCT == nil || txoRCT.addressPublicKeyForRing == nil || txoRCT.valueCommitment == nil ||
+		len(txoRCT.vct) == 0 || len(txoRCT.ctKemSerialized) == 0 {
+		return nil, fmt.Errorf("serializeTxoRCT: there is nil pointer in the input txoRCT")
 	}
 
 	var err error
@@ -275,7 +295,7 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 	}
 
 	//	serializedAddressPublicKey is fixed-length
-	serializedAddressPublicKeyForRing, err := pp.SerializeAddressPublicKeyForRing(txoRCT.addressPublicKeyForRing)
+	serializedAddressPublicKeyForRing, err := pp.serializeAddressPublicKeyForRing(txoRCT.addressPublicKeyForRing)
 	if err != nil {
 		return nil, err
 	}
@@ -309,6 +329,8 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 	return w.Bytes(), nil
 }
 
+// deserializeTxoRCT deserialize the input []byte to a TxoRCT.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCT)
@@ -318,17 +340,17 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 	if err != nil {
 		return nil, err
 	}
-	if coinAddressType != byte(CoinAddressTypePublicKeyForRing) {
+	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyForRing {
 		return nil, errors.New("deserializeTxoRCT: the deserialized coinAddressType is not CoinAddressTypePublicKeyForRing")
 	}
 
 	var apk *AddressPublicKeyForRing
-	tmp := make([]byte, pp.AddressPublicKeyForRingSerializeSize())
+	tmp := make([]byte, pp.addressPublicKeyForRingSerializeSize())
 	_, err = r.Read(tmp)
 	if err != nil {
 		return nil, err
 	}
-	apk, err = pp.DeserializeAddressPublicKeyForRing(tmp)
+	apk, err = pp.deserializeAddressPublicKeyForRing(tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -365,15 +387,18 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 
 // TxoSDNSerializeSize returns the serialized size for TxoSDN.
 // review on 2023.12.04.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
 		8 // for value
 }
 
+// serializeTxoSDN serialize the input TxoSDN to []byte.
+// reviewed on 2023.12.05.
 func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
-	if txoSDN == nil || txoSDN.addressPublicKeyForSingleHash == nil {
-		return nil, errors.New("serializeTxoSDN: there is nil pointer in the input txoSDN")
+	if txoSDN == nil || len(txoSDN.addressPublicKeyForSingleHash) == 0 {
+		return nil, fmt.Errorf("serializeTxoSDN: there is nil pointer in the input txoSDN")
 	}
 
 	var err error
@@ -401,17 +426,19 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func (pp *PublicParameter) deserializeTxoSDN(serializedTxoRCT []byte) (*TxoSDN, error) {
+// deserializeTxoSDN deserialize the input []byte to a TxoSDN.
+// reviewed on 2023.12.05.
+func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, error) {
 	var err error
-	r := bytes.NewReader(serializedTxoRCT)
+	r := bytes.NewReader(serializedTxoSDN)
 
 	var coinAddressType byte
 	coinAddressType, err = r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	if coinAddressType != byte(CoinAddressTypePublicKeyHashForSingle) {
-		return nil, errors.New("deserializeTxoSDN: the deserialized coinAddressType is not CoinAddressTypePublicKeyHashForSingle")
+	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingle {
+		return nil, fmt.Errorf("deserializeTxoSDN: the deserialized coinAddressType is not CoinAddressTypePublicKeyHashForSingle")
 	}
 
 	apkHash := make([]byte, HashOutputBytesLen)
@@ -431,5 +458,3 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoRCT []byte) (*TxoSDN, 
 		apkHash,
 		value}, nil
 }
-
-//	Txo Serialization	end
