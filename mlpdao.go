@@ -65,63 +65,6 @@ func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
 
-// TxWitnessMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
-// As the TxWitnessMLP for different CoinbaseTxMLP/TransferTxMLP instances could have different structures,
-// here we use []byte to denote Txo (in its serialized form).
-// type TxWitnessMLP []byte
-// Note: We do not define standalone structure for TxWitness.
-//
-//	This is because:
-//	TxWitness is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of TxWitness.
-//	PQRINGCTX will be responsible for generating TxWitness and providing service/API on the generated TxWitness.
-type TxWitnessMLP interface {
-	TxCase() TxCase
-}
-
-type TxWitnessCbTxI0C0 struct {
-	txCase TxCase
-}
-
-func (txWitness *TxWitnessCbTxI0C0) TxCase() TxCase {
-	return txWitness.txCase
-}
-
-type TxWitnessCbTxI0C1 struct {
-	txCase       TxCase
-	balanceProof *balanceProofL0R1
-}
-
-func (txWitness *TxWitnessCbTxI0C1) TxCase() TxCase {
-	return txWitness.txCase
-}
-
-type TxWitnessCbTxI0Cn struct {
-	txCase       TxCase
-	outForRing   uint8
-	balanceProof *balanceProofLmRn
-}
-
-func (txWitness *TxWitnessCbTxI0Cn) TxCase() TxCase {
-	return txWitness.txCase
-}
-
-type TxWitnessTrTx struct {
-	txCase                     TxCase
-	ma_ps                      []*PolyANTT                  // length I_ring, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
-	cmt_ps                     []*ValueCommitment           // length I_ring, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
-	elrsSigs                   []*elrsSignatureMLP          // length I_ring, each for one RingCT-privacy Input.
-	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	simpsSigs                  []*simpsSignatureMLP         // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	b_hat                      *PolyCNTTVec
-	c_hats                     []*PolyCNTT //	length n_2: n_2 = I+J+2 for I=1, and n_2 = I+J+4 for I >= 2.
-	u_p                        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c (J+1) for I=1 and beta_f = D_c (I+J+1) for I >= 2.
-	rpulpproof                 *rpulpProofMLP
-}
-
-func (txWitness *TxWitnessTrTx) TxCase() TxCase {
-	return txWitness.txCase
-}
-
 // LgrTxoMLP consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/database.
 // TxoId-in-ledger is determined by the ledger layer.
 // In other words, a Txo becomes a coin (i.e., LgrTxo) only when it is assigned a unique txoId-in-ledger.
