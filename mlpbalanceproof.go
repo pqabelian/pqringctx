@@ -75,7 +75,7 @@ type BalanceProofLmRn struct {
 	b_hat      *PolyCNTTVec
 	c_hats     []*PolyCNTT // length J+2
 	u_p        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c J.
-	rpulpproof *rpulpProofMLP
+	rpulpproof *RpulpProofMLP
 }
 
 func (bpf *BalanceProofLmRn) BalanceProofCase() BalanceProofCase {
