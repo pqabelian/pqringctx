@@ -619,6 +619,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 }
 
 // PolyCVecSerializeSizeEtaByVecLen can compute the seralized size for a PolyCVec with vecLen.
+// reviewed on 2023.12.05
 func (pp *PublicParameter) PolyCVecSerializeSizeEtaByVecLen(vecLen int) int {
 	if vecLen <= 0 {
 		return VarIntSerializeSize(0)
