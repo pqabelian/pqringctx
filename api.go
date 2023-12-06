@@ -32,11 +32,11 @@ func AddressKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, []byte, er
 		return nil, nil, nil, err
 	}
 
-	serializedASksp, err := pp.SerializeAddressSecretKeySp(ask.AddressSecretKeySp)
+	serializedASksp, err := pp.serializeAddressSecretKeySp(ask.AddressSecretKeySp)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	serializedASksn, err := pp.SerializeAddressSecretKeySn(ask.AddressSecretKeySn)
+	serializedASksn, err := pp.serializeAddressSecretKeySn(ask.AddressSecretKeySn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -49,12 +49,12 @@ func AddressKeyVerify(pp *PublicParameter, serialzedAPk []byte, serializedASksp 
 		return false, err.Error()
 	}
 
-	asksp, err := pp.DeserializeAddressSecretKeySp(serializedASksp)
+	asksp, err := pp.deserializeAddressSecretKeySp(serializedASksp)
 	if err != nil {
 		return false, err.Error()
 	}
 
-	asksn, err := pp.DeserializeAddressSecretKeySn(serializedASksn)
+	asksn, err := pp.deserializeAddressSecretKeySn(serializedASksn)
 	if err != nil {
 		return false, err.Error()
 	}
