@@ -16,7 +16,8 @@ type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
 type TransferTxMLP = pqringctx.TransferTxMLP
 
 type TxoMLP = pqringctx.TxoMLP
-type TxWitnessMLP = pqringctx.TxWitnessMLP
+type TxWitnessCbTx = pqringctx.TxWitnessCbTx
+type TxWitnessTrTx = pqringctx.TxWitnessTrTx
 
 // InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
 // After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
@@ -63,7 +64,7 @@ func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDes
 	return pp.CoinbaseTxGenMLP(vin, txOutputDescs, txMemo)
 }
 
-func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness TxWitnessMLP) (cbTx *CoinbaseTxMLP) {
+func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) (cbTx *CoinbaseTxMLP) {
 	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitness)
 }
 
@@ -129,7 +130,7 @@ func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	if err != nil {
 		return 0, nil
 	}
-	return pp.GetTxoMLPSerializeSize(coinAddressType)
+	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
 }
 
 func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
@@ -149,12 +150,12 @@ func GetCbTxWitnessSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo
 	return pp.GetCbTxWitnessSerializeSizeByDesc(coinAddressListPayTo)
 }
 
-func SerializeTxWitness(pp *PublicParameter, txWitness TxWitnessMLP) ([]byte, error) {
-	return pp.SerializeTxWitnessMLP(txWitness)
+func SerializeTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]byte, error) {
+	return pp.SerializeTxWitnessCbTx(txWitness)
 }
 
-func DeserializeTxWitness(pp *PublicParameter, serializedTxWitness []byte) (TxWitnessMLP, error) {
-	return pp.DeserializeTxWitnessMLP(serializedTxWitness)
+func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessCbTx, error) {
+	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
 }
 
 // APIs for Witness 	end

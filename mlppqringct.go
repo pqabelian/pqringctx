@@ -319,15 +319,7 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 		return 0, errors.New(errStr)
 	}
 
-	//	Note that coinbaseTx's witness contains only bpf.
-	if outForRing == 0 {
-		return pp.TxWitnessCbTxI0C0SerializeSize(), nil
-	} else if outForRing == 1 {
-		return pp.TxWitnessCbTxI0C1SerializeSize(), nil
-	} else {
-		// outForRing > 1
-		return pp.TxWitnessCbTxI0CnSerializeSize(uint8(outForRing)), nil // Note that outForRing < pp.GetTxOutputMaxNumForRing(), should be in the scope of uint8.
-	}
+	return pp.TxWitnessCbTxSerializeSize(uint8(outForRing)), nil
 }
 
 //	TxWitness		end

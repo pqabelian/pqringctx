@@ -40,10 +40,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWit
 
 	// TxWitness
 	if withWitness {
-		witnessLen, err := pp.TxWitnessMLPSerializeSize(tx.txWitness)
-		if err != nil {
-			return 0, err
-		}
+		witnessLen := pp.TxWitnessCbTxSerializeSize(tx.txWitness.outForRing)
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
 
@@ -88,7 +85,7 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(tx *CoinbaseTxMLP, withWitness
 
 	if withWitness {
 
-		serializedTxWitness, err := pp.SerializeTxWitnessMLP(tx.txWitness)
+		serializedTxWitness, err := pp.SerializeTxWitnessCbTx(tx.txWitness)
 		if err != nil {
 			return nil, err
 		}
