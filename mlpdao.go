@@ -8,14 +8,6 @@ const (
 	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 2
 )
 
-type TxCase uint8
-
-const (
-	TxCaseCbTxI0C0 = 0
-	TxCaseCbTxI0C1 = 1
-	TxCaseCbTxI0Cn = 2
-)
-
 // LgrTxoMLP consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/database.
 // TxoId-in-ledger is determined by the ledger layer.
 // In other words, a Txo becomes a coin (i.e., LgrTxo) only when it is assigned a unique txoId-in-ledger.
@@ -38,7 +30,7 @@ type CoinbaseTxMLP struct {
 	vin       uint64
 	txos      []TxoMLP
 	txMemo    []byte
-	txWitness TxWitnessMLP
+	txWitness *TxWitnessCbTx
 }
 
 // TransferTxMLP is defined for transferTx.
@@ -48,7 +40,7 @@ type TransferTxMLP struct {
 	txos      []TxoMLP
 	fee       uint64
 	txMemo    []byte
-	txWitness TxWitnessMLP
+	txWitness *TxWitnessTrTx
 }
 
 // TxOutputDesc describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
@@ -86,7 +78,7 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 //	New functions for TxInputDesc and TxOutputDesc 	end
 
 // New and Get functions for Transactions	begin
-func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness TxWitnessMLP) *CoinbaseTxMLP {
+func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) *CoinbaseTxMLP {
 	return &CoinbaseTxMLP{
 		vin:       vin,
 		txos:      txos,
@@ -99,7 +91,7 @@ func (cbTx *CoinbaseTxMLP) GetTxos() []TxoMLP {
 	return cbTx.txos
 }
 
-func (cbTx *CoinbaseTxMLP) GetTxWitness() TxWitnessMLP {
+func (cbTx *CoinbaseTxMLP) GetTxWitness() *TxWitnessCbTx {
 	return cbTx.txWitness
 }
 
