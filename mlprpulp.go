@@ -19,7 +19,8 @@ const (
 // All the three cases, say (RpUlpTypeL0Rn, RpUlpTypeL1Rn, and RpUlpTypeLmRn), have the same structures.
 // Concrete rpulpProofMLP instances may have different sizes, depending on the number of commitments, say n := nL + nR.
 // Here we give explicit nL and nR, rather than n, to keep more fine-grained data, in case the future extension. In addition,
-// rpUlpType is actually computed from nL and nR by the caller/creator or rpulpProofMLP instance. To be self-contained, we put (nL, nR) in rpulpProofMLP.
+// rpUlpType is actually computed from nL and nR by the caller/creator or rpulpProofMLP instance.
+// To be self-contained, we put (nL, nR) in rpulpProofMLP.
 // reviewed on 2023.12.05.
 type RpulpProofMLP struct {
 	rpUlpType RpUlpTypeMLP
