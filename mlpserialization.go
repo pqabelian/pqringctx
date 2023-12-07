@@ -6,15 +6,6 @@ import (
 	"errors"
 )
 
-func (pp *PublicParameter) GetNullSerialNumber() []byte {
-	snSize := pp.ledgerTxoSerialNumberSerializeSize()
-	nullSn := make([]byte, snSize)
-	for i := 0; i < snSize; i++ {
-		nullSn[i] = 0
-	}
-	return nullSn
-}
-
 // Tx Serialization	begin
 
 // CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.

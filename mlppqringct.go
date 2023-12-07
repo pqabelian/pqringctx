@@ -323,3 +323,24 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 }
 
 //	TxWitness		end
+
+//	TxInput		begin
+
+// GetNullSerialNumberMLP returns null-serial-number.
+// reviewed on 2023.12.07.
+func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
+	snSize := pp.ledgerTxoSerialNumberMLPSerializeSize()
+	nullSn := make([]byte, snSize)
+	for i := 0; i < snSize; i++ {
+		nullSn[i] = 0
+	}
+	return nullSn
+}
+
+// ledgerTxoSerialNumberMLPSerializeSize returns serial size of null-serial-number.
+// reviewed on 2023.12.07.
+func (pp *PublicParameter) ledgerTxoSerialNumberMLPSerializeSize() int {
+	return HashOutputBytesLen
+}
+
+//	TxInput		end

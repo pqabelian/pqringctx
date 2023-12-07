@@ -74,6 +74,8 @@ func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
 
+// GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a Txo for the input coinAddressType.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:

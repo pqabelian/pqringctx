@@ -93,14 +93,20 @@ func GetCoinAddressSize(pp *PublicParameter, coinAddressType CoinAddressType) (i
 	return pp.GetCoinAddressSize(coinAddressType)
 }
 
+// GetCoinAddressSizeByCoinAddressKeyForRingGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForRingGen algorithm.
+// reviewed on 2023.12.07
 func GetCoinAddressSizeByCoinAddressKeyForRingGen(pp *PublicParameter) (int, error) {
 	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyForRing)
 }
 
+// GetCoinAddressSizeByCoinAddressKeyForSingleGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForSingleGen algorithm.
+// reviewed on 2023.12.07
 func GetCoinAddressSizeByCoinAddressKeyForSingleGen(pp *PublicParameter) (int, error) {
 	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
 }
 
+// GetCoinValuePublicKeySize returns the CoinValuePublicKey size.
+// reviewed on 2023.12.07
 func GetCoinValuePublicKeySize(pp *PublicParameter) int {
 	return pp.GetCoinValuePublicKeySize()
 }
@@ -108,6 +114,7 @@ func GetCoinValuePublicKeySize(pp *PublicParameter) int {
 //	API for AddressKeys	end
 
 // API for CryptoSchemeParams	begin
+// reviewed on 2023.12.07
 func GetParamSeedBytesLen(pp *PublicParameter) int {
 	return pp.GetParamSeedBytesLen()
 }
@@ -115,16 +122,20 @@ func GetParamSeedBytesLen(pp *PublicParameter) int {
 // API for CryptoSchemeParams	end
 
 // APIs	for TxIn	begin
+
+// GetNullSerialNumber returns the null-serial-number.
+// reviewed on 2023.12.07
 func GetNullSerialNumber(pp *PublicParameter) []byte {
-	return pp.GetNullSerialNumber()
+	return pp.GetNullSerialNumberMLP()
 }
 
 // APIs	for TxIn	end
 
 // APIs	for Txo	begin
 
-// GetTxoSerializeSize return the size of a Txo on coinAddress.
+// GetTxoSerializeSize return the size of a Txo on the input coinAddress.
 // Note that the Txos on coinAddresses with different types may have different formats and sizes.
+// reviewed on 2023.12.07
 func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 	if err != nil {

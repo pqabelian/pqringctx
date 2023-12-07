@@ -103,6 +103,15 @@ func TxoCoinReceive(pp *PublicParameter, txo *Txo, address []byte, serializedVPk
 	return bl, value, nil
 }
 
+func (pp *PublicParameter) GetNullSerialNumber() []byte {
+	snSize := pp.ledgerTxoSerialNumberSerializeSize()
+	nullSn := make([]byte, snSize)
+	for i := 0; i < snSize; i++ {
+		nullSn[i] = 0
+	}
+	return nullSn
+}
+
 // LedgerTxoSerialNumberGen() generates the Serial Number for a LgrTxo.
 func LedgerTxoSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxo, serializedAsksn []byte) ([]byte, error) {
 	sn, err := pp.ledgerTXOSerialNumberGen(lgrTxo, serializedAsksn)
