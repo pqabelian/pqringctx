@@ -16,8 +16,9 @@ func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOu
 	}
 
 	if len(txOutputDescMLPs) == 0 || len(txOutputDescMLPs) > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("CoinbaseTxGenMLP: the number of outputs is not in [1, %d]", pp.paramJ+pp.paramJSingle)
+		return nil, fmt.Errorf("CoinbaseTxGenMLP: the number of outputs (%d) is not in [1, %d]", len(txOutputDescMLPs), pp.paramJ+pp.paramJSingle)
 	}
+
 	// identify the J_ring
 	outForRing := 0
 	outForSingle := 0
@@ -101,6 +102,7 @@ func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOu
 			retCbTx.txos[j] = txoSDN
 			//cmts[j] = txoRCT.valueCommitment
 			//cmt_rs[j] = cmtr
+			//vRs[j] = txOutputDescMLP.value
 			voutPublic += txOutputDescMLP.value
 
 		default:
@@ -132,7 +134,8 @@ func (pp *PublicParameter) CoinbaseTxGenMLP(vin uint64, txOutputDescMLPs []*TxOu
 // It is same as the txoGen in pqringct, with coinAddress be exactly the serializedAddressPublicKey.
 // Note that the coinAddress should be serializedAddressPublicKeyForRing = serializedAddressPublicKey (in pqringct).
 // Note that the vpk should be serializedValuePublicKey = serializedViewPublicKey (in pqringct).
-func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, vin uint64) (txo *TxoRCTPre, cmtr *PolyCNTTVec, err error) {
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, value uint64) (txo *TxoRCTPre, cmtr *PolyCNTTVec, err error) {
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
 	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, vpk)
@@ -147,7 +150,7 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, vin uint
 	}
 	cmtr = pp.NTTPolyCVec(cmtr_poly)
 
-	mtmp := pp.intToBinary(vin)
+	mtmp := pp.intToBinary(value)
 	m := &PolyCNTT{coeffs: mtmp}
 	// [b c]^T = C*r + [0 m]^T
 	cmt := &ValueCommitment{}
@@ -163,7 +166,7 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, vin uint
 	if err != nil {
 		return nil, nil, err
 	}
-	vpt, err := pp.encodeTxoValueToBytes(vin)
+	vpt, err := pp.encodeTxoValueToBytes(value)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -202,7 +205,8 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, vin uint
 // txoGenRCT() returns a transaction output and the randomness used to generate the commitment.
 // Note that the coinAddress should be 1 byte (CoinAddressType) + serializedAddressPublicKeyForRing.
 // Note that the vpk should be 1 byte (CoinAddressType) + serializedValuePublicKey.
-func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, vin uint64) (txo *TxoRCT, cmtr *PolyCNTTVec, err error) {
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, value uint64) (txo *TxoRCT, cmtr *PolyCNTTVec, err error) {
 
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
@@ -218,7 +222,7 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, vin uint64)
 	}
 	cmtr = pp.NTTPolyCVec(cmtr_poly)
 
-	mtmp := pp.intToBinary(vin)
+	mtmp := pp.intToBinary(value)
 	m := &PolyCNTT{coeffs: mtmp}
 	// [b c]^T = C*r + [0 m]^T
 	cmt := &ValueCommitment{}
@@ -234,7 +238,7 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, vin uint64)
 	if err != nil {
 		return nil, nil, err
 	}
-	vpt, err := pp.encodeTxoValueToBytes(vin)
+	vpt, err := pp.encodeTxoValueToBytes(value)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,11 +274,12 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, vin uint64)
 
 // txoSDNGen() returns a transaction output and the randomness used to generate the commitment.
 // Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
-func (pp *PublicParameter) txoSDNGen(coinAddress []byte, vin uint64) (txo *TxoSDN) {
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN) {
 	return &TxoSDN{
 		CoinAddressTypePublicKeyHashForSingle,
 		coinAddress[1:],
-		vin,
+		value,
 	}
 }
 

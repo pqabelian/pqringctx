@@ -79,6 +79,7 @@ func (pp *PublicParameter) CoinAddressKeyForRingGen(randSeed []byte) (coinAddres
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.05
+// reviewed on 2023.12.07
 func (pp *PublicParameter) CoinAddressKeyForSingleGen(randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
 	apk, ask, err := pp.addressKeyForSingleGen(randSeed)
 	if err != nil {
@@ -103,9 +104,10 @@ func (pp *PublicParameter) CoinAddressKeyForSingleGen(randSeed []byte) (coinAddr
 	coinAddress[0] = byte(CoinAddressTypePublicKeyHashForSingle)
 	copy(coinAddress[1:], apkHash)
 
-	coinSpendKey = make([]byte, 1+len(serializedASKSp))
+	coinSpendKey = make([]byte, 1+len(serializedAPK)+len(serializedASKSp))
 	coinSpendKey[0] = byte(CoinAddressTypePublicKeyHashForSingle)
-	copy(coinSpendKey[1:], serializedASKSp)
+	copy(coinSpendKey[1:], serializedAPK)
+	copy(coinSpendKey[1+len(serializedAPK):], serializedASKSp)
 
 	return coinAddress, coinSpendKey, nil
 
@@ -118,6 +120,7 @@ func (pp *PublicParameter) CoinAddressKeyForSingleGen(randSeed []byte) (coinAddr
 // i.e., the ciphertexts are included in Txo.
 // As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
 // we use a standalone ValueKeyGen algorithm to generate these keys.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (serializedValuePublicKey []byte, serializedValueSecretKey []byte, err error) {
 	return pqringctxkem.KeyGen(pp.paramKem, randSeed, pp.paramKeyGenSeedBytesLen)
 }
@@ -189,10 +192,11 @@ func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
 // If the seed is not empty and has the correct length (which can be obtained by GetParamKeyGenSeedBytesLen() ), it is a deterministic algorithm,
 // where all randomness will be derived from the input seed.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) addressKeyForRingGen(seed []byte) (apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing, err error) {
 	// check the validity of the length of seed
 	if seed != nil && len(seed) != pp.paramKeyGenSeedBytesLen {
-		return nil, nil, errors.New("AddressKeyForRingGen: the length of seed is invalid")
+		return nil, nil, fmt.Errorf("AddressKeyForRingGen: the length of seed is invalid")
 	}
 	if seed == nil {
 		seed = RandomBytes(pp.paramKeyGenSeedBytesLen)
@@ -335,6 +339,7 @@ func (pp *PublicParameter) addressPublicKeyForRingSerializeSize() int {
 
 // serializeAddressPublicKeyForRing serialize the input AddressPublicKeyForRing to []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeAddressPublicKeyForRing(apk *AddressPublicKeyForRing) ([]byte, error) {
 	var err error
 	if apk == nil || apk.t == nil || apk.e == nil {
@@ -391,13 +396,14 @@ func (pp *PublicParameter) addressPublicKeyForSingleSerializeSize() int {
 
 // serializeAddressPublicKeyForSingle serialize the input AddressPublicKeyForSingle to []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeAddressPublicKeyForSingle(apk *AddressPublicKeyForSingle) ([]byte, error) {
 	var err error
 	if apk == nil || apk.t == nil {
-		return nil, errors.New("serializeAddressPublicKeyForSingle: there is nil pointer in AddressPublicKeyForSingle")
+		return nil, fmt.Errorf("serializeAddressPublicKeyForSingle: there is nil pointer in AddressPublicKeyForSingle")
 	}
 	if len(apk.t.polyANTTs) != pp.paramKA {
-		return nil, errors.New("serializeAddressPublicKeyForSingle: the format of AddressPublicKeyForSingle does not match the design")
+		return nil, fmt.Errorf("serializeAddressPublicKeyForSingle: the format of AddressPublicKeyForSingle does not match the design")
 	}
 
 	length := pp.addressPublicKeyForSingleSerializeSize()
@@ -439,14 +445,15 @@ func (pp *PublicParameter) addressSecretKeySpSerializeSize() int {
 
 // serializeAddressSecretKeySp serialize the input AddressSecretKeySp to []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeAddressSecretKeySp(askSp *AddressSecretKeySp) ([]byte, error) {
 	var err error
 	if askSp == nil || askSp.s == nil {
-		return nil, errors.New("serializeAddressSecretKeySp: there is nil pointer in AddressSecretKeySp")
+		return nil, fmt.Errorf("serializeAddressSecretKeySp: there is nil pointer in AddressSecretKeySp")
 	}
 
 	if len(askSp.s.polyAs) != pp.paramLA {
-		return nil, errors.New("the format of AddressSecretKeySp does not match the design")
+		return nil, fmt.Errorf("the format of AddressSecretKeySp does not match the design")
 	}
 
 	// s is in its poly form and it has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 5 at this moment,

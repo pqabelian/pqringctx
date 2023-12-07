@@ -91,6 +91,7 @@ func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressTy
 
 // TxoMLPSerializeSize returns the serializedSize for the input TxoMLP.
 // reviewed on 2023.12.04
+// reviewed on 2023.12.07
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
 		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is nil")
@@ -119,6 +120,8 @@ func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	}
 }
 
+// SerializeTxoMLP serializes the input TxoMLP to []byte.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte, err error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is nil")
@@ -166,6 +169,7 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 // TxoRCTPreSerializeSize returns the serialized size for TxoRCTPre.
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 	return pp.addressPublicKeyForRingSerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
@@ -175,10 +179,11 @@ func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 
 // serializeTxoRCTPre serialize the input TxoRCTPre into []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, error) {
 	if txoRCTPre == nil || txoRCTPre.addressPublicKeyForRing == nil || txoRCTPre.valueCommitment == nil ||
 		len(txoRCTPre.vct) == 0 || len(txoRCTPre.ctKemSerialized) == 0 {
-		return nil, errors.New("serializeTxoRCTPre: there is nil pointer in the input txoRCTPre")
+		return nil, fmt.Errorf("serializeTxoRCTPre: there is nil pointer in the input txoRCTPre")
 	}
 
 	var err error
@@ -270,6 +275,7 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 // TxoRCTSerializeSize returns the serialize size for TxoRCT.
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) TxoRCTSerializeSize() int {
 	return 1 + // for coinAddressType
 		pp.addressPublicKeyForRingSerializeSize() +
@@ -280,6 +286,7 @@ func (pp *PublicParameter) TxoRCTSerializeSize() int {
 
 // serializeTxoRCT serialize the input TxoRCT to []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 	if txoRCT == nil || txoRCT.addressPublicKeyForRing == nil || txoRCT.valueCommitment == nil ||
 		len(txoRCT.vct) == 0 || len(txoRCT.ctKemSerialized) == 0 {
@@ -390,6 +397,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 // TxoSDNSerializeSize returns the serialized size for TxoSDN.
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
@@ -398,6 +406,7 @@ func (pp *PublicParameter) TxoSDNSerializeSize() int {
 
 // serializeTxoSDN serialize the input TxoSDN to []byte.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 	if txoSDN == nil || len(txoSDN.addressPublicKeyForSingleHash) == 0 {
 		return nil, fmt.Errorf("serializeTxoSDN: there is nil pointer in the input txoSDN")

@@ -43,9 +43,10 @@ type TransferTxMLP struct {
 	txWitness *TxWitnessTrTx
 }
 
-// TxOutputDesc describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
+// TxOutputDescMLP describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
 // As the generated Txo will have privacy-level based on the coinAddress, TxOutputDescMLP is uniform for multi-privacy-levels.
 // In particular, to generate a coin on pseudonym-privacy address, the serializedVPK could be nil.
+// reviewed on 2023.12.07
 type TxOutputDescMLP struct {
 	coinAddress   []byte
 	serializedVPK []byte //	This is optional, could be nil
@@ -67,6 +68,9 @@ type TxInputDescMLP struct {
 }
 
 // New functions for TxInputDesc and TxOutputDesc 	begin
+
+// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, serializedVPK, value).
+// reviewed on 2023.12.07
 func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
 	return &TxOutputDescMLP{
 		coinAddress:   coinAddress,
@@ -87,10 +91,14 @@ func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWit
 	}
 }
 
+// GetTxos returns the handler CoinbaseTxMLP's txos.
+// reviewed on 2023.12.07
 func (cbTx *CoinbaseTxMLP) GetTxos() []TxoMLP {
 	return cbTx.txos
 }
 
+// GetTxWitness returns the handler CoinbaseTxMLP's txWitness.
+// reviewed on 2023.12.07
 func (cbTx *CoinbaseTxMLP) GetTxWitness() *TxWitnessCbTx {
 	return cbTx.txWitness
 }

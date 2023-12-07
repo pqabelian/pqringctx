@@ -10,6 +10,7 @@ import (
 
 // CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.
 // reviewed on 2023.12.04
+// reviewed on 2023.12.07
 func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWitness bool) (int, error) {
 	var length int
 
@@ -38,6 +39,8 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWit
 	return length, nil
 }
 
+// SerializeCoinbaseTxMLP serialize the input CoinbaseTxMLP to []byte.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) SerializeCoinbaseTxMLP(tx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
 	if tx == nil || len(tx.txos) == 0 {
 		return nil, errors.New("SerializeCoinbaseTxMLP: there is nil pointer in CoinbaseTx")

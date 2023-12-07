@@ -25,18 +25,20 @@ func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
 	return pqringctx.Initialize(parameterSeedString)
 }
 
-// AddressKeyForRingGen generates coinAddress, coinSpendKey, and coinSnKey
+// CoinAddressKeyForRingGen generates coinAddress, coinSpendKey, and coinSnKey
 // for the key which will be used to host the coins with full-privacy.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
+// reviewed on 2023.12.07
 func CoinAddressKeyForRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
 	return pp.CoinAddressKeyForRingGen(randSeed)
 }
 
-// AddressKeyGenForSingle generates coinAddress and coinSpendKey
+// CoinAddressKeyForSingleGen generates coinAddress and coinSpendKey
 // for the key which will be used to host the coins with pseudonym-privacy.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
+// reviewed on 2023.12.07
 func CoinAddressKeyForSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
 	return pp.CoinAddressKeyForSingleGen(randSeed)
 	//	return nil, nil, err
@@ -52,6 +54,8 @@ func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (serializedValuePubli
 	return pp.CoinValueKeyGen(randSeed)
 }
 
+// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
+// reviewed on 2023.12.07
 func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
 	return pqringctx.NewTxOutputDescMLP(coinAddress, serializedVPK, value)
 }
@@ -60,6 +64,7 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 // As the caller may decompose the components of the generated CoinbaseTx
 // to make a chain-layer transaction,
 // CoinbaseTxGen outputs a CoinbaseTxMLP, rather than a serialized Tx.
+// reviewed on 2023.12.07
 func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDescMLP, txMemo []byte) (cbTx *CoinbaseTxMLP, err error) {
 	return pp.CoinbaseTxGenMLP(vin, txOutputDescs, txMemo)
 }
@@ -144,6 +149,8 @@ func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
 }
 
+// SerializeTxo serialized the input TxoMLP to []byte.
+// reviewed on 2023.12.07
 func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
 	return pp.SerializeTxoMLP(txo)
 }
@@ -161,6 +168,8 @@ func GetCbTxWitnessSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo
 	return pp.GetCbTxWitnessSerializeSizeByDesc(coinAddressListPayTo)
 }
 
+// SerializeTxWitnessCbTx serializes the input TxWitnessCbTx into []byte.
+// reviewed on 2023.12.07
 func SerializeTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]byte, error) {
 	return pp.SerializeTxWitnessCbTx(txWitness)
 }

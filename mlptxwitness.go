@@ -212,7 +212,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is not in the supported cases")
 	}
 
-	_, err = w.Write(serializedBpf)
+	_, err = w.Write(serializedBpf) //	here the length of serializedBpf is not written, since it can be computed from outForRing.
 	if err != nil {
 		return nil, err
 	}
