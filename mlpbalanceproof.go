@@ -2,7 +2,6 @@ package pqringctx
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 )
 
@@ -15,21 +14,26 @@ const (
 	BalanceProofCaseLmRn BalanceProofCase = 3
 )
 
+// BalanceProof defines an interface for multiple types of balance-proof.
+// reviewed on 2023.12.07
 type BalanceProof interface {
 	BalanceProofCase() BalanceProofCase
 }
 
 // BalanceProofL0R0 is for the case where there are no commitments, so that the balance proof is actually empty.
+// reviewed on 2023.12.07
 type BalanceProofL0R0 struct {
 	balanceProofCase BalanceProofCase
 }
 
 // BalanceProofCase is a method that must be implemented to implement the interface BalanceProof.
+// reviewed on 2023.12.07
 func (bpf *BalanceProofL0R0) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
 
 // BalanceProofL0R1 is for the case of v = cmt.
+// reviewed on 2023.12.07
 type BalanceProofL0R1 struct {
 	balanceProofCase BalanceProofCase
 	// bpf
@@ -40,11 +44,13 @@ type BalanceProofL0R1 struct {
 }
 
 // BalanceProofCase is a method that must be implemented to implement the interface BalanceProof.
+// reviewed on 2023.12.07
 func (bpf *BalanceProofL0R1) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
 
 // BalanceProofL1R1 is for the case of cmt1 = cmt2
+// reviewed on 2023.12.07
 type BalanceProofL1R1 struct {
 	balanceProofCase BalanceProofCase
 	// bpf
@@ -57,44 +63,55 @@ type BalanceProofL1R1 struct {
 }
 
 // BalanceProofCase is a method that must be implemented to implement the interface BalanceProof.
+// reviewed on 2023.12.07
 func (bpf *BalanceProofL1R1) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
 
-// BalanceProofLmRn covers the cases where rpulpproof has to be used, including
+// BalanceProofLmRn covers the cases where rpulpProof has to be used, including
 // L0Rn:  v = cmt_1 + ... + cmt_n, where n >= 2
 // L1R1A: cmtL = cmtR + vRPub, where vRPub > 0
 // L1Rn:  cmtL = cmtR_1 + ... + cmtR_n + vRPub, where n >= 2
 // LmR1A: cmtL_1 + ... + cmtL_m = cmtR + vRPub, where vRPub > 0
 // LmRn:  cmtL_1 + ... + cmtL_m = cmtR_1 + ... + cmtR_n + vRPub, where n >= 2
 // Note that
-// (1) L0Rn has rpulpproof with RpUlpTypeL0Rn,
-// (2) L1R1A and L1Rn have rpulpproof with RpUlpTypeL1Rn,
-// (3) LmR1A and LmRn have rpulpproof with RpUlpTypeLmRn.
-// That is, the RpUlpType of the associated rpulpproof is determined by the number of commitments on left-side.
+// (1) L0Rn has rpulpProof with RpUlpTypeL0Rn,
+// (2) L1R1A and L1Rn have rpulpProof with RpUlpTypeL1Rn,
+// (3) LmR1A and LmRn have rpulpProof with RpUlpTypeLmRn.
+// That is, the RpUlpType of the associated rpulpProof is determined by the number of commitments on left-side.
+// Note that
+// L0R0 is different from L0Rn in the sense that n=0, which will make the proof has complete different formats.
+// L0R1 is different from L0Rn in the sense that n=1, which will make the proof has complete different formats.
+// L1R1 is different from L1R1A in the sense that vRPub = 0, which will make the proof has complete different formats.
+// The caller will determine which one of (L0R0, L0R1, L1R1, LmRn) is used, based on the numbers of commitments and the public value.
+// For self-contained, (leftCommNum, rightCommNum) are contained in the structure.
+// reviewed on 2023.12.07
 type BalanceProofLmRn struct {
 	balanceProofCase BalanceProofCase
 	leftCommNum      uint8
 	rightCommNum     uint8
 	// bpf
 	b_hat      *PolyCNTTVec
-	c_hats     []*PolyCNTT // length J+2
+	c_hats     []*PolyCNTT // length n_2, which is determined by (leftCommNum, rightCommNum).
 	u_p        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c J.
 	rpulpproof *RpulpProofMLP
 }
 
 // BalanceProofCase is a method that must be implemented to implement the interface BalanceProof.
+// reviewed on 2023.12.07
 func (bpf *BalanceProofLmRn) BalanceProofCase() BalanceProofCase {
 	return bpf.balanceProofCase
 }
-func (bpf *BalanceProofLmRn) LeftCommNum() uint8 {
-	return bpf.leftCommNum
-}
-func (bpf *BalanceProofLmRn) RightCommNum() uint8 {
-	return bpf.rightCommNum
-}
 
-// todo: to review
+//func (bpf *BalanceProofLmRn) LeftCommNum() uint8 {
+//	return bpf.leftCommNum
+//}
+//func (bpf *BalanceProofLmRn) RightCommNum() uint8 {
+//	return bpf.rightCommNum
+//}
+
+// genBalanceProofL0R0 generates a BalanceProofL0R0.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) genBalanceProofL0R0() *BalanceProofL0R0 {
 	return &BalanceProofL0R0{
 		balanceProofCase: BalanceProofCaseL0R0,
@@ -103,7 +120,7 @@ func (pp *PublicParameter) genBalanceProofL0R0() *BalanceProofL0R0 {
 
 // genBalanceProofL0R1 generates BalanceProofL0R1, proving vL = cmt.
 // This is almost identical to J == 1 case of pqringct.coinbaseTxGen.
-// todo: to review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) genBalanceProofL0R1(preMsg []byte, vL uint64, cmt *ValueCommitment, cmtr *PolyCNTTVec) (*BalanceProofL0R1, error) {
 	// random from S_etaC^lc
 	ys := make([]*PolyCNTTVec, pp.paramK)
@@ -168,10 +185,10 @@ balanceProofL0R1Restart:
 	}, nil
 }
 
-// genBalanceProofL0R2 generates BalanceProofL0R2, proving vL = cmts[0] + ... + cmts[nR-1].
+// genBalanceProofL0Rn generates genBalanceProofL0Rn, proving vL = cmts[0] + ... + cmts[nR-1].
 // This is almost identical to J >= 2 case of pqringct.coinbaseTxGen.
 // Note that this proving algorithm does not check the sanity of the inputs, since we need the corresponding verifying algorithm to guarantee the security.
-// todo: review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) genBalanceProofL0Rn(preMsg []byte, vL uint64, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
 
 	nR := len(cmtRs)
@@ -180,12 +197,12 @@ func (pp *PublicParameter) genBalanceProofL0Rn(preMsg []byte, vL uint64, cmtRs [
 	n2 := n + 2
 
 	if n != len(cmtrRs) || n != len(vRs) {
-		return nil, errors.New("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
+		return nil, fmt.Errorf("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
 	if n > pp.paramJ {
 		// Note that pp.paramI == pp.paramI
-		return nil, fmt.Errorf("genBalanceProofL0Rn: the number of cmtRs (%d) is not in [1, %d]", n, pp.paramJ)
+		return nil, fmt.Errorf("genBalanceProofL0Rn: the number of cmtRs (%d) is not in [2, %d]", n, pp.paramJ)
 	}
 
 	c_hats := make([]*PolyCNTT, n2)
@@ -223,7 +240,7 @@ func (pp *PublicParameter) genBalanceProofL0Rn(preMsg []byte, vL uint64, cmtRs [
 	}
 	f[0] = tmp >> 1
 
-	// f[1], ..., f[n-2], f[d-1]
+	// f[1], ..., f[d-2], f[d-1]
 	for t := 1; t < pp.paramDC; t++ {
 		tmp = int64(0)
 		for j := 0; j < n; j++ {
@@ -373,13 +390,14 @@ balanceProofL0RnRestart:
 }
 
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofL0R0SerializeSize() int {
 	n := 1 // balanceProofCase BalanceProofCase
 	return n
 }
 
 // serializeBalanceProofL0R0 serialize the input BalanceProofL0R0 to []byte.
-// todo: review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeBalanceProofL0R0(bpf *BalanceProofL0R0) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R0SerializeSize()))
@@ -394,6 +412,7 @@ func (pp *PublicParameter) serializeBalanceProofL0R0(bpf *BalanceProofL0R0) ([]b
 }
 
 // deserializeBalanceProofL0R0 deserialize the input []byte to a BalanceProofL0R0.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeBalanceProofL0R0(serializedBpfL0R0 []byte) (*BalanceProofL0R0, error) {
 
 	r := bytes.NewReader(serializedBpfL0R0)
@@ -414,6 +433,7 @@ func (pp *PublicParameter) deserializeBalanceProofL0R0(serializedBpfL0R0 []byte)
 }
 
 // balanceProofL0R1SerializeSize returns the serialized size for balanceProofL0R1.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofL0R1SerializeSize() int {
 	n := 1 + // balanceProofCase BalanceProofCase
 		HashOutputBytesLen + // chseed           []byte
@@ -422,6 +442,7 @@ func (pp *PublicParameter) balanceProofL0R1SerializeSize() int {
 }
 
 // serializeBalanceProofL0R1 serialize the input BalanceProofL0R1 to []byte.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *BalanceProofL0R1) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL0R1SerializeSize()))
@@ -451,6 +472,7 @@ func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *BalanceProofL0R1) ([]b
 }
 
 // deserializeBalanceProofL0R1 deserialize the input []byte to a BalanceProofL0R1.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*BalanceProofL0R1, error) {
 
 	r := bytes.NewReader(serializdBpfL0R1)
@@ -490,6 +512,7 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) 
 }
 
 // balanceProofL1R1SerializeSize returns the serialized size for balanceProofL1R1.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofL1R1SerializeSize() int {
 	n := 1 + // balanceProofCase BalanceProofCase
 		pp.PolyCNTTSerializeSize() + //  psi              *PolyCNTT
@@ -499,7 +522,8 @@ func (pp *PublicParameter) balanceProofL1R1SerializeSize() int {
 }
 
 // serializeBalanceProofLR1 serialize the input BalanceProofL1R1 to []byte.
-func (pp *PublicParameter) serializeBalanceProofLR1(bpf *BalanceProofL1R1) ([]byte, error) {
+// reviewed on 2023.12.07
+func (pp *PublicParameter) serializeBalanceProofL1R1(bpf *BalanceProofL1R1) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofL1R1SerializeSize()))
 
@@ -543,9 +567,10 @@ func (pp *PublicParameter) serializeBalanceProofLR1(bpf *BalanceProofL1R1) ([]by
 }
 
 // deserializeBalanceProofL1R1 deserialize the input []byte to a BalanceProofL1R1.
-func (pp *PublicParameter) deserializeBalanceProofL1R1(serializdBpfL1R1 []byte) (*BalanceProofL1R1, error) {
+// reviewed on 2023.12.07
+func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte) (*BalanceProofL1R1, error) {
 
-	r := bytes.NewReader(serializdBpfL1R1)
+	r := bytes.NewReader(serializedBpfL1R1)
 
 	// balanceProofCase BalanceProofCase
 	balanceProofCase, err := r.ReadByte()
@@ -603,7 +628,7 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializdBpfL1R1 []byte) 
 // balanceProofLmRnSerializeSizeByCommNum returns the serialize size for BalanceProofLmRn,
 // according to the left-side commitment number nL and the right-side commitment number nR.
 // The leftCommNum and rightCommNum are also serialized, since the size can be deterministically computed from these two values.
-// todo: review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR uint8) int {
 
 	length := 1 + // balanceProofCase BalanceProofCase
@@ -619,7 +644,8 @@ func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR u
 	} else if nL == 1 {
 		// A_{L1R2}
 		n2 = n + 2 // f_R, e
-	} else if nL >= 2 {
+	} else {
+		// nL >= 2
 		// A_{L2R2}
 		n2 = n + 4 // m_{sum}, f_L, f_R, e
 	}
@@ -633,6 +659,7 @@ func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR u
 }
 
 // serializeBalanceProofLmRn serialize the input BalanceProofLmRn to []byte.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]byte, error) {
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofLmRnSerializeSizeByCommNum(bpf.leftCommNum, bpf.rightCommNum)))
@@ -701,6 +728,7 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]b
 }
 
 // deserializeBalanceProofLmRn deserialize the input []byte to a BalanceProofLmRn.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte) (*BalanceProofLmRn, error) {
 	r := bytes.NewReader(serializedBpfLmRn)
 
@@ -763,7 +791,7 @@ func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte)
 	}
 
 	// rpulpproof       *rpulpProofMLP
-	serializedRpUlpProofBytes := make([]byte, pp.rpulpProofMLPSerializeSizeByCommNum(leftCommNum, rightCommNum))
+	serializedRpUlpProofBytes := make([]byte, pp.rpulpProofMLPSerializeSizeByCommNum(nL, nR))
 	_, err = r.Read(serializedRpUlpProofBytes)
 	if err != nil {
 		return nil, err
@@ -788,10 +816,11 @@ func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte)
 
 // collectBytesForBalanceProofL0R1 collect bytes for genBalanceProofL0R1() and verifyBalanceProofL0R1().
 // developed based on collectBytesForCoinbaseTxJ1()
-// todo: review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) collectBytesForBalanceProofL0R1(preMsg []byte, vL uint64, cmt *ValueCommitment, ws []*PolyCNTTVec, deltas []*PolyCNTT) ([]byte, error) {
 	length := len(preMsg) + 8 + pp.ValueCommitmentSerializeSize() +
 		pp.paramK*(pp.paramKC+1)*pp.paramDC*8
+
 	rst := make([]byte, 0, length)
 
 	appendPolyCNTTToBytes := func(a *PolyCNTT) {
@@ -830,7 +859,7 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0R1(preMsg []byte, vL uin
 	// ws []*PolyCNTTVec
 	for i := 0; i < len(ws); i++ {
 		for j := 0; j < len(ws[i].polyCNTTs); j++ {
-			appendPolyCNTTToBytes(ws[i].polyCNTTs[i])
+			appendPolyCNTTToBytes(ws[i].polyCNTTs[j])
 		}
 	}
 
@@ -844,10 +873,10 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0R1(preMsg []byte, vL uin
 
 // collectBytesForBalanceProofL0Rn is an auxiliary function for genBalanceProofL0Rn and verifyBalanceProofL0Rn to collect some information into a byte slice
 // developed based on collectBytesForCoinbaseTxJ2()
-// todo: review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uint64, cmts []*ValueCommitment, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
 
-	length := len(preMsg) + 8 + pp.ValueCommitmentSerializeSize()*len(cmts) +
+	length := len(preMsg) + 8 + len(cmts)*pp.ValueCommitmentSerializeSize() +
 		len(b_hat.polyCNTTs)*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
 
 	rst := make([]byte, 0, length)
