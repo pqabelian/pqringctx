@@ -1958,11 +1958,11 @@ func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs 
 			return nil, errors.New("some information for inoutDescItem is empty")
 		}
 		asks[i] = &AddressSecretKey{}
-		asks[i].AddressSecretKeySp, err = pp.DeserializeAddressSecretKeySp(inputDescItem.serializedASksp)
+		asks[i].AddressSecretKeySp, err = pp.deserializeAddressSecretKeySp(inputDescItem.serializedASksp)
 		if err != nil {
 			return nil, err
 		}
-		asks[i].AddressSecretKeySn, err = pp.DeserializeAddressSecretKeySn(inputDescItem.serializedASksn)
+		asks[i].AddressSecretKeySn, err = pp.deserializeAddressSecretKeySn(inputDescItem.serializedASksn)
 		if err != nil || asks[i] == nil {
 			return nil, err
 		}

@@ -697,7 +697,7 @@ func (pp *PublicParameter) randomPolyCinDistributionChi(seed []byte) (*PolyC, er
 }
 
 // sampleMaskingVecA() returns a masking vector y \in (S_{eta_a})^{L_a}.
-func (pp PublicParameter) sampleMaskingVecA() (*PolyAVec, error) {
+func (pp *PublicParameter) sampleMaskingVecA() (*PolyAVec, error) {
 	rst := pp.NewPolyAVec(pp.paramLA)
 
 	var err error
@@ -748,7 +748,7 @@ func (pp *PublicParameter) sampleResponseA() (*PolyAVec, error) {
 
 // sampleResponseC() returns a PolyCVec with length paramLc,
 // where each coefficient lies in [-(eta_c - beta_c), (eta_c - beta_c)]
-func (pp PublicParameter) sampleResponseC() (*PolyCVec, error) {
+func (pp *PublicParameter) sampleResponseC() (*PolyCVec, error) {
 	rst := pp.NewPolyCVec(pp.paramLC)
 
 	var err error
@@ -1021,7 +1021,7 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 // expandChallengeC() returns a challenge for proof in value commitment, say a PolyC, //
 // where each coefficient is sampled from {-1, 0, 1}, with Pr(0)=1/2, Pr(1)=Pr(-1)= 1/4.
 // The seed could not be empty.
-func (pp PublicParameter) expandChallengeC(seed []byte) (*PolyC, error) {
+func (pp *PublicParameter) expandChallengeC(seed []byte) (*PolyC, error) {
 	if len(seed) == 0 {
 		//	for such an expand fucntion, the seed could not be empty.
 		return nil, errors.New("expandChallengeC: the seed is empty")
