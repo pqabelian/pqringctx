@@ -6,40 +6,33 @@ import (
 	"fmt"
 )
 
+// TxWitnessCbTxCase defines the TxCase which will be used to characterize the TxWitnessCbTx.
+// reviewed on 2023.12.07
 type TxWitnessCbTxCase uint8
 
+// reviewed on 2023.12.07
 const (
 	TxWitnessCbTxCaseC0 TxWitnessCbTxCase = 0
 	TxWitnessCbTxCaseC1 TxWitnessCbTxCase = 1
 	TxWitnessCbTxCaseCn TxWitnessCbTxCase = 2
 )
 
-type TxCaseTrTx uint8
+// todo: to review
+type TxWitnessTrTxCase uint8
 
+// todo: to review
 const (
-	TxCaseTrTxI0C0 TxCaseTrTx = 0
-	TxCaseTrTxI0C1 TxCaseTrTx = 1
-	TxCaseTrTxI1C1 TxCaseTrTx = 1
+	TxCaseTrTxI0C0 TxWitnessTrTxCase = 0
+	TxCaseTrTxI0C1 TxWitnessTrTxCase = 1
+	TxCaseTrTxI1C1 TxWitnessTrTxCase = 1
 )
-
-// TxWitnessMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
-// As the TxWitnessMLP for different CoinbaseTxMLP/TransferTxMLP instances could have different structures,
-// here we use []byte to denote Txo (in its serialized form).
-// type TxWitnessMLP []byte
-// Note: We do not define standalone structure for TxWitness.
-//
-//	This is because:
-//	TxWitness is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of TxWitness.
-//	PQRINGCTX will be responsible for generating TxWitness and providing service/API on the generated TxWitness.
-//type TxWitnessMLP interface {
-//	TxCase() TxCase
-//}
 
 // TxWitnessCbTx defines the TxWitness for coinbase-transaction.
 // vL = vin - sum of (public value on output side), it must be >= 0.
-// Note that with (vL, outForRing),
+// Note that with (outForRing),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has).
+// reviewed on 2023.12.07
 type TxWitnessCbTx struct {
 	txCase     TxWitnessCbTxCase
 	vL         uint64
@@ -48,6 +41,8 @@ type TxWitnessCbTx struct {
 	balanceProof BalanceProof
 }
 
+// TxCase returns TxWitnessCbTx.txCase.
+// reviewed on 2023.12.07
 func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
@@ -65,8 +60,9 @@ func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // Note that with (inForRing, inForSingle, inForSingleDistinct, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has).
+// todo: to review
 type TxWitnessTrTx struct {
-	txCase              TxCaseTrTx
+	txCase              TxWitnessTrTxCase
 	inForRing           uint8
 	inForSingle         uint8
 	inForSingleDistinct uint8
@@ -82,29 +78,14 @@ type TxWitnessTrTx struct {
 	balanceProof               BalanceProof
 }
 
-func (txWitness *TxWitnessTrTx) TxCase() TxCaseTrTx {
+// todo: to review
+func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
 
-//type TxWitnessTrTx struct {
-//	txCase                     TxCase
-//	ma_ps                      []*PolyANTT                  // length I_ring, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
-//	cmt_ps                     []*ValueCommitment           // length I_ring, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
-//	elrsSigs                   []*elrsSignatureMLP          // length I_ring, each for one RingCT-privacy Input.
-//	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-//	simpsSigs                  []*simpsSignatureMLP         // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-//	b_hat                      *PolyCNTTVec
-//	c_hats                     []*PolyCNTT //	length n_2: n_2 = I+J+2 for I=1, and n_2 = I+J+4 for I >= 2.
-//	u_p                        []int64     // carry vector range proof, length paramDc, each lies in scope [-(eta_f-beta_f), (eta_f-beta_f)], where beta_f = D_c (J+1) for I=1 and beta_f = D_c (I+J+1) for I >= 2.
-//	rpulpproof                 *rpulpProofMLP
-//}
-
-//func (txWitness *TxWitnessTrTx) TxCase() TxCase {
-//	return txWitness.txCase
-//}
-
 // TxWitnessCbTx	begin
 // genTxWitnessCbTx generates TxWitnessCbTx.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) genTxWitnessCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*TxWitnessCbTx, error) {
 
 	//	The caller should guarantee the sanity of the inputs.
@@ -112,9 +93,9 @@ func (pp *PublicParameter) genTxWitnessCbTx(serializedCbTxCon []byte, vL uint64,
 	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
 	//}
 
-	if outForRing == 0 && vL != 0 {
-		return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
-	}
+	//if outForRing == 0 && vL != 0 {
+	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
+	//}
 
 	var err error
 	txCase := TxWitnessCbTxCaseC0
@@ -146,7 +127,7 @@ func (pp *PublicParameter) genTxWitnessCbTx(serializedCbTxCon []byte, vL uint64,
 }
 
 // TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
-// todo: to review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + // vL           uint64
@@ -160,7 +141,7 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 	} else if outForRing == 1 {
 		//	TxWitnessCbTxCaseC1 ==> BalanceProofL0R1
 		bpfLen = pp.balanceProofL0R1SerializeSize()
-	} else {
+	} else { // outForRing >= 2
 		//	TxWitnessCbTxCaseCn ==> BalanceProofLmRn
 		bpfLen = pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
 	}
@@ -170,7 +151,8 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 	return length
 }
 
-// SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte
+// SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
 	if txWitness == nil {
 		return nil, errors.New("SerializeTxWitnessCbTx: the input TxWitnessCbTx is nil")
@@ -227,7 +209,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		}
 
 	default:
-		return nil, errors.New("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is not in the supported cases")
+		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is not in the supported cases")
 	}
 
 	_, err = w.Write(serializedBpf)
@@ -235,11 +217,11 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		return nil, err
 	}
 
-	return w.Bytes(), err
+	return w.Bytes(), nil
 }
 
 // DeserializeTxWitnessCbTx deserialize the input []byte to TxWitnessCbTx.
-// todo: to review
+// reviewed on 2023.12.07
 func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
@@ -270,25 +252,35 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 
 	// balanceProof BalanceProof
 	var balanceProof BalanceProof
-	serializedBpf := make([]byte, pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing))
-	_, err = r.Read(serializedBpf)
-	if err != nil {
-		return nil, err
-	}
 	if outForRing == 0 {
 		//	BalanceProofL0R0
 		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseC0 {
 			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is 0 but the txCase is not TxWitnessCbTxCaseC0")
 		}
+
+		serializedBpf := make([]byte, pp.balanceProofL0R0SerializeSize())
+		_, err = r.Read(serializedBpf)
+		if err != nil {
+			return nil, err
+		}
+
 		balanceProof, err = pp.deserializeBalanceProofL0R0(serializedBpf)
 		if err != nil {
 			return nil, err
 		}
+
 	} else if outForRing == 1 {
 		//	BalanceProofL0R1
 		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseC1 {
 			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is 1 but the txCase is not TxWitnessCbTxCaseC1")
 		}
+
+		serializedBpf := make([]byte, pp.balanceProofL0R1SerializeSize())
+		_, err = r.Read(serializedBpf)
+		if err != nil {
+			return nil, err
+		}
+
 		balanceProof, err = pp.deserializeBalanceProofL0R1(serializedBpf)
 		if err != nil {
 			return nil, err
@@ -298,6 +290,13 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseCn {
 			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is >= 2 but the txCase is not TxWitnessCbTxCaseCn")
 		}
+
+		serializedBpf := make([]byte, pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing))
+		_, err = r.Read(serializedBpf)
+		if err != nil {
+			return nil, err
+		}
+
 		balanceProof, err = pp.deserializeBalanceProofLmRn(serializedBpf)
 		if err != nil {
 			return nil, err
