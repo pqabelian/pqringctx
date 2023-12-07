@@ -471,6 +471,8 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 	return polyCNTT, nil
 }
 
+// PolyCNTTVecSerializeSizeByVecLen returns the serialize size of PolyCNTTVec, according to the length of the PolyCNTTVec.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) PolyCNTTVecSerializeSizeByVecLen(vecLen int) int {
 	if vecLen <= 0 {
 		return VarIntSerializeSize(0)

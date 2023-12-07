@@ -42,6 +42,7 @@ func (pp *PublicParameter) NewPolyCNTTUsingCoeffs(coeffs []int64) (*PolyCNTT, er
 }
 
 // NewPolyCNTTFromCoeffs will copy the sourceCoeffs to a new []int64, and use the new one as the coefficients of the returned PolyCNTT.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) NewPolyCNTTFromCoeffs(sourceCoeffs []int64) (*PolyCNTT, error) {
 	if len(sourceCoeffs) != pp.paramDC {
 		return nil, fmt.Errorf("NewPolyCNTTFromCoeffs: the input sourceCoeffs has length %d, rather than the expected %d", len(sourceCoeffs), pp.paramDC)
