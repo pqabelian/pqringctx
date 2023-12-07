@@ -82,6 +82,9 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 //	New functions for TxInputDesc and TxOutputDesc 	end
 
 // New and Get functions for Transactions	begin
+
+// NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx).
+// reviewed on 2023.12.07
 func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) *CoinbaseTxMLP {
 	return &CoinbaseTxMLP{
 		vin:       vin,

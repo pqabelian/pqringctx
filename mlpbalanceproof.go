@@ -112,10 +112,23 @@ func (bpf *BalanceProofLmRn) BalanceProofCase() BalanceProofCase {
 
 // genBalanceProofL0R0 generates a BalanceProofL0R0.
 // reviewed on 2023.12.07
-func (pp *PublicParameter) genBalanceProofL0R0() *BalanceProofL0R0 {
+func (pp *PublicParameter) genBalanceProofL0R0() (*BalanceProofL0R0, error) {
 	return &BalanceProofL0R0{
 		balanceProofCase: BalanceProofCaseL0R0,
+	}, nil
+}
+
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofL0R0(balanceProof *BalanceProofL0R0) (bool, error) {
+	if balanceProof == nil {
+		return false, nil
 	}
+
+	if balanceProof.balanceProofCase != BalanceProofCaseL0R0 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // genBalanceProofL0R1 generates BalanceProofL0R1, proving vL = cmt.
@@ -185,18 +198,100 @@ balanceProofL0R1Restart:
 	}, nil
 }
 
+// verifyBalanceProofL0R1 verifies BalanceProofL0R1.
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofL0R1(preMsg []byte, vL uint64, cmt *ValueCommitment, balanceProof *BalanceProofL0R1) (bool, error) {
+	if len(preMsg) == 0 {
+		return false, nil
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+	if vL > V {
+		return false, nil
+	}
+
+	if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+		return false, nil
+	}
+
+	if balanceProof == nil || len(balanceProof.chseed) != HashOutputBytesLen || len(balanceProof.zs) != pp.paramK {
+		return false, nil
+	}
+
+	if balanceProof.balanceProofCase != BalanceProofCaseL0R1 {
+		return false, fmt.Errorf("verifyBalanceProofL0R1: balanceProof.balanceProofCase is not BalanceProofCaseL0R1")
+	}
+
+	// infNorm of z^t
+	bound := pp.paramEtaC - int64(pp.paramBetaC)
+	for t := 0; t < pp.paramK; t++ {
+		if balanceProof.zs[t] == nil || len(balanceProof.zs[t].polyCs) != pp.paramLC {
+			return false, nil
+		}
+		if balanceProof.zs[t].infNorm() > bound {
+			return false, nil
+		}
+	}
+
+	ws := make([]*PolyCNTTVec, pp.paramK)
+	deltas := make([]*PolyCNTT, pp.paramK)
+
+	ch_poly, err := pp.expandChallengeC(balanceProof.chseed)
+	if err != nil {
+		return false, err
+	}
+	ch := pp.NTTPolyC(ch_poly)
+	mtmp := pp.intToBinary(vL)
+	//msg := pp.NTTInRQc(&Polyv2{coeffs1: mtmp})
+	msgNTT := &PolyCNTT{coeffs: mtmp}
+	for t := 0; t < pp.paramK; t++ {
+		sigma_t_ch := pp.sigmaPowerPolyCNTT(ch, t)
+
+		zs_ntt := pp.NTTPolyCVec(balanceProof.zs[t])
+
+		ws[t] = pp.PolyCNTTVecSub(
+			pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, zs_ntt, pp.paramKC, pp.paramLC),
+			pp.PolyCNTTVecScaleMul(sigma_t_ch, cmt.b, pp.paramKC),
+			pp.paramKC,
+		)
+		deltas[t] = pp.PolyCNTTSub(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], zs_ntt, pp.paramLC),
+			pp.PolyCNTTMul(
+				sigma_t_ch,
+				pp.PolyCNTTSub(cmt.c, msgNTT),
+			),
+		)
+	}
+
+	seedMsg, err := pp.collectBytesForBalanceProofL0R1(preMsg, vL, cmt, ws, deltas)
+	if err != nil {
+		return false, err
+	}
+	seed_ch, err := Hash(seedMsg)
+	if err != nil {
+		return false, err
+	}
+
+	if bytes.Compare(seed_ch, balanceProof.chseed) != 0 {
+		return false, nil
+	}
+
+	return true, nil
+
+}
+
 // genBalanceProofL0Rn generates genBalanceProofL0Rn, proving vL = cmts[0] + ... + cmts[nR-1].
 // This is almost identical to J >= 2 case of pqringct.coinbaseTxGen.
 // Note that this proving algorithm does not check the sanity of the inputs, since we need the corresponding verifying algorithm to guarantee the security.
 // reviewed on 2023.12.07
-func (pp *PublicParameter) genBalanceProofL0Rn(preMsg []byte, vL uint64, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
+func (pp *PublicParameter) genBalanceProofL0Rn(preMsg []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
 
-	nR := len(cmtRs)
+	nR := outForRing
 
-	n := nR
+	n := int(nR)
 	n2 := n + 2
 
-	if n != len(cmtrRs) || n != len(vRs) {
+	if n != len(cmtRs) || n != len(cmtrRs) || n != len(vRs) {
 		return nil, fmt.Errorf("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
@@ -316,8 +411,8 @@ balanceProofL0RnRestart:
 	)
 
 	////	todo_done 2022.04.03: check the scope of u_p in theory
-	////	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/16.
-	////	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not modular reduction.
+	////	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
+	////	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not be modular reduction.
 	//betaF := pp.paramDC * J
 	//	2023.12.1 Using the accurate bound
 	betaF := (pp.paramN - 1) * (n - 1)
@@ -326,7 +421,7 @@ balanceProofL0RnRestart:
 	u_p := make([]int64, pp.paramDC)
 	//u_p_tmp := make([]int64, pp.paramDC)
 
-	seedMsg, err := pp.collectBytesForBalanceProofL0Rn(preMsg, vL, cmtRs, b_hat, c_hats)
+	seedMsg, err := pp.collectBytesForBalanceProofL0Rn(preMsg, vL, nR, cmtRs, b_hat, c_hats)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +482,110 @@ balanceProofL0RnRestart:
 		u_p:        u_p,
 		rpulpproof: rprlppi,
 	}, nil
+}
+
+// verifyBalanceProofL0Rn verifies BalanceProofL0Rn.
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofL0Rn(preMsg []byte, vL uint64, outFoRing uint8, cmtRs []*ValueCommitment, balanceProof *BalanceProofLmRn) (bool, error) {
+	if len(preMsg) == 0 {
+		return false, nil
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+	if vL > V {
+		return false, nil
+	}
+
+	if outFoRing < 2 {
+		return false, fmt.Errorf("verifyBalanceProofL0Rn: the input outFoRing should be >= 2")
+	}
+
+	nR := outFoRing
+	n := int(outFoRing)
+	if len(cmtRs) != n {
+		return false, nil
+	}
+
+	for i := 0; i < n; i++ {
+		cmt := cmtRs[i]
+		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+			return false, nil
+		}
+	}
+
+	if balanceProof == nil {
+		return false, nil
+	}
+
+	if balanceProof.balanceProofCase != BalanceProofCaseLmRn {
+		return false, fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.balanceProofCase is not BalanceProofCaseLmRn")
+	}
+
+	if balanceProof.leftCommNum != 0 || balanceProof.rightCommNum != outFoRing {
+		return false, nil
+	}
+
+	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramK {
+		return false, nil
+	}
+
+	n2 := n + 2
+	if len(balanceProof.c_hats) != n2 {
+		return false, nil
+	}
+
+	if len(balanceProof.u_p) != pp.paramDC {
+		return false, nil
+	}
+
+	if balanceProof.rpulpproof == nil {
+		return false, nil
+	}
+
+	//	infNorm of u'
+	//	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
+	//	As Bf should be bound by (N-1) (n-1), so that |B f + e| < q_c/2, there should not be modular reduction.
+	betaF := (pp.paramN - 1) * (n - 1)
+	boundF := pp.paramEtaF - int64(betaF)
+	infNorm := int64(0)
+	for i := 0; i < pp.paramDC; i++ {
+		infNorm = balanceProof.u_p[i]
+		if infNorm < 0 {
+			infNorm = -infNorm
+		}
+
+		if infNorm > boundF {
+			return false, nil
+		}
+	}
+
+	seedMsg, err := pp.collectBytesForBalanceProofL0Rn(preMsg, vL, outFoRing, cmtRs, balanceProof.b_hat, balanceProof.c_hats)
+	if err != nil {
+		return false, err
+	}
+	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+	if err != nil {
+		return false, err
+	}
+	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
+	if err != nil {
+		return false, err
+	}
+
+	u_hats := make([][]int64, 3)
+
+	u := pp.intToBinary(vL)
+	u_hats[0] = u
+	u_hats[1] = make([]int64, pp.paramDC)
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[1][i] = 0
+	}
+	u_hats[2] = balanceProof.u_p
+
+	n1 := n
+	flag := pp.rpulpVerifyMLP(preMsg, cmtRs, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL0Rn, binM, 0, nR, 3, u_hats, balanceProof.rpulpproof)
+
+	return flag, nil
 }
 
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
@@ -874,9 +1073,9 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0R1(preMsg []byte, vL uin
 // collectBytesForBalanceProofL0Rn is an auxiliary function for genBalanceProofL0Rn and verifyBalanceProofL0Rn to collect some information into a byte slice
 // developed based on collectBytesForCoinbaseTxJ2()
 // reviewed on 2023.12.07
-func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uint64, cmts []*ValueCommitment, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
+func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uint64, nR uint8, cmts []*ValueCommitment, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
 
-	length := len(preMsg) + 8 + len(cmts)*pp.ValueCommitmentSerializeSize() +
+	length := len(preMsg) + 8 + 1 + len(cmts)*pp.ValueCommitmentSerializeSize() +
 		len(b_hat.polyCNTTs)*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
 
 	rst := make([]byte, 0, length)
@@ -906,6 +1105,9 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uin
 	rst = append(rst, byte(vL>>40))
 	rst = append(rst, byte(vL>>48))
 	rst = append(rst, byte(vL>>56))
+
+	// nR
+	rst = append(rst, nR)
 
 	// cmts
 	for i := 0; i < len(cmts); i++ {

@@ -66,15 +66,19 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 // CoinbaseTxGen outputs a CoinbaseTxMLP, rather than a serialized Tx.
 // reviewed on 2023.12.07
 func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDescMLP, txMemo []byte) (cbTx *CoinbaseTxMLP, err error) {
-	return pp.CoinbaseTxGenMLP(vin, txOutputDescs, txMemo)
+	return pp.CoinbaseTxMLPGen(vin, txOutputDescs, txMemo)
 }
 
+// NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx).
+// reviewed on 2023.12.07
 func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) (cbTx *CoinbaseTxMLP) {
 	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitness)
 }
 
+// CoinbaseTxVerify verify whether the input CoinbaseTxMLP is valid.
+// todo: review
 func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
-	return false, nil
+	return pp.CoinbaseTxMLPVerify(cbTx)
 }
 
 // TransferTxGen generates TransferTx.
@@ -149,12 +153,14 @@ func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
 }
 
-// SerializeTxo serialized the input TxoMLP to []byte.
+// SerializeTxo serializes the input TxoMLP to []byte.
 // reviewed on 2023.12.07
 func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
 	return pp.SerializeTxoMLP(txo)
 }
 
+// DeserializeTxo deserialize the input []byte to a TxoMLP.
+// reviewed on 2023.12.07
 func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
 	return pp.DeserializeTxoMLP(serializedTxo)
 }
@@ -174,6 +180,8 @@ func SerializeTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]by
 	return pp.SerializeTxWitnessCbTx(txWitness)
 }
 
+// DeserializeTxWitnessCbTx deserializes the input []byte to a TxWitnessCbTx.
+// reviewed on 2023.12.07
 func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessCbTx, error) {
 	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
 }

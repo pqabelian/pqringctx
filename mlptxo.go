@@ -3,7 +3,6 @@ package pqringctx
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
@@ -150,10 +149,13 @@ func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte,
 	}
 }
 
+// DeserializeTxoMLP deserialize the input []byte to a TxoMLP.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoMLP, err error) {
-	if serializedTxo == nil {
-		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo is nil")
+	if len(serializedTxo) == 0 {
+		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo is empty")
 	}
+
 	n := len(serializedTxo)
 	if n == pp.TxoRCTPreSerializeSize() {
 		return pp.deserializeTxoRCTPre(serializedTxo)
@@ -162,7 +164,7 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 	} else if n == pp.TxoSDNSerializeSize() {
 		return pp.deserializeTxoSDN(serializedTxo)
 	} else {
-		return nil, errors.New("DeserializeTxoMLP: the input serializedTxo has a length that is not supported")
+		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo has a length that is not supported")
 	}
 }
 
@@ -227,6 +229,7 @@ func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, err
 
 // deserializeTxoRCTPre deserialize the input []byte to a TxoRCTPre.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*TxoRCTPre, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCTPre)
@@ -340,6 +343,7 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 
 // deserializeTxoRCT deserialize the input []byte to a TxoRCT.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCT)
@@ -350,7 +354,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 		return nil, err
 	}
 	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyForRing {
-		return nil, errors.New("deserializeTxoRCT: the deserialized coinAddressType is not CoinAddressTypePublicKeyForRing")
+		return nil, fmt.Errorf("deserializeTxoRCT: the deserialized coinAddressType is not CoinAddressTypePublicKeyForRing")
 	}
 
 	var apk *AddressPublicKeyForRing
@@ -439,6 +443,7 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 
 // deserializeTxoSDN deserialize the input []byte to a TxoSDN.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoSDN)
