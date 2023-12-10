@@ -75,7 +75,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 		}
 		switch coinAddressType {
 		case CoinAddressTypePublicKeyForRingPre:
-			txoRCTPre, cmtr, err := pp.txoRCTPreGen(txOutputDescMLP.coinAddress, txOutputDescMLP.serializedVPK, txOutputDescMLP.value)
+			txoRCTPre, cmtr, err := pp.txoRCTPreGen(txOutputDescMLP.coinAddress, txOutputDescMLP.coinValuePublicKey, txOutputDescMLP.value)
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +85,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			vRs[j] = txOutputDescMLP.value
 
 		case CoinAddressTypePublicKeyForRing:
-			txoRCT, cmtr, err := pp.txoRCTGen(txOutputDescMLP.coinAddress, txOutputDescMLP.serializedVPK, txOutputDescMLP.value)
+			txoRCT, cmtr, err := pp.txoRCTGen(txOutputDescMLP.coinAddress, txOutputDescMLP.coinValuePublicKey, txOutputDescMLP.value)
 			if err != nil {
 				return nil, err
 			}

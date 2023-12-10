@@ -474,3 +474,20 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 		apkHash,
 		value}, nil
 }
+
+// todo: review
+func (pp *PublicParameter) ExtractCoinAddressFromSerializedTxo(serializedTxo []byte) ([]byte, error) {
+	txoMLP, err := pp.DeserializeTxoMLP(serializedTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	coinAddressSize, err := pp.GetCoinAddressSize(txoMLP.CoinAddressType())
+	if err != nil {
+		return nil, err
+	}
+
+	coinAddress := make([]byte, coinAddressSize)
+	copy(coinAddress, serializedTxo[:coinAddressSize])
+	return coinAddress, nil
+}

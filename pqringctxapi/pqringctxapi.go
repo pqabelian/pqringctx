@@ -31,7 +31,7 @@ func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
+func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
 	return pp.CoinAddressKeyForPKRingGen(randSeed)
 }
 
@@ -40,7 +40,7 @@ func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddre
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
+func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 	return pp.CoinAddressKeyForPKHSingleGen(randSeed)
 	//	return nil, nil, err
 }
@@ -51,14 +51,14 @@ func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, randSeed []byte) (coinAd
 // i.e., the ciphertexts are included in Txo.
 // As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
 // we use a standalone ValueKeyGen algorithm to generate these keys.
-func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (serializedValuePublicKey []byte, serializedValueSecretKey []byte, err error) {
+func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (coinValuePublicKey []byte, coinValueSecretKey []byte, err error) {
 	return pp.CoinValueKeyGen(randSeed)
 }
 
 // NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
 // reviewed on 2023.12.07
-func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
-	return pqringctx.NewTxOutputDescMLP(coinAddress, serializedVPK, value)
+func NewTxOutputDescMLP(coinAddress []byte, coinValuePK []byte, value uint64) *TxOutputDescMLP {
+	return pqringctx.NewTxOutputDescMLP(coinAddress, coinValuePK, value)
 }
 
 // CoinbaseTxGen generates CoinbaseTx.
@@ -82,6 +82,11 @@ func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
 	return pp.CoinbaseTxMLPVerify(cbTx)
 }
 
+func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
+	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *TxInputDescMLP {
+	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, value)
+}
+
 // TransferTxGen generates TransferTx.
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
@@ -97,6 +102,14 @@ func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
 // API for AddressKeys	begin
 func ExtractCoinAddressTypeFromCoinAddress(pp *PublicParameter, coinAddress []byte) (CoinAddressType, error) {
 	return pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
+}
+
+func ExtractCoinAddressTypeFromCoinSpendSecretKey(pp *PublicParameter, coinSpendSecretKey []byte) (CoinAddressType, error) {
+	return pp.ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpendSecretKey)
+}
+
+func ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(pp *PublicParameter, coinSerialNumberSecretKey []byte) (CoinAddressType, error) {
+	return pp.ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(coinSerialNumberSecretKey)
 }
 
 func GetCoinAddressSize(pp *PublicParameter, coinAddressType CoinAddressType) (int, error) {
@@ -123,9 +136,17 @@ func GetCoinSpendSecretKeySizeByCoinAddressKeyForPKHSingleGen(pp *PublicParamete
 	return pp.GetCoinSpendSecretKeySize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
 }
 
+func GetCoinSerialNumberSecretKeySizeByCoinAddressKeyForPKRingGen(pp *PublicParameter) (int, error) {
+	return pp.GetCoinSerialNumberSecretKeySize(pqringctx.CoinAddressTypePublicKeyForRing)
+}
+
 // GetCoinValuePublicKeySize returns the CoinValuePublicKey size.
 // reviewed on 2023.12.07
 func GetCoinValuePublicKeySize(pp *PublicParameter) int {
+	return pp.GetCoinValuePublicKeySize()
+}
+
+func GetCoinValueSecretKeySize(pp *PublicParameter) int {
 	return pp.GetCoinValuePublicKeySize()
 }
 
@@ -172,6 +193,11 @@ func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
 // reviewed on 2023.12.07
 func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
 	return pp.DeserializeTxoMLP(serializedTxo)
+}
+
+// todo: review
+func ExtractCoinAddressFromSerializedTxo(pp *PublicParameter, serializedTxo []byte) ([]byte, error) {
+	return pp.ExtractCoinAddressFromSerializedTxo(serializedTxo)
 }
 
 // NewLgrTxo constructs a new LgrTxoMLP.

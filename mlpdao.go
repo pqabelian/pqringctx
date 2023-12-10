@@ -48,34 +48,49 @@ type TransferTxMLP struct {
 // In particular, to generate a coin on pseudonym-privacy address, the serializedVPK could be nil.
 // reviewed on 2023.12.07
 type TxOutputDescMLP struct {
-	coinAddress   []byte
-	serializedVPK []byte //	This is optional, could be nil
-	value         uint64
+	coinAddress        []byte
+	coinValuePublicKey []byte //	This is optional, could be nil
+	value              uint64
 }
 
 // TxInputDescMLP describe the information for a coin to be consumed, for generating TransferTx.
 // As the consumed coin may have different privacy-levels, TxInputDescMLP is uniform for multi-privacy-levels.
 // In particular, if the coin to consumed is on pseudonym-privacy-level,
-// the coinSnKey, serializedVPk, and serializedVSk will be nil.
+// the coinSerialNumberSecretKey, coinValuePK, and coinValueSK will be nil.
 type TxInputDescMLP struct {
-	lgrTxoList    []*LgrTxoMLP
-	sidx          uint8 //	consumed LgrTxo index
-	coinSpendKey  []byte
-	coinSnKey     []byte //	This is optional, could be nil
-	serializedVPk []byte //	This is optional, could be nil
-	serializedVSk []byte //	This is optional, could be nil
-	value         uint64
+	lgrTxoList                []*LgrTxoMLP
+	sidx                      uint8 //	consumed LgrTxo index
+	coinSpendSecretKey        []byte
+	coinSerialNumberSecretKey []byte //	This is optional, could be nil
+	coinValuePublicKey        []byte //	This is optional, could be nil
+	coinValueSecretKey        []byte //	This is optional, could be nil
+	value                     uint64
 }
 
 // New functions for TxInputDesc and TxOutputDesc 	begin
 
-// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, serializedVPK, value).
+// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, coinValuePK, value).
 // reviewed on 2023.12.07
-func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) *TxOutputDescMLP {
+func NewTxOutputDescMLP(coinAddress []byte, coinValuePublicKey []byte, value uint64) *TxOutputDescMLP {
 	return &TxOutputDescMLP{
-		coinAddress:   coinAddress,
-		serializedVPK: serializedVPK,
-		value:         value,
+		coinAddress:        coinAddress,
+		coinValuePublicKey: coinValuePublicKey,
+		value:              value,
+	}
+}
+
+// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, coinValuePK, value).
+// reviewed on 2023.12.07
+func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
+	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *TxInputDescMLP {
+	return &TxInputDescMLP{
+		lgrTxoList:                lgrTxoList,
+		sidx:                      sidx,
+		coinSpendSecretKey:        coinSpendSecretKey,
+		coinSerialNumberSecretKey: coinSerialNumberSecretKey,
+		coinValuePublicKey:        coinValuePublicKey,
+		coinValueSecretKey:        coinValueSecretKey,
+		value:                     value,
 	}
 }
 
