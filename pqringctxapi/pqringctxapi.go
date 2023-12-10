@@ -11,6 +11,7 @@ type CoinAddressType = pqringctx.CoinAddressType
 
 type TxOutputDescMLP = pqringctx.TxOutputDescMLP
 type TxInputDescMLP = pqringctx.TxInputDescMLP
+type LgrTxoMLP = pqringctx.LgrTxoMLP
 
 type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
 type TransferTxMLP = pqringctx.TransferTxMLP
@@ -163,6 +164,12 @@ func SerializeTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
 // reviewed on 2023.12.07
 func DeserializeTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
 	return pp.DeserializeTxoMLP(serializedTxo)
+}
+
+// NewLgrTxo constructs a new LgrTxoMLP.
+// reviewed on 2023.12.08
+func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
+	return pqringctx.NewLgrTxoMLP(txo, id)
 }
 
 // APIs	for Txo	end

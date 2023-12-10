@@ -79,6 +79,15 @@ func NewTxOutputDescMLP(coinAddress []byte, serializedVPK []byte, value uint64) 
 	}
 }
 
+// NewLgrTxoMLP constructs a new LgrTxoMLP.
+// reviewed on 2023.12.08
+func NewLgrTxoMLP(txo TxoMLP, id []byte) *LgrTxoMLP {
+	return &LgrTxoMLP{
+		txo: txo,
+		id:  id,
+	}
+}
+
 //	New functions for TxInputDesc and TxOutputDesc 	end
 
 // New and Get functions for Transactions	begin
