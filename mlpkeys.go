@@ -32,12 +32,12 @@ type AddressSecretKeyForSingle struct {
 	*AddressSecretKeySp
 }
 
-// CoinAddressKeyForRingGen generates coinAddress, coinSpendKey, and coinSnKey
+// CoinAddressKeyForPKRingGen generates coinAddress, coinSpendKey, and coinSnKey
 // for the key which will be used to host the coins with full-privacy.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.05
-func (pp *PublicParameter) CoinAddressKeyForRingGen(randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
+func (pp *PublicParameter) CoinAddressKeyForPKRingGen(randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSnSecretKey []byte, err error) {
 	apk, ask, err := pp.addressKeyForRingGen(randSeed)
 	if err != nil {
 		return nil, nil, nil, err
@@ -61,26 +61,27 @@ func (pp *PublicParameter) CoinAddressKeyForRingGen(randSeed []byte) (coinAddres
 	coinAddress[0] = byte(CoinAddressTypePublicKeyForRing)
 	copy(coinAddress[1:], serializedAPK)
 
-	coinSpendKey = make([]byte, 1+len(serializedASKSp))
-	coinSpendKey[0] = byte(CoinAddressTypePublicKeyForRing)
-	copy(coinSpendKey[1:], serializedASKSp)
+	coinSpendSecretKey = make([]byte, 1+len(serializedASKSp))
+	coinSpendSecretKey[0] = byte(CoinAddressTypePublicKeyForRing)
+	copy(coinSpendSecretKey[1:], serializedASKSp)
 
-	coinSnKey = make([]byte, 1+len(serializedASKSn))
-	coinSnKey[0] = byte(CoinAddressTypePublicKeyForRing)
-	copy(coinSnKey[1:], serializedASKSn)
+	coinSnSecretKey = make([]byte, 1+len(serializedASKSn))
+	coinSnSecretKey[0] = byte(CoinAddressTypePublicKeyForRing)
+	copy(coinSnSecretKey[1:], serializedASKSn)
 
-	return coinAddress, coinSpendKey, coinSnKey, nil
+	return coinAddress, coinSpendSecretKey, coinSnSecretKey, nil
 
 	//return nil, nil, nil, err
 }
 
-// CoinAddressKeyForSingleGen generates coinAddress and coinSpendKey
-// for the key which will be used to host the coins with pseudonym-privacy.
+// CoinAddressKeyForPKHSingleGen generates coinAddress and coinSpendKey
+// for the key which will be used to host the coins with pseudonym-privacy,
+// where the CoinAddress will be a hash, and used in a single manner.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.05
 // reviewed on 2023.12.07
-func (pp *PublicParameter) CoinAddressKeyForSingleGen(randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
+func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 	apk, ask, err := pp.addressKeyForSingleGen(randSeed)
 	if err != nil {
 		return nil, nil, err
@@ -104,12 +105,12 @@ func (pp *PublicParameter) CoinAddressKeyForSingleGen(randSeed []byte) (coinAddr
 	coinAddress[0] = byte(CoinAddressTypePublicKeyHashForSingle)
 	copy(coinAddress[1:], apkHash)
 
-	coinSpendKey = make([]byte, 1+len(serializedAPK)+len(serializedASKSp))
-	coinSpendKey[0] = byte(CoinAddressTypePublicKeyHashForSingle)
-	copy(coinSpendKey[1:], serializedAPK)
-	copy(coinSpendKey[1+len(serializedAPK):], serializedASKSp)
+	coinSpendSecretKey = make([]byte, 1+len(serializedAPK)+len(serializedASKSp))
+	coinSpendSecretKey[0] = byte(CoinAddressTypePublicKeyHashForSingle)
+	copy(coinSpendSecretKey[1:], serializedAPK)
+	copy(coinSpendSecretKey[1+len(serializedAPK):], serializedASKSp)
 
-	return coinAddress, coinSpendKey, nil
+	return coinAddress, coinSpendSecretKey, nil
 
 	//	return nil, nil, err
 }
@@ -173,6 +174,21 @@ func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (
 		return 1 + HashOutputBytesLen, nil
 	default:
 		return 0, errors.New("GetCoinAddressSize: the input coinAddressType is not supported")
+	}
+}
+
+// GetCoinSpendSecretKeySize returns the size of CoinSpendSecretKey, according to the input CoinAddressType.
+// todo: review
+func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddressType) (int, error) {
+	switch coinAddressType {
+	case CoinAddressTypePublicKeyForRingPre:
+		return pp.addressSecretKeySpSerializeSize(), nil
+	case CoinAddressTypePublicKeyForRing:
+		return 1 + pp.addressSecretKeySpSerializeSize(), nil
+	case CoinAddressTypePublicKeyHashForSingle:
+		return 1 + pp.addressPublicKeyForSingleSerializeSize() + pp.addressSecretKeySpSerializeSize(), nil
+	default:
+		return 0, errors.New("GetCoinSpendSecretKeySize: the input coinAddressType is not supported")
 	}
 }
 

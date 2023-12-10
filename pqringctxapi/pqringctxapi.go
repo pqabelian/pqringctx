@@ -26,22 +26,22 @@ func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
 	return pqringctx.Initialize(parameterSeedString)
 }
 
-// CoinAddressKeyForRingGen generates coinAddress, coinSpendKey, and coinSnKey
+// CoinAddressKeyForPKRingGen generates coinAddress, coinSpendKey, and coinSnKey
 // for the key which will be used to host the coins with full-privacy.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
-	return pp.CoinAddressKeyForRingGen(randSeed)
+func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, coinSnKey []byte, err error) {
+	return pp.CoinAddressKeyForPKRingGen(randSeed)
 }
 
-// CoinAddressKeyForSingleGen generates coinAddress and coinSpendKey
+// CoinAddressKeyForPKHSingleGen generates coinAddress and coinSpendKey
 // for the key which will be used to host the coins with pseudonym-privacy.
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
-	return pp.CoinAddressKeyForSingleGen(randSeed)
+func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendKey []byte, err error) {
+	return pp.CoinAddressKeyForPKHSingleGen(randSeed)
 	//	return nil, nil, err
 }
 
@@ -103,16 +103,24 @@ func GetCoinAddressSize(pp *PublicParameter, coinAddressType CoinAddressType) (i
 	return pp.GetCoinAddressSize(coinAddressType)
 }
 
-// GetCoinAddressSizeByCoinAddressKeyForRingGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForRingGen algorithm.
+// GetCoinAddressSizeByCoinAddressKeyForPKRingGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForRingGen algorithm.
 // reviewed on 2023.12.07
-func GetCoinAddressSizeByCoinAddressKeyForRingGen(pp *PublicParameter) (int, error) {
+func GetCoinAddressSizeByCoinAddressKeyForPKRingGen(pp *PublicParameter) (int, error) {
 	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyForRing)
 }
 
-// GetCoinAddressSizeByCoinAddressKeyForSingleGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForSingleGen algorithm.
+// GetCoinAddressSizeByCoinAddressKeyForPKHSingleGen returns the CoinAddress size, which is determined by the underlying CoinAddressKeyForSingleGen algorithm.
 // reviewed on 2023.12.07
-func GetCoinAddressSizeByCoinAddressKeyForSingleGen(pp *PublicParameter) (int, error) {
+func GetCoinAddressSizeByCoinAddressKeyForPKHSingleGen(pp *PublicParameter) (int, error) {
 	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
+}
+
+func GetCoinSpendSecretKeySizeByCoinAddressKeyForPKRingGen(pp *PublicParameter) (int, error) {
+	return pp.GetCoinSpendSecretKeySize(pqringctx.CoinAddressTypePublicKeyForRing)
+}
+
+func GetCoinSpendSecretKeySizeByCoinAddressKeyForPKHSingleGen(pp *PublicParameter) (int, error) {
+	return pp.GetCoinSpendSecretKeySize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
 }
 
 // GetCoinValuePublicKeySize returns the CoinValuePublicKey size.
