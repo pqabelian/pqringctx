@@ -36,7 +36,7 @@ type CoinbaseTxMLP struct {
 // TransferTxMLP is defined for transferTx.
 type TransferTxMLP struct {
 	//	Version uint32	//	crypto-layer does not care the (actually does not have the concept of) version of transferTx.
-	inputs    []*TxInputMLP
+	txInputs  []*TxInputMLP
 	txos      []TxoMLP
 	fee       uint64
 	txMemo    []byte
@@ -128,6 +128,25 @@ func (cbTx *CoinbaseTxMLP) GetTxos() []TxoMLP {
 // reviewed on 2023.12.07
 func (cbTx *CoinbaseTxMLP) GetTxWitness() *TxWitnessCbTx {
 	return cbTx.txWitness
+}
+
+// todo: review
+func (trTx *TransferTxMLP) GetTxos() []TxoMLP {
+	return trTx.txos
+}
+
+// todo: review
+func (trTx *TransferTxMLP) GetTxInputs() []*TxInputMLP {
+	return trTx.txInputs
+}
+
+// todo: review
+func (trTx *TransferTxMLP) GetTxWitness() *TxWitnessTrTx {
+	return trTx.txWitness
+}
+
+func (txInput *TxInputMLP) GetSerialNumber() []byte {
+	return txInput.serialNumber
 }
 
 //	New and Get functions for Transactions	end

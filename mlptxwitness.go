@@ -377,3 +377,74 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 }
 
 //	TxWitnessCbTx	end
+
+// TxWitnessTrTx	begin
+func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
+	//if txWitness == nil {
+	//	return nil, errors.New("SerializeTxWitnessCbTx: the input TxWitnessCbTx is nil")
+	//}
+	//
+	//w := bytes.NewBuffer(make([]byte, 0, pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)))
+	//
+	//// txCase       TxWitnessCbTxCase
+	//err = w.WriteByte(byte(txWitness.txCase))
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// vL           uint64
+	//err = binarySerializer.PutUint64(w, littleEndian, txWitness.vL)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// outForRing   uint8
+	//err = w.WriteByte(txWitness.outForRing)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// balanceProof BalanceProof
+	//var serializedBpf []byte
+	//switch bpfInst := txWitness.balanceProof.(type) {
+	//case *BalanceProofL0R0:
+	//	if txWitness.outForRing != 0 {
+	//		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofL0R0, but the outForRing is not 0")
+	//	}
+	//	serializedBpf, err = pp.serializeBalanceProofL0R0(bpfInst)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//case *BalanceProofL0R1:
+	//	if txWitness.outForRing != 1 {
+	//		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofL0R1, but the outForRing is not 1")
+	//	}
+	//	serializedBpf, err = pp.serializeBalanceProofL0R1(bpfInst)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//case *BalanceProofLmRn:
+	//	if txWitness.outForRing < 2 {
+	//		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
+	//	}
+	//	serializedBpf, err = pp.serializeBalanceProofLmRn(bpfInst)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//default:
+	//	return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is not in the supported cases")
+	//}
+	//
+	//_, err = w.Write(serializedBpf) //	here the length of serializedBpf is not written, since it can be computed from outForRing.
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//return w.Bytes(), nil
+	return nil, err
+}
+
+//	TxWitnessTrTx	end

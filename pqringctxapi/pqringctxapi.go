@@ -17,6 +17,7 @@ type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
 type TransferTxMLP = pqringctx.TransferTxMLP
 
 type TxoMLP = pqringctx.TxoMLP
+type TxInputMLP = pqringctx.TxInputMLP
 type TxWitnessCbTx = pqringctx.TxWitnessCbTx
 type TxWitnessTrTx = pqringctx.TxWitnessTrTx
 
@@ -57,8 +58,8 @@ func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (coinValuePublicKey [
 
 // NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
 // reviewed on 2023.12.07
-func NewTxOutputDescMLP(coinAddress []byte, coinValuePK []byte, value uint64) *TxOutputDescMLP {
-	return pqringctx.NewTxOutputDescMLP(coinAddress, coinValuePK, value)
+func NewTxOutputDescMLP(coinAddress []byte, coinValuePublicKey []byte, value uint64) *TxOutputDescMLP {
+	return pqringctx.NewTxOutputDescMLP(coinAddress, coinValuePublicKey, value)
 }
 
 // CoinbaseTxGen generates CoinbaseTx.
@@ -225,6 +226,11 @@ func SerializeTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]by
 // reviewed on 2023.12.07
 func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessCbTx, error) {
 	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
+}
+
+// todo: review
+func SerializeTxWitnessTrTx(pp *PublicParameter, txWitness *TxWitnessTrTx) ([]byte, error) {
+	return pp.SerializeTxWitnessTrTx(txWitness)
 }
 
 // APIs for Witness 	end
