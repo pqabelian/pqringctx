@@ -73,6 +73,163 @@ func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
 
+//	TXO	Gen		begin
+//
+// txoRCTPreGen() returns a transaction output and the randomness used to generate the commitment.
+// It is same as the txoGen in pqringct, with coinAddress be exactly the serializedAddressPublicKey.
+// Note that the coinAddress should be serializedAddressPublicKeyForRing = serializedAddressPublicKey (in pqringct).
+// Note that the vpk should be serializedValuePublicKey = serializedViewPublicKey (in pqringct).
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, vpk []byte, value uint64) (txo *TxoRCTPre, cmtr *PolyCNTTVec, err error) {
+	//	got (C, kappa) from key encapsulate mechanism
+	// Restore the KEM version
+	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, vpk)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//	expand the kappa to PolyCVec with length Lc
+	cmtr_poly, err := pp.expandValueCmtRandomness(kappa)
+	if err != nil {
+		return nil, nil, err
+	}
+	cmtr = pp.NTTPolyCVec(cmtr_poly)
+
+	mtmp := pp.intToBinary(value)
+	m := &PolyCNTT{coeffs: mtmp}
+	// [b c]^T = C*r + [0 m]^T
+	cmt := &ValueCommitment{}
+	cmt.b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr, pp.paramKC, pp.paramLC)
+	cmt.c = pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr, pp.paramLC),
+		m,
+	)
+
+	//	vc = m ^ sk
+	//	todo_done: the vc should have length only N, to prevent the unused D-N bits of leaking information
+	sk, err := pp.expandValuePadRandomness(kappa)
+	if err != nil {
+		return nil, nil, err
+	}
+	vpt, err := pp.encodeTxoValueToBytes(value)
+	if err != nil {
+		return nil, nil, err
+	}
+	vct := make([]byte, pp.TxoValueBytesLen())
+	for i := 0; i < pp.TxoValueBytesLen(); i++ {
+		vct[i] = sk[i] ^ vpt[i]
+	}
+	// This is hard coded, based on the  value of N, and the algorithm encodeTxoValueToBytes().
+	//	N = 51, encodeTxoValueToBytes() uses only the lowest 3 bits of 7-th byte.
+	vct[6] = vct[6] & 0x07
+	// This is to make the 56th~52th bit always to be 0, while keeping the 51th,50th, 49th bits to be their real value.
+	//	By this way, we can avoid the leaking the corresponding bits of pad.
+
+	//rettxo := &Txo{
+	//	apk,
+	//	cmt,
+	//	vct,
+	//	CtKemSerialized,
+	//}
+
+	addressPublicKeyForRing, err := pp.deserializeAddressPublicKeyForRing(coinAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	retTxo := &TxoRCTPre{
+		CoinAddressTypePublicKeyForRingPre,
+		addressPublicKeyForRing,
+		cmt,
+		vct,
+		CtKemSerialized,
+	}
+
+	return retTxo, cmtr, nil
+}
+
+// txoRCTGen() returns a transaction output and the randomness used to generate the commitment.
+// Note that the coinAddress should be 1 byte (CoinAddressType) + serializedAddressPublicKeyForRing.
+// Note that the vpk should be 1 byte (CoinAddressType) + serializedValuePublicKey.
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoRCTGen(coinAddress []byte, vpk []byte, value uint64) (txo *TxoRCT, cmtr *PolyCNTTVec, err error) {
+
+	//	got (C, kappa) from key encapsulate mechanism
+	// Restore the KEM version
+	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, vpk[1:])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//	expand the kappa to PolyCVec with length Lc
+	cmtr_poly, err := pp.expandValueCmtRandomness(kappa)
+	if err != nil {
+		return nil, nil, err
+	}
+	cmtr = pp.NTTPolyCVec(cmtr_poly)
+
+	mtmp := pp.intToBinary(value)
+	m := &PolyCNTT{coeffs: mtmp}
+	// [b c]^T = C*r + [0 m]^T
+	cmt := &ValueCommitment{}
+	cmt.b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr, pp.paramKC, pp.paramLC)
+	cmt.c = pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr, pp.paramLC),
+		m,
+	)
+
+	//	vc = m ^ sk
+	//	todo_done: the vc should have length only N, to prevent the unused D-N bits of leaking information
+	sk, err := pp.expandValuePadRandomness(kappa)
+	if err != nil {
+		return nil, nil, err
+	}
+	vpt, err := pp.encodeTxoValueToBytes(value)
+	if err != nil {
+		return nil, nil, err
+	}
+	vct := make([]byte, pp.TxoValueBytesLen())
+	for i := 0; i < pp.TxoValueBytesLen(); i++ {
+		vct[i] = sk[i] ^ vpt[i]
+	}
+	// This is hard coded, based on the  value of N, and the algorithm encodeTxoValueToBytes().
+	//	N = 51, encodeTxoValueToBytes() uses only the lowest 3 bits of 7-th byte.
+	vct[6] = vct[6] & 0x07
+	// This is to make the 56th~52th bit always to be 0, while keeping the 51th,50th, 49th bits to be their real value.
+	//	By this way, we can avoid the leaking the corresponding bits of pad.
+
+	//rettxo := &Txo{
+	//	apk,
+	//	cmt,
+	//	vct,
+	//	CtKemSerialized,
+	//}
+
+	addressPublicKeyForRing, err := pp.deserializeAddressPublicKeyForRing(coinAddress[1:])
+
+	retTxo := &TxoRCT{
+		CoinAddressTypePublicKeyForRing,
+		addressPublicKeyForRing,
+		cmt,
+		vct,
+		CtKemSerialized,
+	}
+
+	return retTxo, cmtr, nil
+}
+
+// txoSDNGen() returns a transaction output and the randomness used to generate the commitment.
+// Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
+// reviewed on 2023.12.07
+func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN) {
+	return &TxoSDN{
+		CoinAddressTypePublicKeyHashForSingle,
+		coinAddress[1:],
+		value,
+	}
+}
+
+//	TXO	Gen		end
+
 // GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a Txo for the input coinAddressType.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
