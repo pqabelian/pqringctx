@@ -162,6 +162,8 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []b
 	return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinAddress: the input coinAddress has a length that is not supported")
 }
 
+// ExtractCoinAddressTypeFromCoinSpendSecretKey extracts coinAddressType from the input coinSpendSecretKey.
+// reviewed on 2023.12.12
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpendSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSpendSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -193,6 +195,8 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpen
 	return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinSpendSecretKey: the input coinSpendSecretKey has a length that is not supported")
 }
 
+// ExtractCoinAddressTypeFromCoinSerialNumberSecretKey extracts CoinAddressType from the input CoinSerialNumberSecretKey.
+// reviewed on 2023.12.12
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(coinSnSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSnSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -235,7 +239,7 @@ func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (
 }
 
 // GetCoinSpendSecretKeySize returns the size of CoinSpendSecretKey, according to the input CoinAddressType.
-// todo: review
+// reviewed on 2023.12.12
 func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -245,10 +249,12 @@ func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddress
 	case CoinAddressTypePublicKeyHashForSingle:
 		return 1 + pp.addressPublicKeyForSingleSerializeSize() + pp.addressSecretKeySpSerializeSize(), nil
 	default:
-		return 0, errors.New("GetCoinSpendSecretKeySize: the input coinAddressType is not supported")
+		return 0, fmt.Errorf("GetCoinSpendSecretKeySize: the input coinAddressType is not supported")
 	}
 }
 
+// GetCoinSerialNumberSecretKeySize returns the size of CoinSerialNumberSecretKey, according to the input CoinAddressType.
+// reviewed on 2023.12.12
 func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
