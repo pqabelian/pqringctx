@@ -92,8 +92,8 @@ func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey [
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
 // TransferTxGen outputs a pqringctxapidao.TransferTxMLP, rather than a serialized Tx.
-func TransferTxGen(pp *PublicParameter, inputDescs []*TxInputDescMLP, outputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *TransferTxMLP, err error) {
-	return nil, err
+func TransferTxGen(pp *PublicParameter, txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *TransferTxMLP, err error) {
+	return pp.TransferTxMLPGen(txInputDescs, txOutputDescs, fee, txMemo)
 }
 
 func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
