@@ -1,17 +1,44 @@
 package pqringctx
 
-import "errors"
+import (
+	"fmt"
+)
 
+// Signatures	begin
+type elrsSignatureMLP struct {
+	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
+	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
+	//	z_cs, z_cps, as the responses, need to have the infinite normal ina scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
+	//	That is why we use PolyAVec (resp. PolyCVec), rather than PolyANTTVec (resp. PolyCNTTVec).
+	z_as  []*PolyAVec   // length ringSize, each for a ring member. Each element lies in (S_{eta_a - beta_a})^{L_a}.
+	z_cs  [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
+	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
+}
+
+type simpsSignatureMLP struct {
+	seed []byte
+	//	z_a, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
+	//	That is why we use PolyAVec, rather than PolyANTTVec.
+	z_a *PolyAVec // lies in (S_{eta_a - beta_a})^{L_a}.
+
+}
+
+//	Signatures	end
+
+// elrsMLPSign generates elrsSignture.
+// Note that this is the same as pqringct.elrsSign.
+// todo: review
 func (pp *PublicParameter) elrsMLPSign(
-	lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment,
-	msg []byte, sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*elrsSignature, error) {
+	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, msg []byte,
+	sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*elrsSignatureMLP, error) {
+
 	var err error
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
-		return nil, errors.New("elrsSign is called on input empty ring")
+		return nil, fmt.Errorf("elrsMLPSign: the input lgrTxoList is empty")
 	}
 	if int(sindex) >= ringLen {
-		return nil, errors.New("The signer index is not in the scope")
+		return nil, fmt.Errorf("elrsMLPSign: The signer index is not in the scope")
 	}
 
 	seeds := make([][]byte, ringLen)
@@ -55,14 +82,36 @@ func (pp *PublicParameter) elrsMLPSign(
 		}
 		z_as_ntt[j] = pp.NTTPolyAVec(z_as[j])
 
+		// lgrTxoList[j].txo.addressPublicKeyForRing.t
+		// lgrTxoList[j].txo.addressPublicKeyForRing.e
+		var t_j *PolyANTTVec
+		var e_j *PolyANTT
+		var b_j *PolyCNTTVec
+		var c_j *PolyCNTT
+		switch txoInst := lgrTxoList[j].txo.(type) {
+		case *TxoRCTPre:
+			t_j = txoInst.addressPublicKeyForRing.t
+			e_j = txoInst.addressPublicKeyForRing.e
+			b_j = txoInst.valueCommitment.b
+			c_j = txoInst.valueCommitment.c
+		case *TxoRCT:
+			t_j = txoInst.addressPublicKeyForRing.t
+			e_j = txoInst.addressPublicKeyForRing.e
+			b_j = txoInst.valueCommitment.b
+			c_j = txoInst.valueCommitment.c
+		case *TxoSDN:
+			return nil, fmt.Errorf("elrsMLPSign: lgrTxoList[%d].txo is a TxoSDN", j)
+		default:
+			return nil, fmt.Errorf("elrsMLPSign: lgrTxoList[%d].txo is not TxoRCTPre, TxoRCT, or TxoSDN", j)
+		}
 		// w_a_j = A*z_a_j - d_a_j*t_j
 		w_as[j] = pp.PolyANTTVecSub(
 			pp.PolyANTTMatrixMulVector(pp.paramMatrixA, z_as_ntt[j], pp.paramKA, pp.paramLA),
-			pp.PolyANTTVecScaleMul(da, lgrTxoList[j].txo.AddressPublicKey.t, pp.paramKA),
+			pp.PolyANTTVecScaleMul(da, t_j, pp.paramKA),
 			pp.paramKA,
 		)
 		// delta_a_j = <a,z_a_j> - d_a_j * (e_j + expandKIDR(txo[j]) - m_a_p)
-		lgrTxoH, err := pp.expandKIDR(lgrTxoList[j])
+		lgrTxoH, err := pp.expandKIDRMLP(lgrTxoList[j])
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +121,7 @@ func (pp *PublicParameter) elrsMLPSign(
 				da,
 				pp.PolyANTTSub(
 					pp.PolyANTTAdd(
-						lgrTxoList[j].txo.AddressPublicKey.e,
+						e_j,
 						lgrTxoH,
 					),
 					ma_p,
@@ -106,7 +155,7 @@ func (pp *PublicParameter) elrsMLPSign(
 				pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z_cs_ntt[j][tao], pp.paramKC, pp.paramLC),
 				pp.PolyCNTTVecScaleMul(
 					sigmataodc,
-					lgrTxoList[j].txo.ValueCommitment.b,
+					b_j,
 					pp.paramKC,
 				),
 				pp.paramKC,
@@ -128,7 +177,7 @@ func (pp *PublicParameter) elrsMLPSign(
 				),
 				pp.PolyCNTTMul(
 					sigmataodc,
-					pp.PolyCNTTSub(lgrTxoList[j].txo.ValueCommitment.c, cmt_p.c),
+					pp.PolyCNTTSub(c_j, cmt_p.c),
 				),
 			)
 		}
@@ -142,7 +191,8 @@ func (pp *PublicParameter) elrsMLPSign(
 	w_cs[sindex] = make([]*PolyCNTTVec, pp.paramK)
 	w_cps[sindex] = make([]*PolyCNTTVec, pp.paramK)
 	delta_cs[sindex] = make([]*PolyCNTT, pp.paramK)
-ELRSSignRestart:
+
+ELRSMLPSignRestart:
 	// randomness y_a_j_bar
 	tmpYa, err := pp.sampleMaskingVecA()
 	if err != nil {
@@ -176,7 +226,7 @@ ELRSSignRestart:
 		)
 	}
 
-	preMsg, err := pp.collectBytesForElrsChallenge(lgrTxoList, ma_p, cmt_p, msg, w_as, delta_as, w_cs, w_cps, delta_cs)
+	preMsg, err := pp.collectBytesForElrsMLPChallenge(lgrTxoList, ma_p, cmt_p, msg, w_as, delta_as, w_cs, w_cps, delta_cs)
 	if err != nil {
 		return nil, err
 	}
@@ -231,19 +281,20 @@ ELRSSignRestart:
 	}
 
 	if z_as[sindex].infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
-		goto ELRSSignRestart
+		goto ELRSMLPSignRestart
 	}
 
 	boundC := pp.paramEtaC - int64(pp.paramBetaC)
 	for tao := 0; tao < pp.paramK; tao++ {
 		if (z_cs[sindex][tao].infNorm() > boundC) || (z_cps[sindex][tao].infNorm() > boundC) {
-			goto ELRSSignRestart
+			goto ELRSMLPSignRestart
 		}
 		//if z_cps[sindex][tao].infNorm() > boundC {
 		//	goto ELRSSignRestart
 		//}
 	}
-	return &elrsSignature{
+
+	return &elrsSignatureMLP{
 		seeds: seeds,
 		z_as:  z_as,
 		z_cs:  z_cs,
@@ -251,18 +302,33 @@ ELRSSignRestart:
 	}, nil
 }
 
+// collectBytesForElrsMLPChallenge collect preMsg in elrsMLPSign, for the Fiat-Shamir transform.
+// Note that this is almost the same as pqringct.collectBytesForElrsChallenge.
 // todo_DONE: the paper is not accurate, use the following params
+// todo: concat the system parameters
+// todo: review
 func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
-	lgxTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment,
+	lgxTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment,
 	msg []byte,
 	w_as []*PolyANTTVec, delta_as []*PolyANTT,
 	w_cs [][]*PolyCNTTVec, w_cps [][]*PolyCNTTVec, delta_cs [][]*PolyCNTT) ([]byte, error) {
 
-	length := len(lgxTxoList)*pp.LgrTxoSerializeSize() +
-		pp.paramDA*8 + (pp.paramKC+1)*8 +
-		len(msg) +
-		len(lgxTxoList)*(pp.paramKA+1)*8 +
-		len(lgxTxoList)*pp.paramK*(pp.paramKC*2+1)
+	length := 0
+	// lgxTxoList []*LgrTxoMLP
+	for j := 0; j < len(lgxTxoList); j++ {
+		lgrTxoLen, err := pp.lgrTxoMLPSerializeSize(lgxTxoList[j])
+		if err != nil {
+			return nil, err
+		}
+		length = length + lgrTxoLen
+	}
+
+	length = length + //	lgxTxoList []*LgrTxoMLP
+		pp.paramDA*8 + //	ma_p *PolyANTT
+		(pp.paramKC+1)*pp.paramDC*8 + //	cmt_p *ValueCommitment
+		len(msg) + //	msg []byte
+		len(lgxTxoList)*(pp.paramKA+1)*pp.paramDA*8 + //	w_as []*PolyANTTVec, delta_as []*PolyANTT,
+		len(lgxTxoList)*pp.paramK*(pp.paramKC*2+1)*pp.paramDC*8 //	w_cs [][]*PolyCNTTVec, w_cps [][]*PolyCNTTVec, delta_cs [][]*PolyCNTT
 
 	rst := make([]byte, 0, length)
 
@@ -295,7 +361,7 @@ func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
 
 	// lgrTxoList
 	for i := 0; i < len(lgxTxoList); i++ {
-		serializeLgrTxo, err := pp.SerializeLgrTxo(lgxTxoList[i])
+		serializeLgrTxo, err := pp.SerializeLgrTxoMLP(lgxTxoList[i])
 		if err != nil {
 			//log.Fatalln("error for pp.SerializeLgrTxo()")
 			return nil, err
@@ -357,7 +423,8 @@ func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
 	return rst, nil
 }
 
-// elrsVerify() verify the validity of a given (message, signature) pair.
+// elrsMLPVerify() verify the validity of a given (message, signature) pair.
+// todo:
 func (pp *PublicParameter) elrsMLPVerify(lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment, msg []byte, sig *elrsSignature) (bool, error) {
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
