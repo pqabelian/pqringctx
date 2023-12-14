@@ -339,8 +339,10 @@ func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressTy
 }
 
 // TxoMLPSerializeSize returns the serializedSize for the input TxoMLP.
+// Note that for the case of txoMLP is a TxoRCTPre, this function must keep the same as pqringct.TxoSerializeSize.
 // reviewed on 2023.12.04
 // reviewed on 2023.12.07
+// reviewed on 2023.12.14
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
 		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is nil")
@@ -370,7 +372,9 @@ func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 }
 
 // SerializeTxoMLP serializes the input TxoMLP to []byte.
+// Note that, for the case of TxoRCTPre, this must keep the same as pqringct.SerializeTxo.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.14
 func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte, err error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is nil")
@@ -419,7 +423,8 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 }
 
 // TxoRCTPreSerializeSize returns the serialized size for TxoRCTPre.
-// review on 2023.12.04.
+// Note that this function must keep the same as pqringct.TxoSerializeSize.
+// reviewed on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
@@ -430,8 +435,10 @@ func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 }
 
 // serializeTxoRCTPre serialize the input TxoRCTPre into []byte.
+// Note that this must keep the same as pqringct.serializeTxo.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.14
 func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, error) {
 	if txoRCTPre == nil || txoRCTPre.addressPublicKeyForRing == nil || txoRCTPre.valueCommitment == nil ||
 		len(txoRCTPre.vct) == 0 || len(txoRCTPre.ctKemSerialized) == 0 {
