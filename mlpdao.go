@@ -118,6 +118,13 @@ func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWit
 	}
 }
 
+func NewTxInputMLP(lgrTxoList []*LgrTxoMLP, serialNumber []byte) *TxInputMLP {
+	return &TxInputMLP{
+		lgrTxoList:   lgrTxoList,
+		serialNumber: serialNumber,
+	}
+}
+
 // GetTxos returns the handler CoinbaseTxMLP's txos.
 // reviewed on 2023.12.07
 func (cbTx *CoinbaseTxMLP) GetTxos() []TxoMLP {
@@ -150,24 +157,3 @@ func (txInput *TxInputMLP) GetSerialNumber() []byte {
 }
 
 //	New and Get functions for Transactions	end
-
-// Signatures	begin
-type elrsSignatureMLP struct {
-	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
-	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
-	//	z_cs, z_cps, as the responses, need to have the infinite normal ina scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
-	//	That is why we use PolyAVec (resp. PolyCVec), rather than PolyANTTVec (resp. PolyCNTTVec).
-	z_as  []*PolyAVec   // length ringSize, each for a ring member. Each element lies in (S_{eta_a - beta_a})^{L_a}.
-	z_cs  [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
-	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
-}
-
-type simpsSignatureMLP struct {
-	seed []byte
-	//	z_a, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
-	//	That is why we use PolyAVec, rather than PolyANTTVec.
-	z_a *PolyAVec // lies in (S_{eta_a - beta_a})^{L_a}.
-
-}
-
-//	Signatures	end
