@@ -19,6 +19,7 @@ const (
 	MaxAllowedTxWitnessSize     uint32 = 16777216   // 2^24, 16M bytes
 	MaxAllowedElrsSignatureSize uint32 = 8388608    // 2^23, 8M bytes
 	MaxAllowedTrTxInputSize     uint32 = 8388608    // 2^23, 8M bytes
+	MaxAllowedLgrTxoMLPSize     uint32 = 1048576    // 2^20
 )
 
 func AddressKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, []byte, error) {
