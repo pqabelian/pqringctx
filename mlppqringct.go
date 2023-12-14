@@ -228,6 +228,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 }
 
 // todo:
+// todo: review pp.CoinValueKeyVerify
 func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -281,6 +282,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			vOutPublic += txOutputDescItem.value
 
 			// skip the check on coinValuePublicKey, to allow the caller uses dummy one for some reason, e.g., safety.
+
 		} else {
 			return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress's coinAddressType(%d) is not supported", j, coinAddressType)
 		}
@@ -298,8 +300,8 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	inForSingle := 0
 	inForSingleDistinct := 0
 	cmtrsIn := make([]*PolyCNTTVec, 0, inputNum)                    // This is used to collect the cmtr for the coin-to-spend in inForRing.
-	coinAddressForSingleDistinctList := make([][]byte, 0, inputNum) // This is used to collect the set of distinct coinAddress with coinAddressType = CoinAddressTypePublicKeyHashForSingle.
-	coinAddressSpendSecretKeyMap := make(map[string][]byte)         // This is used to map the coinAddress with coinAddressType = CoinAddressTypePublicKeyHashForSingle to the corresponding SpendSecretKey, and is also to collect
+	coinAddressForSingleDistinctList := make([][]byte, 0, inputNum) // This is used to collect the set of distinct coinAddress for the coin-to-spend in outForSingle.
+	coinAddressSpendSecretKeyMap := make(map[string][]byte)         // This is used to map the (distinct) coinAddress for the coin-to-spend in outForSingle to the corresponding SpendSecretKey.
 	vInTotal := uint64(0)
 	vInPublic := uint64(0)
 	lgrTxoIdsToSpendMap := make(map[string]int) // There should not be double spending in one transaction.
@@ -344,12 +346,14 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 				inForRing += 1
 			} else {
 				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return nil, fmt.Errorf("TransferTxMLPGen: on the input side, the coin-to-spend with RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
+				return nil, fmt.Errorf("TransferTxMLPGen: on the input side, the coins-to-spend with RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
 			}
 
 			//	To spend a coin with RingCT-Privacy, none of the (coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey) could be nil.
-			if txInputDescItem.coinSerialNumberSecretKey == nil || txInputDescItem.coinValuePublicKey == nil || txInputDescItem.coinValueSecretKey == nil {
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has RingCT-Privacy, but at least one of the (coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey) nil", i, txInputDescItem.sidx)
+			if len(txInputDescItem.coinSpendSecretKey) == 0 ||
+				len(txInputDescItem.coinSerialNumberSecretKey) == 0 ||
+				len(txInputDescItem.coinValuePublicKey) == 0 || len(txInputDescItem.coinValueSecretKey) == 0 {
+				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has RingCT-Privacy, but at least one of the (coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey) nil", i, txInputDescItem.sidx)
 			}
 
 			//	check the validity of (coinAddress, coinSpendSecretKey, coinSerialNumberSecretKey)
@@ -361,13 +365,10 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] and corresponding coinSpendSecretKey and coinSerialNumberSecretKey, say txInputDescs[%d].coinSpendSecretKey and txInputDescs[%d].coinSerialNumberSecretKey, do not match", i, txInputDescItem.sidx, i, i)
 			}
 
-			//	Check the validity of (coinValuePublciKey, coinValueSecretKey)
+			//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
 			validValueKey, hints := pp.CoinValueKeyVerify(txInputDescItem.coinValuePublicKey, txInputDescItem.coinValueSecretKey)
-			if err != nil {
-				return nil, err
-			}
 			if !validValueKey {
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin value key pair for %d -th coin to spend, say txInputDescs[%d].coinSpendSecretKey and txInputDescs[%d].coinSerialNumberSecretKey, does not match. Hints = "+hints, i, i)
+				return nil, fmt.Errorf("TransferTxMLPGen: the coin value key pair for %d -th coin to spend, say txInputDescs[%d].coinValuePublicKey and txInputDescs[%d].coinValueSecretKey, does not match. Hints = "+hints, i, i)
 			}
 
 			//	Check the value-commitment and value-ciphertext
@@ -405,7 +406,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 						(coinAddressTypeInRingMember == CoinAddressTypePublicKeyForRing && coinAddressType == CoinAddressTypePublicKeyForRingPre) {
 						//	allowed
 					} else {
-						return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList[%d].txo has differnet coinAddressType from the coin to spend, say txInputDescs[%d].lgrTxoList[%d]", i, t, i, txInputDescItem.sidx)
+						return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList[%d].txo has differnet coinAddressType from the coin-to-spend, say txInputDescs[%d].lgrTxoList[%d]", i, t, i, txInputDescItem.sidx)
 					}
 				}
 			}
@@ -424,6 +425,9 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			//	coinSerialNumberSecretKey []byte	// 	this is skipped, to allow the caller to use a dummy one
 			//	coinValuePublicKey        []byte	//	this is skipped, to allow the caller to use a dummy one
 			//	coinValueSecretKey        []byte	//	this is skipped, to allow the caller to use a dummy one
+			if len(txInputDescItem.coinSpendSecretKey) == 0 {
+				return nil, fmt.Errorf("TransferTxMLPGen: for % -th the coin to spend, say txInputDescs[%d].lgrTxoList[%d], the corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, is nil", i, txInputDescItem.sidx, i)
+			}
 			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey)
 			if err != nil {
 				return nil, err
@@ -455,6 +459,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			// In one ring,
 			// (1) there should not be repeated lgrTxoId,
 			// (2) the txos should have the 'same' coinAddressType (which imply the same privacy-level)
+
 		} else {
 			return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d].txo's coinAddresses's coinAddressesType(%d) is not supported", i, txInputDescItem.sidx, coinAddressType)
 		}
@@ -476,22 +481,23 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	if inForRing > pp.paramI {
-		return nil, fmt.Errorf("TransferTxMLPGen: the number of RingCT-privacy coins to be spent (%d) exceeds the allowed maximum number (%d)", inForRing, pp.paramI)
+		return nil, fmt.Errorf("TransferTxMLPGen: the number of RingCT-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
 	if inForSingle > pp.paramISingle {
-		return nil, fmt.Errorf("TransferTxMLPGen: the number of Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum number (%d)", inForSingle, pp.paramISingle)
+		return nil, fmt.Errorf("TransferTxMLPGen: the number of Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
 	}
 	if inForSingleDistinct > pp.paramISingleDistinct {
-		return nil, fmt.Errorf("TransferTxMLPGen: the number of distinct coin-addresses for Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum number (%d)", inForSingleDistinct, pp.paramISingleDistinct)
+		return nil, fmt.Errorf("TransferTxMLPGen: the number of distinct coin-addresses for Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingleDistinct, pp.paramISingleDistinct)
 	}
 
-	if vOutPublic != vInPublic {
-		return nil, fmt.Errorf("TransferTxMLPGen: the total value on the output side (%d) is different that on the input side (%d)", vOutPublic, vInPublic)
+	if vOutTotal != vInTotal {
+		return nil, fmt.Errorf("TransferTxMLPGen: the total value on the output side (%d) is different that on the input side (%d)", vOutTotal, vInTotal)
 	}
 
 	vPublic := int(vOutPublic) - int(vInPublic)
 	//	This is to have cmt_{in,1} + ... + cmt_{in,inForRing} = cmt_{out,1} + ... + cmt_{out,outForRing} + vPublic,
 	//	where vPublic could be 0 or negative.
+	//	(inForRing, outForRing, vPublic) will determine the balance proof type for the transaction.
 
 	if vPublic < 0 {
 		// todo
