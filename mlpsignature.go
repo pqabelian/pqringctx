@@ -27,9 +27,9 @@ type simpsSignatureMLP struct {
 
 // elrsMLPSign generates elrsSignture.
 // Note that this is the same as pqringct.elrsSign.
-// todo: review
+// reviewed on 2023.12.15
 func (pp *PublicParameter) elrsMLPSign(
-	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, msg []byte,
+	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte,
 	sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*elrsSignatureMLP, error) {
 
 	var err error
@@ -226,7 +226,7 @@ ELRSMLPSignRestart:
 		)
 	}
 
-	preMsg, err := pp.collectBytesForElrsMLPChallenge(lgrTxoList, ma_p, cmt_p, msg, w_as, delta_as, w_cs, w_cps, delta_cs)
+	preMsg, err := pp.collectBytesForElrsMLPChallenge(lgrTxoList, ma_p, cmt_p, extTrTxCon, w_as, delta_as, w_cs, w_cps, delta_cs)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ ELRSMLPSignRestart:
 // todo: review
 func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
 	lgxTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment,
-	msg []byte,
+	extTrTxCon []byte,
 	w_as []*PolyANTTVec, delta_as []*PolyANTT,
 	w_cs [][]*PolyCNTTVec, w_cps [][]*PolyCNTTVec, delta_cs [][]*PolyCNTT) ([]byte, error) {
 
@@ -326,7 +326,7 @@ func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
 	length = length + //	lgxTxoList []*LgrTxoMLP
 		pp.paramDA*8 + //	ma_p *PolyANTT
 		(pp.paramKC+1)*pp.paramDC*8 + //	cmt_p *ValueCommitment
-		len(msg) + //	msg []byte
+		len(extTrTxCon) + //	extTrTxCon []byte
 		len(lgxTxoList)*(pp.paramKA+1)*pp.paramDA*8 + //	w_as []*PolyANTTVec, delta_as []*PolyANTT,
 		len(lgxTxoList)*pp.paramK*(pp.paramKC*2+1)*pp.paramDC*8 //	w_cs [][]*PolyCNTTVec, w_cps [][]*PolyCNTTVec, delta_cs [][]*PolyCNTT
 
@@ -384,7 +384,7 @@ func (pp *PublicParameter) collectBytesForElrsMLPChallenge(
 	appendPolyCNTTToBytes(cmt_p.c)
 
 	// msg
-	rst = append(rst, msg...)
+	rst = append(rst, extTrTxCon...)
 
 	// w_as []*PolyANTTVec
 	for i := 0; i < len(w_as); i++ {
@@ -553,3 +553,7 @@ func (pp *PublicParameter) elrsMLPVerify(lgrTxoList []*LgrTxo, ma_p *PolyANTT, c
 	}
 	return true, nil
 }
+
+//	Simple Signature	begin
+
+//	Simple Signature	end
