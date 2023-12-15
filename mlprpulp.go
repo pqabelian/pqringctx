@@ -99,7 +99,7 @@ rpUlpProveMLPRestart:
 	}
 
 	// splicing the data to be processed
-	preMsg := pp.collectBytesForRPULP1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
+	preMsg := pp.collectBytesForRPULPChallenge1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats, c_waves, c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg) // todo_DONE
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ rpUlpProveMLPRestart:
 	//	fmt.Printf("delta_hats[%d] = %v\n", i, phips[i])
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPULP2MLP(preMsg, psi, psip, phi, phips)
+	preMsgAll := pp.collectBytesForRPULPChallenge2MLP(preMsg, psi, psip, phi, phips)
 	chseed, err := Hash(preMsgAll)
 	if err != nil {
 		return nil, err
@@ -488,7 +488,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 	// splicing the data to be processed
 
-	preMsg := pp.collectBytesForRPULP1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats,
+	preMsg := pp.collectBytesForRPULPChallenge1MLP(message, cmts, n, b_hat, c_hats, n2, n1, rpulpType, binMatrixB, nL, nR, m, u_hats,
 		rpulppi.c_waves, rpulppi.c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg)
 	if err != nil {
@@ -643,7 +643,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//	}
 	//}
 	//	seed_ch and ch
-	preMsgAll := pp.collectBytesForRPULP2MLP(preMsg, rpulppi.psi, psip, rpulppi.phi, phips)
+	preMsgAll := pp.collectBytesForRPULPChallenge2MLP(preMsg, rpulppi.psi, psip, rpulppi.phi, phips)
 	seed_ch, err := Hash(preMsgAll)
 	if err != nil {
 		return false
@@ -1049,7 +1049,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 
 // collectBytesForRPULP1MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
 // reviewed on 2023.12.05
-func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*ValueCommitment, n uint8,
+func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	c_waves []*PolyCNTT, c_hat_g *PolyCNTT, cmt_ws [][]*PolyCNTTVec,
@@ -1191,7 +1191,7 @@ func (pp *PublicParameter) collectBytesForRPULP1MLP(message []byte, cmts []*Valu
 
 // collectBytesForRPULP2MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
 // reviewed on 2023.12.05
-func (pp *PublicParameter) collectBytesForRPULP2MLP(
+func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
 
