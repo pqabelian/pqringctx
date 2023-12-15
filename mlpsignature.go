@@ -556,12 +556,12 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxo, ma_p *Pol
 
 // Simple Signature	begin
 
-// simpleSignatureSign generates a simple signature for the input (lgrTxo, extTrTxCon).
-// Note that here we use lgrTxo rather than a PK. This is to enable lgrTxo to be a part of the signed message.
-// In this algorithm we do not check the sanity of lgrTxo,
-// and will leave the sanity-check work (i.e., extract the PK from lgrTxo) to the corresponding simpleSignatureVerify algorithm.
+// simpleSignatureSign generates a simple signature for the input (t, extTrTxCon).
+// The input t and s should satisfy t = A s.
+// In this algorithm we do not check the sanity of (t) and (s),
+// and will leave the sanity-check work (e.g., t != nil ) to the corresponding simpleSignatureVerify algorithm.
 // todo: multi-round review
-func (pp *PublicParameter) simpleSignatureSign(lgrTxo *LgrTxoMLP, extTrTxCon []byte,
+func (pp *PublicParameter) simpleSignatureSign(t *PolyANTTVec, extTrTxCon []byte,
 	s *PolyANTTVec) (*simpleSignatureMLP, error) {
 
 simpleSignatureSignRestart:
@@ -575,7 +575,7 @@ simpleSignatureSignRestart:
 	// w = A y
 	w := pp.PolyANTTMatrixMulVector(pp.paramMatrixA, y, pp.paramKA, pp.paramLA)
 
-	preMsg, err := pp.collectBytesForSimpleSignatureChallenge(lgrTxo, extTrTxCon, w)
+	preMsg, err := pp.collectBytesForSimpleSignatureChallenge(t, extTrTxCon, w)
 	if err != nil {
 		return nil, err
 	}
@@ -607,15 +607,10 @@ simpleSignatureSignRestart:
 // collectBytesForSimpleSignatureChallenge collect preMsg for simpleSignatureSign, for the Fiat-Shamir transform.
 // todo: concat the system public parameter
 // todo: review
-func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(lgrTxo *LgrTxoMLP, extTrTxCon []byte,
+func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(t *PolyANTTVec, extTrTxCon []byte,
 	w *PolyANTTVec) ([]byte, error) {
 
-	lgrTxoLen, err := pp.lgrTxoMLPSerializeSize(lgrTxo)
-	if err != nil {
-		return nil, err
-	}
-
-	length := lgrTxoLen + //	lgrTxo *LgrTxoMLP
+	length := pp.paramKA*pp.paramDA*8 + //	t *PolyANTTVec
 		len(extTrTxCon) + //	extTrTxCon []byte
 		pp.paramKA*pp.paramDA*8 //	w *PolyANTTVec
 
@@ -634,12 +629,10 @@ func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(lgrTxo *LgrTx
 		}
 	}
 
-	//	lgrTxo *LgrTxoMLP
-	serializeLgrTxo, err := pp.SerializeLgrTxoMLP(lgrTxo)
-	if err != nil {
-		return nil, err
+	//	t *PolyANTTVec
+	for i := 0; i < len(t.polyANTTs); i++ {
+		appendPolyANTTToBytes(t.polyANTTs[i])
 	}
-	rst = append(rst, serializeLgrTxo...)
 
 	//	extTrTxCon []byte
 	rst = append(rst, extTrTxCon...)
