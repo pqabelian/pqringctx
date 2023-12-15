@@ -22,9 +22,23 @@ type TxWitnessTrTxCase uint8
 
 // todo: to review
 const (
-	TxCaseTrTxI0C0 TxWitnessTrTxCase = 0
-	TxCaseTrTxI0C1 TxWitnessTrTxCase = 1
-	TxCaseTrTxI1C1 TxWitnessTrTxCase = 1
+	TxWitnessTrTxCaseI0C0      TxWitnessTrTxCase = 0
+	TxWitnessTrTxCaseI0C1      TxWitnessTrTxCase = 1
+	TxWitnessTrTxCaseI0Cn      TxWitnessTrTxCase = 2
+	TxWitnessTrTxCaseI1C0      TxWitnessTrTxCase = 3
+	TxWitnessTrTxCaseI1C1Exact TxWitnessTrTxCase = 4
+	TxWitnessTrTxCaseI1C1CAdd  TxWitnessTrTxCase = 5
+	TxWitnessTrTxCaseI1C1IAdd  TxWitnessTrTxCase = 6
+	TxWitnessTrTxCaseI1CnExact TxWitnessTrTxCase = 7
+	TxWitnessTrTxCaseI1CnCAdd  TxWitnessTrTxCase = 8
+	TxWitnessTrTxCaseI1CnIAdd  TxWitnessTrTxCase = 9
+	TxWitnessTrTxCaseImC0      TxWitnessTrTxCase = 10
+	TxWitnessTrTxCaseImC1Exact TxWitnessTrTxCase = 11
+	TxWitnessTrTxCaseImC1CAdd  TxWitnessTrTxCase = 12
+	TxWitnessTrTxCaseImC1IAdd  TxWitnessTrTxCase = 13
+	TxWitnessTrTxCaseImCnExact TxWitnessTrTxCase = 14
+	TxWitnessTrTxCaseImCnCAdd  TxWitnessTrTxCase = 15
+	TxWitnessTrTxCaseImCnIAdd  TxWitnessTrTxCase = 16
 )
 
 // TxWitnessCbTx defines the TxWitness for coinbase-transaction.
@@ -68,13 +82,13 @@ type TxWitnessTrTx struct {
 	inForSingleDistinct uint8
 	outForRing          uint8
 	outForSingle        uint8
-	vPub                int64
+	vPublic             int64
 	//	abf
 	ma_ps                      []*PolyANTT                  // length I_ring, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
 	cmt_ps                     []*ValueCommitment           // length I_ring, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
-	elrsSigs                   []*elrsSignatureMLP          // length I_ring, each for one RingCT-privacy Input.
+	elrSigs                    []*elrSignatureMLP           // length I_ring, each for one RingCT-privacy Input.
 	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	simpsSigs                  []*simpsSignatureMLP         // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	simpleSigs                 []*simpleSignatureMLP        // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
 	balanceProof               BalanceProof
 }
 
@@ -379,6 +393,33 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 //	TxWitnessCbTx	end
 
 // TxWitnessTrTx	begin
+//
+//	todo:
+func (pp *PublicParameter) TxWitnessTrTxSerializeSize() int {
+	//length := 1 + // txCase       TxWitnessCbTxCase
+	//	8 + // vL           uint64
+	//	1 // outForRing   uint8
+	//
+	////	 balanceProof BalanceProof
+	//bpfLen := 0
+	//if outForRing == 0 {
+	//	//	TxWitnessCbTxCaseC0 ==> BalanceProofL0R0
+	//	bpfLen = pp.balanceProofL0R0SerializeSize()
+	//} else if outForRing == 1 {
+	//	//	TxWitnessCbTxCaseC1 ==> BalanceProofL0R1
+	//	bpfLen = pp.balanceProofL0R1SerializeSize()
+	//} else { // outForRing >= 2
+	//	//	TxWitnessCbTxCaseCn ==> BalanceProofLmRn
+	//	bpfLen = pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
+	//}
+	//
+	//length = length + bpfLen
+	//
+	//return length
+	return 0
+}
+
+// todo:
 func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
 	//if txWitness == nil {
 	//	return nil, errors.New("SerializeTxWitnessCbTx: the input TxWitnessCbTx is nil")
@@ -445,6 +486,49 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 	//
 	//return w.Bytes(), nil
 	return nil, err
+}
+
+func (pp *PublicParameter) genTxWitnessTrTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*TxWitnessCbTx, error) {
+
+	//	The caller should guarantee the sanity of the inputs.
+	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
+	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
+	//}
+
+	//if outForRing == 0 && vL != 0 {
+	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
+	//}
+
+	var err error
+	txCase := TxWitnessCbTxCaseC0
+	var balanceProof BalanceProof
+	if outForRing == 0 {
+		txCase = TxWitnessCbTxCaseC0
+		balanceProof, err = pp.genBalanceProofL0R0()
+		if err != nil {
+			return nil, err
+		}
+	} else if outForRing == 1 {
+		txCase = TxWitnessCbTxCaseC1
+		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		//	outForRing >= 2
+		txCase = TxWitnessCbTxCaseCn
+		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, cmtrRs, vRs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &TxWitnessCbTx{
+		txCase:       txCase,
+		vL:           vL,
+		outForRing:   outForRing,
+		balanceProof: balanceProof,
+	}, nil
 }
 
 //	TxWitnessTrTx	end

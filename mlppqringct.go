@@ -1,6 +1,7 @@
 package pqringctx
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -54,7 +55,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 	retCbTx.txMemo = txMemo
 
 	cmts := make([]*ValueCommitment, outForRing)
-	cmt_rs := make([]*PolyCNTTVec, outForRing)
+	cmtrs := make([]*PolyCNTTVec, outForRing)
 	vRs := make([]uint64, outForRing)
 
 	vout := uint64(0)
@@ -81,7 +82,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			}
 			retCbTx.txos[j] = txoRCTPre
 			cmts[j] = txoRCTPre.valueCommitment
-			cmt_rs[j] = cmtr
+			cmtrs[j] = cmtr
 			vRs[j] = txOutputDescMLP.value
 
 		case CoinAddressTypePublicKeyForRing:
@@ -91,7 +92,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			}
 			retCbTx.txos[j] = txoRCT
 			cmts[j] = txoRCT.valueCommitment
-			cmt_rs[j] = cmtr
+			cmtrs[j] = cmtr
 			vRs[j] = txOutputDescMLP.value
 
 		case CoinAddressTypePublicKeyHashForSingle:
@@ -119,7 +120,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 	if err != nil {
 		return nil, err
 	}
-	txWitness, err := pp.genTxWitnessCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cmt_rs, vRs)
+	txWitness, err := pp.genTxWitnessCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cmtrs, vRs)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +300,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	inForRing := 0
 	inForSingle := 0
 	inForSingleDistinct := 0
-	cmtrsIn := make([]*PolyCNTTVec, 0, inputNum)                    // This is used to collect the cmtr for the coin-to-spend in inForRing.
+	cmtrs_in := make([]*PolyCNTTVec, 0, inputNum)                   // This is used to collect the cmtr for the coin-to-spend in inForRing.
 	coinAddressForSingleDistinctList := make([][]byte, 0, inputNum) // This is used to collect the set of distinct coinAddress for the coin-to-spend in outForSingle.
 	coinAddressSpendSecretKeyMap := make(map[string][]byte)         // This is used to map the (distinct) coinAddress for the coin-to-spend in outForSingle to the corresponding SpendSecretKey.
 	vInTotal := uint64(0)
@@ -380,7 +381,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 				return nil, fmt.Errorf("TransferTxMLPGen: for the %d -th coin to spend, txInputDescs[%d].value (%d) is different from the extratced value from the commitment", i, i, txInputDescs[i].value)
 			}
 			//	collect the randomness for cmt for coin-to-spend in inForRing
-			cmtrsIn = append(cmtrsIn, cmtr)
+			cmtrs_in = append(cmtrs_in, cmtr)
 
 			// In one ring,
 			// (1) there should not be repeated lgrTxoId,
@@ -465,9 +466,9 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		}
 	}
 
-	if len(cmtrsIn) != inForRing {
+	if len(cmtrs_in) != inForRing {
 		//	assert
-		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of cmtrsIn (%d) is different from inForRing (%d)", len(cmtrsIn), inForRing)
+		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of cmtrsIn (%d) is different from inForRing (%d)", len(cmtrs_in), inForRing)
 	}
 
 	if len(coinAddressForSingleDistinctList) != inForSingleDistinct {
@@ -494,115 +495,391 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		return nil, fmt.Errorf("TransferTxMLPGen: the total value on the output side (%d) is different that on the input side (%d)", vOutTotal, vInTotal)
 	}
 
-	vPublic := int(vOutPublic) - int(vInPublic)
+	vPublic := int64(vOutPublic) - int64(vInPublic) // Note that V << uint64.
 	//	This is to have cmt_{in,1} + ... + cmt_{in,inForRing} = cmt_{out,1} + ... + cmt_{out,outForRing} + vPublic,
 	//	where vPublic could be 0 or negative.
 	//	(inForRing, outForRing, vPublic) will determine the balance proof type for the transaction.
 
-	if vPublic < 0 {
-		// todo
+	trTx := &TransferTxMLP{}
+	trTx.txInputs = make([]*TxInputMLP, inputNum)
+	trTx.txos = make([]TxoMLP, outputNum)
+	trTx.fee = fee
+	trTx.txMemo = txMemo
+	// trTx.txWitness
+
+	//	fill trTx.txos
+	cmts_out := make([]*ValueCommitment, outForRing)
+	cmtrs_out := make([]*PolyCNTTVec, outForRing)
+	values_out := make([]uint64, outForRing)
+
+	for j := 0; j < outputNum; j++ {
+		txOutputDescItem := txOutputDescs[j]
+
+		coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(txOutputDescItem.coinAddress)
+		if err != nil {
+			return nil, err
+		}
+
+		switch coinAddressType {
+		case CoinAddressTypePublicKeyForRingPre:
+			txoRCTPre, cmtr, err := pp.txoRCTPreGen(txOutputDescItem.coinAddress, txOutputDescItem.coinValuePublicKey, txOutputDescItem.value)
+			if err != nil {
+				return nil, err
+			}
+			trTx.txos[j] = txoRCTPre
+			cmts_out[j] = txoRCTPre.valueCommitment
+			cmtrs_out[j] = cmtr
+			values_out[j] = txOutputDescItem.value
+
+		case CoinAddressTypePublicKeyForRing:
+			txoRCT, cmtr, err := pp.txoRCTGen(txOutputDescItem.coinAddress, txOutputDescItem.coinValuePublicKey, txOutputDescItem.value)
+			if err != nil {
+				return nil, err
+			}
+			trTx.txos[j] = txoRCT
+			cmts_out[j] = txoRCT.valueCommitment
+			cmtrs_out[j] = cmtr
+			values_out[j] = txOutputDescItem.value
+
+		case CoinAddressTypePublicKeyHashForSingle:
+			txoSDN := pp.txoSDNGen(txOutputDescItem.coinAddress, txOutputDescItem.value)
+			if err != nil {
+				return nil, err
+			}
+			trTx.txos[j] = txoSDN
+			//cmts_out[j] = txoRCT.valueCommitment
+			//cmtrs_out[j] = cmtr
+			//values_out[j] = txOutputDescItem.value
+
+		default:
+			return nil, fmt.Errorf("TransferTxMLPGen: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", j, coinAddressType)
+		}
 	}
 
+	//	fill trTx.txInputs
+	ma_ps := make([]*PolyANTT, inForRing)
+	cmt_ps := make([]*ValueCommitment, inForRing)
+	cmtr_ps := make([]*PolyCNTTVec, inForRing)
+	values_in := make([]uint64, inForRing)
+
+	for i := 0; i < inForRing; i++ {
+		txInputDescItem := txInputDescs[i]
+
+		// serial Number
+		// ma_ps
+		// Note that for the case of TxoRCTPre, the generation of serial number must keep the same as that in pqringct.
+		// m_a = m'_a + m_r
+		m_r, err := pp.expandKIDRMLP(txInputDescItem.lgrTxoList[txInputDescItem.sidx])
+		if err != nil {
+			return nil, err
+		}
+
+		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(txInputDescItem.coinSerialNumberSecretKey)
+		ma_ps[i] = pp.PolyANTTAdd(askSn.ma, m_r)
+
+		sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_ps[i])
+		if err != nil {
+			return nil, err
+		}
+
+		trTx.txInputs[i] = NewTxInputMLP(txInputDescItem.lgrTxoList, sn)
+
+		// cmt_ps
+		// cmtr_ps
+		// msgs_in
+		cmtr_p_poly, err := pp.sampleValueCmtRandomness()
+		if err != nil {
+			return nil, err
+		}
+
+		values_in[i] = txInputDescItem.value //	this has been checked during the sanity-check steps
+		msg_in := pp.intToBinary(txInputDescItem.value)
+
+		cmtr_ps[i] = pp.NTTPolyCVec(cmtr_p_poly)
+		cmt_ps[i] = &ValueCommitment{}
+		cmt_ps[i].b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr_ps[i], pp.paramKC, pp.paramLC)
+		cmt_ps[i].c = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr_ps[i], pp.paramLC),
+			&PolyCNTT{coeffs: msg_in},
+		)
+	}
+
+	for i := inForRing; i < inputNum; i++ {
+		txInputDescItem := txInputDescs[i]
+
+		// serial Number
+		// ma_ps
+		// Note that for CoinAddressTypePublicKeyHashForSingle,
+		// m'_a = m_a + m_r = m_r, since m_a is empty.
+		m_r, err := pp.expandKIDRMLP(txInputDescItem.lgrTxoList[txInputDescItem.sidx])
+		if err != nil {
+			return nil, err
+		}
+
+		//askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(txInputDescItem.coinSerialNumberSecretKey)
+		//ma_ps[i] = pp.PolyANTTAdd(askSn.ma, m_r)
+		ma_ps[i] = m_r
+
+		sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_ps[i])
+		if err != nil {
+			return nil, err
+		}
+
+		trTx.txInputs[i] = NewTxInputMLP(txInputDescItem.lgrTxoList, sn)
+	}
+
+	// trTxCon
+	trTxCon, err := pp.SerializeTransferTxMLP(trTx, false)
+	if err != nil {
+		return nil, err
+	}
+	// extTrTxCon = trTxCon || cmt_p[0] || cmt_p[inForRing]
+	extTrTxCon, err := pp.extendSerializedTransferTxContent(trTxCon, cmt_ps)
+	if err != nil {
+		return nil, err
+	}
+
+	//	elrSignatureSign
+	elrSigs := make([]*elrSignatureMLP, inForRing)
+	for i := 0; i < inForRing; i++ {
+		txInputDescItem := txInputDescs[i]
+		askSp, err := pp.coinSpendSecretKeyForPKRingParse(txInputDescItem.coinSpendSecretKey)
+		if err != nil {
+			return nil, err
+		}
+		askSp_ntt := pp.NTTPolyAVec(askSp.s)
+
+		elrSigs[i], err = pp.elrSignatureMLPSign(txInputDescItem.lgrTxoList, ma_ps[i], cmt_ps[i], extTrTxCon,
+			txInputDescItem.sidx, askSp_ntt, cmtrs_in[i], cmtr_ps[i])
+		if err != nil {
+			return nil, fmt.Errorf("TransferTxMLPGen: fail to generate the extend linkable ring signature for the %d -th coin to spend", i)
+		}
+	}
+
+	//	simpleSignatureSign
+	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
+	simpleSigs := make([]*simpleSignatureMLP, inForSingleDistinct)
+	for i := 0; i < inForSingleDistinct; i++ {
+		coinAddress := coinAddressForSingleDistinctList[i]
+		coinAddressString := hex.EncodeToString(coinAddress)
+		coinSpendSecretKey, exists := coinAddressSpendSecretKeyMap[coinAddressString]
+		if !exists {
+			// just assert
+			return nil, fmt.Errorf("TransferTxMLPGen: This should not happen, where a coinAddress with CoinAddressTypePublicKeyHashForSingle does not have corresponding coinSpendSecretKey")
+		}
+		apkForSingle, askSp, err := pp.coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKey)
+		if err != nil {
+			return nil, err
+		}
+
+		addressPublicKeyForSingles[i] = apkForSingle
+
+		askSp_ntt := pp.NTTPolyAVec(askSp.s)
+		simpleSigs[i], err = pp.simpleSignatureSign(apkForSingle.t, extTrTxCon, askSp_ntt)
+		if err != nil {
+			return nil, fmt.Errorf("TransferTxMLPGen: fail to generate the simple signature for the %d -th coinAddress with CoinAddressTypePublicKeyHashForSingle", i)
+		}
+	}
+
+	//	balance proof
+	var txCase TxWitnessTrTxCase
+	var balanceProof BalanceProof
+
+	if inForRing == 0 {
+		if outForRing == 0 {
+			if vPublic != 0 {
+				// assert, since previous codes have checked.
+				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
+			}
+			txCase = TxWitnessTrTxCaseI0C0
+			balanceProof, err = pp.genBalanceProofL0R0()
+			if err != nil {
+				return nil, err
+			}
+		} else if outForRing == 1 {
+			//	0 = cmt_{out,0} + vPublic
+			if vPublic > 0 {
+				// assert, since previous codes have checked.
+				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
+			}
+			txCase = TxWitnessTrTxCaseI0C1
+			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(-vPublic), cmts_out[0], cmtrs_out[0])
+			if err != nil {
+				return nil, err
+			}
+		} else { //	outForRing >= 2
+			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1}+vPublic
+			if vPublic > 0 {
+				// assert, since previous codes have checked.
+				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
+			}
+			txCase = TxWitnessTrTxCaseI0Cn
+			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(-vPublic), uint8(outForRing), cmts_out, cmtrs_out, values_out)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else if inForRing == 1 {
+		if outForRing == 0 {
+			//	cmt_{in,0} = vPublic
+			if vPublic < 0 {
+				// assert, since previous codes have checked.
+				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
+			}
+			txCase = TxWitnessTrTxCaseI1C0
+			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+			if err != nil {
+				return nil, err
+			}
+		} else if outForRing == 1 {
+			//	cmt_{in,0} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0}
+				txCase = TxWitnessTrTxCaseI1C1Exact
+				// todo
+				//balanceProof, err = pp.genBalanceProofL1R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + vPublic
+				txCase = TxWitnessTrTxCaseI1C1CAdd
+				// todo
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
+				txCase = TxWitnessTrTxCaseI1C1IAdd
+				// todo
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			}
+		} else { //	outForRing >= 2
+			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				txCase = TxWitnessTrTxCaseI1CnExact
+				// todo
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+				txCase = TxWitnessTrTxCaseI1CnCAdd
+				// todo
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
+				txCase = TxWitnessTrTxCaseI1CnIAdd
+				// todo
+				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+				//if err != nil {
+				//	return nil, err
+				//}
+			}
+		}
+
+	} else { //	inForRing >= 2
+		if outForRing == 0 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
+			if vPublic < 0 {
+				// assert, since previous codes have checked.
+				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing >= 1 and outForRing == 0, but vPublic < 0")
+			}
+
+			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+			txCase = TxWitnessTrTxCaseImC0
+			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+			if err != nil {
+				return nil, err
+			}
+
+		} else if outForRing == 1 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+				txCase = TxWitnessTrTxCaseImC1Exact
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+				txCase = TxWitnessTrTxCaseImC1CAdd
+				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				txCase = TxWitnessTrTxCaseImC1IAdd
+				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+			}
+
+		} else { // outForRing >= 2
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				txCase = TxWitnessTrTxCaseImCnExact
+				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+				txCase = TxWitnessTrTxCaseImCnCAdd
+				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				txCase = TxWitnessTrTxCaseImCnIAdd
+				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
+				//if err != nil {
+				//	return nil, err
+				//}
+			}
+		}
+	}
+
+	trTx.txWitness = &TxWitnessTrTx{
+		txCase:                     txCase,
+		inForRing:                  uint8(inForRing),
+		inForSingle:                uint8(inForRing),
+		inForSingleDistinct:        uint8(inForSingleDistinct),
+		outForRing:                 uint8(outForRing),
+		outForSingle:               uint8(outForSingle),
+		vPublic:                    vPublic,
+		ma_ps:                      ma_ps,
+		cmt_ps:                     cmt_ps,
+		elrSigs:                    elrSigs,
+		addressPublicKeyForSingles: addressPublicKeyForSingles,
+		simpleSigs:                 simpleSigs,
+		balanceProof:               balanceProof,
+	}
+
+	return trTx, nil
+
 	//// original
-	//if inputNum > pp.paramI {
-	//	return nil, fmt.Errorf("%d inputs but max %d ", inputNum, pp.paramI)
-	//}
-	//if outputNum > pp.paramJ {
-	//	return nil, fmt.Errorf("%d output but max %d ", outputNum, pp.paramJ)
-	//}
-	//
-	//V := uint64(1)<<pp.paramN - 1
-	//
-	//if fee > V {
-	//	return nil, errors.New("the transaction fee is more than V")
-	//}
-	//
-	////	check on the outputDesc is simple, so check it first
-	//
-	//I := inputNum
-	//J := outputNum
-	//cmtrs_in := make([]*PolyCNTTVec, I)
-	//msgs_in := make([][]int64, I)
-	//
-	//inputTotal := uint64(0)
-	//asks := make([]*AddressSecretKey, inputNum)
-	//
-	//if outputTotal != inputTotal {
-	//	return nil, errors.New("the input value and output value should be equal")
-	//}
-	//
-	//rettrTx := &TransferTx{}
-	//rettrTx.Inputs = make([]*TrTxInput, I)
-	//rettrTx.OutputTxos = make([]*Txo, J)
-	//rettrTx.Fee = fee
-	//rettrTx.TxMemo = txMemo
-	//
-	//cmtrs_out := make([]*PolyCNTTVec, J)
-	//for j := 0; j < J; j++ {
-	//	txo, cmtr, err := pp.txoGen(apks[j], outputDescs[j].serializedVPk, outputDescs[j].value)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	rettrTx.OutputTxos[j] = txo
-	//	cmtrs_out[j] = cmtr
-	//}
-	//
-	//ma_ps := make([]*PolyANTT, I)
-	//cmt_ps := make([]*ValueCommitment, I)
-	//cmtr_ps := make([]*PolyCNTTVec, I)
-	//for i := 0; i < I; i++ {
-	//	//m_r := pp.expandKIDR(inputDescs[i].lgrTxoList[inputDescs[i].sidx])
-	//	m_r, err := pp.expandKIDR(inputDescs[i].lgrTxoList[inputDescs[i].sidx])
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//
-	//	ma_ps[i] = pp.PolyANTTAdd(asks[i].ma, m_r)
-	//	sn, err := pp.ledgerTxoSerialNumberCompute(ma_ps[i])
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	rettrTx.Inputs[i] = &TrTxInput{
-	//		TxoList:      inputDescs[i].lgrTxoList,
-	//		SerialNumber: sn,
-	//	}
-	//
-	//	cmtrp_poly, err := pp.sampleValueCmtRandomness()
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	cmtr_ps[i] = pp.NTTPolyCVec(cmtrp_poly)
-	//	cmt_ps[i] = &ValueCommitment{}
-	//	cmt_ps[i].b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr_ps[i], pp.paramKC, pp.paramLC)
-	//	cmt_ps[i].c = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr_ps[i], pp.paramLC),
-	//		&PolyCNTT{coeffs: msgs_in[i]},
-	//	)
-	//}
-	//
-	///*	rettrTx.TxWitness = &TrTxWitness{
-	//	b_hat:      nil,
-	//	c_hats:     nil,
-	//	u_p:        nil,
-	//	rpulpproof: nil,
-	//	cmtps:      cmt_in_ips,
-	//	elrsSigs:   nil,
-	//}*/
-	//
-	//msgTrTxCon, err := pp.SerializeTransferTx(rettrTx, false)
-	//if msgTrTxCon == nil || err != nil {
-	//	return nil, errors.New("error in rettrTx.Serialize ")
-	//}
-	//
-	//elrsSigs := make([]*elrsSignature, I)
-	//for i := 0; i < I; i++ {
-	//	asksp_ntt := pp.NTTPolyAVec(asks[i].AddressSecretKeySp.s)
-	//	elrsSigs[i], err = pp.elrsSign(inputDescs[i].lgrTxoList, ma_ps[i], cmt_ps[i], msgTrTxCon,
-	//		inputDescs[i].sidx, asksp_ntt, cmtrs_in[i], cmtr_ps[i])
-	//	if err != nil {
-	//		return nil, errors.New("fail to generate the extend linkable signature")
-	//	}
-	//}
 	//
 	//n := I + J
 	//n2 := I + J + 2
@@ -902,7 +1179,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	//	}
 	//}
 	//return rettrTx, err
-	return nil, nil
+	////	return nil, nil
 }
 
 //	TxWitness		begin
@@ -950,11 +1227,15 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 //	TxWitness		end
 
 //	TxInput		begin
+//	TxInput		end
+
+//	Serial Number	begin
 
 // GetNullSerialNumberMLP returns null-serial-number.
+// Note that this must keep the same as pqringct.GetNullSerialNumber.
 // reviewed on 2023.12.07.
 func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
-	snSize := pp.ledgerTxoSerialNumberMLPSerializeSize()
+	snSize := pp.ledgerTxoSerialNumberSerializeSizeMLP()
 	nullSn := make([]byte, snSize)
 	for i := 0; i < snSize; i++ {
 		nullSn[i] = 0
@@ -962,10 +1243,230 @@ func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
 	return nullSn
 }
 
-// ledgerTxoSerialNumberMLPSerializeSize returns serial size of null-serial-number.
+// ledgerTxoSerialNumberSerializeSizeMLP returns serial size of null-serial-number.
+// Note that this must keep the same as pqringct.ledgerTxoSerialNumberCompute.
 // reviewed on 2023.12.07.
-func (pp *PublicParameter) ledgerTxoSerialNumberMLPSerializeSize() int {
+// reviewed on 2023.12.14
+func (pp *PublicParameter) ledgerTxoSerialNumberSerializeSizeMLP() int {
 	return HashOutputBytesLen
 }
 
-//	TxInput		end
+// ledgerTxoSerialNumberComputeMLP computes the serial number from the input m'_a.
+// Note that m'_a is the actual unique coin-serial-number. To have better efficiency, we store H(m'_a) as the coin-serial-number.
+// That's why we refer to it as a "compute" algorithm, rather than "Generate".
+// Note that this must keep the same as pqringct.ledgerTxoSerialNumberCompute.
+// reviewed on 2023.12.14
+func (pp *PublicParameter) ledgerTxoSerialNumberComputeMLP(ma_p *PolyANTT) ([]byte, error) {
+	if ma_p == nil {
+		return nil, fmt.Errorf("ledgerTxoSerialNumberComputeMLP: the input ma_p is nil")
+	}
+
+	length := pp.PolyANTTSerializeSize()
+	w := bytes.NewBuffer(make([]byte, 0, length))
+
+	err := pp.writePolyANTT(w, ma_p)
+	if err != nil {
+		return nil, err
+	}
+
+	sn, err := Hash(w.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	return sn, nil
+
+	//tmp := make([]byte, pp.paramDA*8)
+	//for k := 0; k < pp.paramDA; k++ {
+	//	tmp = append(tmp, byte(a.coeffs[k]>>0))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>8))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>16))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>24))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>32))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>40))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>48))
+	//	tmp = append(tmp, byte(a.coeffs[k]>>56))
+	//}
+	//res, err := Hash(tmp)
+	//if err != nil {
+	//	log.Fatalln("Error call Hash() in ledgerTxoSerialNumberCompute")
+	//}
+	//return res
+}
+
+// expandKIDRMLP expands the input LgrTxoMLP to a PolyANTT, named m_r, which will be used as a unique randomness for a LgrTxoMLP,
+// since the caller will guarantee each LgrTxoMLP has a unique LgrTxoMLP.id.
+// Note that for the case of the input lgrtxo.txo being a TxoRCTPre, this must keep the same as pqringct.expandKIDR.
+// added on 2023.12.14
+// reviewed on 2023.12.14
+func (pp *PublicParameter) expandKIDRMLP(lgrtxo *LgrTxoMLP) (*PolyANTT, error) {
+	if lgrtxo == nil {
+		return nil, fmt.Errorf("expandKIDRMLP: the input lgrtxo is nil")
+	}
+
+	serializedLgrTxo, err := pp.SerializeLgrTxoMLP(lgrtxo)
+	if err != nil {
+		return nil, err
+	}
+	seed, err := Hash(serializedLgrTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	coeffs, err := pp.randomDaIntegersInQa(seed)
+	if err != nil {
+		return nil, err
+	}
+	return &PolyANTT{coeffs}, nil
+
+	//bitNum := 38
+	//bound := pp.paramQA
+	//xof := sha3.NewShake128()
+	//xof.Reset()
+	//length := pp.paramDA
+	//coeffs := make([]int64, 0, length)
+	//xof.Write(seed)
+	//for len(coeffs) < length {
+	//	expectedNum := length - len(coeffs)
+	//	buf := make([]byte, (int64(bitNum*expectedNum)*(1<<bitNum)/bound+7)/8)
+	//	xof.Read(buf)
+	//	tmp := fillWithBoundOld(buf, expectedNum, bitNum, bound)
+	//	coeffs = append(coeffs, tmp...)
+	//}
+	//for i := 0; i < length; i++ {
+	//	coeffs[i] = reduceInt64(coeffs[i], pp.paramQA)
+	//}
+	//return &PolyANTT{coeffs: coeffs}, nil
+}
+
+//	Serial Number	end
+
+//	LgrTxoMLP	begin
+
+// LgrTxoMLPIdSerializeSize returns the serialize size of LgrTxoMLP.id.
+// Note that this must keep the same as pqringct.LgrTxoIdSerializeSize.
+// added on 2023.12.14
+// reviewed on 2023.12.14
+func (pp *PublicParameter) LgrTxoMLPIdSerializeSize() int {
+	return HashOutputBytesLen
+}
+
+// LgrTxoMLPSerializeSize returns the serialize size of LgrTxoMLP.
+// // Note that, for the case of lgrTxo.txo being a TxoRctPre, this must keep the same as pqringct.LgrTxoSerializeSize.
+// added on 2023.12.14
+// reviewed on 2023.12.14
+func (pp *PublicParameter) lgrTxoMLPSerializeSize(lgrTxo *LgrTxoMLP) (int, error) {
+	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
+		return 0, fmt.Errorf("LgrTxoMLPSerializeSize: there is nil/empty pointer in the input lgrTxo")
+	}
+
+	txoSerialize, err := pp.TxoMLPSerializeSize(lgrTxo.txo)
+	if err != nil {
+		return 0, err
+	}
+
+	return txoSerialize + pp.LgrTxoMLPIdSerializeSize(), nil
+}
+
+// SerializeLgrTxoMLP serializes the input LgrTxoMLP to []byte.
+// Note that for the case of txoRCTPre, this must keep the same as pqringct.SerializeLgrTxo.
+// added on 2023.12.14
+// reviewed on 2023.12.14
+func (pp *PublicParameter) SerializeLgrTxoMLP(lgrTxo *LgrTxoMLP) ([]byte, error) {
+
+	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
+		return nil, errors.New("SerializeLgrTxoMLP: there is nil/empty pointer in LgrTxo")
+	}
+
+	length, err := pp.lgrTxoMLPSerializeSize(lgrTxo)
+	if err != nil {
+		return nil, err
+	}
+	w := bytes.NewBuffer(make([]byte, 0, length))
+
+	//	txo: fixed length
+	//  It is fixed length in pqringct, but not anymore in pqringctx.
+	//	To keep back-compatible with pqringct, here we still use w.Write, as in pqringct.
+	serializedTxo, err := pp.SerializeTxoMLP(lgrTxo.txo)
+	if err != nil {
+		return nil, err
+	}
+	_, err = w.Write(serializedTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	//	id: fixed-length
+	_, err = w.Write(lgrTxo.id)
+	if err != nil {
+		return nil, err
+	}
+
+	return w.Bytes(), nil
+}
+
+// DeserializeLgrTxoMLP deserialize the input []byte to a LgrTxoMLP.
+// Note that for the case of txoRCTPre, this must keep the same as pqringct.DeserializeLgrTxo.
+// added on 2023.12.14
+// reviewed on 2023.12.14
+func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTxoMLP, error) {
+	if len(serializedLgrTxo) < pp.LgrTxoMLPIdSerializeSize() {
+		return nil, fmt.Errorf("DeserializeLgrTxoMLP: the length of the input serializedLgrTxo (%d) is smaller than pp.LgrTxoMLPIdSerializeSize()=%d", len(serializedLgrTxo), pp.LgrTxoMLPIdSerializeSize())
+	}
+
+	r := bytes.NewReader(serializedLgrTxo)
+
+	// To be compatible with pqringct, we have to use this way to determine the bytes for the serializedTxo.
+	// Note that this is based on the fact that pp.LgrTxoMLPIdSerializeSize() is a fixed length.
+	serializedTxoLen := len(serializedLgrTxo) - pp.LgrTxoMLPIdSerializeSize()
+	serializedTxo := make([]byte, serializedTxoLen)
+	_, err := r.Read(serializedTxo)
+	if err != nil {
+		return nil, err
+	}
+	txo, err := pp.DeserializeTxoMLP(serializedTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	id := make([]byte, pp.LgrTxoMLPIdSerializeSize())
+	_, err = r.Read(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LgrTxoMLP{
+		txo: txo,
+		id:  id,
+	}, nil
+}
+
+//	LgrTxoMLP	end
+
+// helper functions	begin
+
+// extendSerializedTransferTxContent extend the serialized TransferTx Content by appending the cmt_ps.
+// added on 2023.12.15
+// todo: review
+func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon []byte, cmt_ps []*ValueCommitment) ([]byte, error) {
+
+	length := len(serializedTrTxCon) + len(cmt_ps)*pp.ValueCommitmentSerializeSize()
+
+	rst := make([]byte, 0, length)
+
+	//	trTxCon []byte
+	rst = append(rst, serializedTrTxCon...)
+
+	//	cmt_ps []*ValueCommitment
+	for i := 0; i < len(cmt_ps); i++ {
+		serializedCmt, err := pp.SerializeValueCommitment(cmt_ps[i])
+		if err != nil {
+			return nil, err
+		}
+		rst = append(rst, serializedCmt...)
+	}
+
+	return rst, nil
+}
+
+//	helper functions	end
