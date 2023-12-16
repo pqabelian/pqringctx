@@ -735,17 +735,15 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 	}
 
 	if int(nR) > pp.paramJ || nR < 2 {
-		// Note that pp.paramI == pp.paramI
+		// Note that pp.paramI == pp.paramJ
 		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) is not in [2, %d]", nR, pp.paramJ)
 	}
 
 	n := int(nL + nR)
 	n2 := n + 2
 
-	u_hats := make([][]int64, 3) //	for L1Rn, the rpulp matrix will have m=3
-
-	c_hats := make([]*PolyCNTT, n2)
 	msg_hats := make([][]int64, n2)
+	c_hats := make([]*PolyCNTT, n2)
 
 	cmts := make([]*ValueCommitment, n)
 	cmtrs := make([]*PolyCNTTVec, n)
@@ -758,7 +756,7 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 
 	//	msg_hats[1], ..., msg_hats[n-1]
 	//	vRs[0], ..., vRs[nR-1]
-	for j := 0; j < int(nR); j++ {
+	for j := uint8(0); j < nR; j++ {
 		cmts[1+j] = cmtRs[j]
 		cmtrs[1+j] = cmtrRs[j]
 		msg_hats[1+j] = pp.intToBinary(vRs[j])
@@ -785,16 +783,16 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 
 	// f[0]
 	tmp := int64(0)
-	for j := 1; j < n; j++ {
-		tmp = tmp + msg_hats[j][0]
+	for j := uint8(0); j < nR; j++ {
+		tmp = tmp + msg_hats[1+j][0]
 	}
 	f[0] = (tmp + u[0]) >> 1
 
 	// f[1], ..., f[d-2], f[d-1]
 	for t := 1; t < pp.paramDC; t++ {
 		tmp = int64(0)
-		for j := 1; j < n; j++ {
-			tmp = tmp + msg_hats[j][t]
+		for j := uint8(0); j < nR; j++ {
+			tmp = tmp + msg_hats[1+j][t]
 		}
 		f[t] = (tmp + u[t] + f[t-1]) >> 1
 	}
@@ -890,6 +888,7 @@ genBalanceProofL1RnRestart:
 		//			u_p[i] = reduceInt64(u_p_tmp[i], pp.paramQC) // todo_done: 202203 Do need reduce? no.
 	}
 
+	u_hats := make([][]int64, 3) //	for L1Rn, the rpulp matrix has m=3
 	u_hats[0] = u
 	u_hats[1] = make([]int64, pp.paramDC)
 	for i := 0; i < pp.paramDC; i++ {
@@ -919,6 +918,272 @@ genBalanceProofL1RnRestart:
 }
 
 func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
+	return false, nil
+}
+
+// genBalanceProofLmRn generates BalanceProofLmRn.
+// todo: multi-round review
+func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, cmtrLs []*PolyCNTTVec, vLs []uint64, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
+
+	if int(nL) != len(cmtLs) || int(nL) != len(cmtrLs) || int(nL) != len(vLs) {
+		return nil, fmt.Errorf("genBalanceProofLmRn: The input cmtLs, cmtrLs, vLs should have the same length")
+	}
+
+	if int(nL) > pp.paramI || nL < 2 {
+		// Note that pp.paramI == pp.paramJ
+		return nil, fmt.Errorf("genBalanceProofLmRn: the number of cmtLs (%d) is not in [2, %d]", nL, pp.paramI)
+	}
+
+	if int(nR) != len(cmtRs) || int(nR) != len(cmtrRs) || int(nR) != len(vRs) {
+		return nil, fmt.Errorf("genBalanceProofLmRn: The input cmtRs, cmtrRs, vRs should have the same length")
+	}
+
+	if int(nR) > pp.paramJ || nR < 2 {
+		// Note that pp.paramI == pp.paramJ
+		return nil, fmt.Errorf("genBalanceProofLmRn: the number of cmtRs (%d) is not in [2, %d]", nR, pp.paramJ)
+	}
+
+	n := int(nL + nR)
+	n2 := n + 4
+
+	msg_hats := make([][]int64, n2)
+	c_hats := make([]*PolyCNTT, n2)
+
+	cmts := make([]*ValueCommitment, n)
+	cmtrs := make([]*PolyCNTTVec, n)
+
+	//	Note that the proof is for vLs[0] + ... + vLs[nL-1] = vRs[0] + ... + vRs[nR-1] + vRPub.
+	//  This is proved by vLs[0] + ... + vLs[nL-1] = vSum = vRs[0] + ... + vRs[nR-1] + vRPub.
+	//	Note that the proof generation algorithm does not conduct sanity-check, as the verification will check and verify.
+	vSum := uint64(0)
+
+	//	msg_hats[0], ..., msg_hats[nL-1]
+	//	vLs[0], ..., vLs[nL-1]
+	for i := uint8(0); i < nL; i++ {
+		cmts[i] = cmtLs[i]
+		cmtrs[i] = cmtrLs[i]
+		msg_hats[i] = pp.intToBinary(vLs[i])
+
+		vSum += vLs[i]
+	}
+
+	//	msg_hats[nL], ..., msg_hats[nL+nR-1]
+	//	vRs[0], ..., vRs[nR-1]
+	for j := uint8(0); j < nR; j++ {
+		cmts[nL+j] = cmtRs[j]
+		cmtrs[nL+j] = cmtrRs[j]
+		msg_hats[nL+j] = pp.intToBinary(vRs[j])
+	}
+
+	//	msg_hats[n]
+	//	vSum = vLs[0] + ... + vLs[nL-1]
+	msg_hats[n] = pp.intToBinary(vSum)
+
+	//	msg_hats[n+1] := fL
+	//	To prove vSum = vLs[0] + ... + vLs[nL-1], we compute
+	//	fL, which is the carry vector for m_0 + m_2 + ... + m_{nL-1}, in particular,
+	// fL[0] = (m_0[0] + ... + m_{nL-1}[0]      )/2
+	// fL[1] = (m_0[1] + ... + m_{nL-1}[1] + fL[0])/2
+	// ...
+	// fL[t] = (m_0[t] + ... + m_{nL-1}[t] + fL[t-1])/2
+	// ...
+	// fL[d-1] = (m_0[d-1] + ... + m_{nL-1}[d-1] + fL[d-2])/2
+
+	// that is,
+	// fL[0] = (m_0[0] + ... + m_{nL-1}[0]         )/2
+	// for t = 1, ..., d-1
+	// fL[t] = (m_0[t] + ... + m_{nL-1}[t] + fL[t-1])/2
+	fL := make([]int64, pp.paramDC)
+
+	// fL[0]
+	tmp := int64(0)
+	for i := uint8(0); i < nL; i++ {
+		tmp = tmp + msg_hats[i][0]
+	}
+	fL[0] = tmp >> 1
+
+	// fL[1], ..., fL[d-2], f[d-1]
+	for t := 1; t < pp.paramDC; t++ {
+		tmp = int64(0)
+		for i := uint8(0); i < nL; i++ {
+			tmp = tmp + msg_hats[i][t]
+		}
+		fL[t] = (tmp + fL[t-1]) >> 1
+	}
+
+	msg_hats[n+1] = fL
+
+	//	msg_u: the binary representation of vRPub
+	//	Note that the proof is for vLs[0] + ... + vLs[nL-1] = vSum = vRs[0] + ... + vRs[nR-1] + vRPub
+	u := pp.intToBinary(vRPub)
+
+	//	msg_hats[n+2] := fR
+	//	To prove vSum = vRs[0] + ... + vRs[nR-1] + vRPub, we compute
+	//	fR, which is the carry vector for m_{nL} + m_{nL+1} + ... + m_{nL+nR-1} + vRPub, in particular,
+	// fR[0] = (m_{nL}[0] + ... + m_{nL+nR-1}[0] + u[0]      )/2
+	// fR[1] = (m_{nL}[1] + ... + m_{nL+nR-1}[1] + u[1] + fR[0])/2
+	// ...
+	// fR[t] = (m_{nL}[t] + ... + m_{nL+nR-1}[t] + u[t] + fR[t-1])/2
+	// ...
+	// fR[d-1] = (m_{nL}[d-1] + ... + m_{nL+nR-1}[d-1] + u[d-1] + fR[d-2])/2
+
+	// that is,
+	// fR[0] = (m_{nL}[0] + ... + m_{nL+nR-1}[0] + u[0]         )/2
+	// for t = 1, ..., d-1
+	// fR[t] = (m_{nL}[t] + ... + m_{nL+nR-1}[t] + u[t] + fR[t-1])/2
+	fR := make([]int64, pp.paramDC)
+
+	// fR[0]
+	tmp = int64(0)
+	for j := uint8(0); j < nR; j++ {
+		tmp = tmp + msg_hats[nL+j][0]
+	}
+	fR[0] = (tmp + u[0]) >> 1
+
+	// fR[1], ..., fR[d-2], fR[d-1]
+	for t := 1; t < pp.paramDC; t++ {
+		tmp = int64(0)
+		for j := uint8(0); j < nR; j++ {
+			tmp = tmp + msg_hats[nL+j][t]
+		}
+		fR[t] = (tmp + u[t] + fR[t-1]) >> 1
+	}
+
+	msg_hats[n+2] = fR
+
+	r_hat_poly, err := pp.sampleValueCmtRandomness()
+	if err != nil {
+		return nil, err
+	}
+	r_hat := pp.NTTPolyCVec(r_hat_poly)
+
+	// b_hat =B * r_hat
+	b_hat := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, r_hat, pp.paramKC, pp.paramLC)
+
+	//	c_hats[0]~c_hats[n-1], c_hats[n] (for vSum), c_hats[n+1] (for fL), c_hats[n+2] (for fR)
+	for i := 0; i < n+3; i++ {
+		msgNTTi, err := pp.NewPolyCNTTFromCoeffs(msg_hats[i])
+		if err != nil {
+			return nil, err
+		}
+		c_hats[i] = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[i+1], r_hat, pp.paramLC),
+			msgNTTi,
+			//&PolyCNTT{coeffs: msg_hats[i]},
+		)
+	}
+
+genBalanceProofLmRnRestart:
+	//e := make([]int64, pp.paramDC)
+	e, err := pp.randomDcIntegersInQcEtaF()
+	if err != nil {
+		return nil, err
+	}
+	msg_hats[n+3] = e
+
+	// c_hats[n+3] (for e)
+	msgNTTe, err := pp.NewPolyCNTTFromCoeffs(msg_hats[n+3])
+	if err != nil {
+		return nil, err
+	}
+	c_hats[n+3] = pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+4], r_hat, pp.paramLC),
+		msgNTTe,
+	)
+
+	seedMsg, err := pp.collectBytesForBalanceProofLmRnChallenge(msg, nL, nR, cmtLs, cmtRs, vRPub, b_hat, c_hats)
+	if err != nil {
+		return nil, err
+	}
+
+	seed_binM, err := Hash(seedMsg)
+
+	if err != nil {
+		return nil, err
+	}
+	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, 2*pp.paramDC)
+	if err != nil {
+		return nil, err
+	}
+
+	//	u_p = B (fL || fR) + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
+	//	As B (fL || fR) should be bound by betaF, so that |B f + e| < q_c/2, there should not be modular reduction.
+	betaF := (pp.paramN - 1) * int(nL-1+nR) // for the case of vRPub > 0
+	if vRPub == 0 {
+		betaF = (pp.paramN - 1) * int(nL-1+nR-1)
+	}
+	boundF := pp.paramEtaF - int64(betaF)
+
+	u_p := make([]int64, pp.paramDC)
+	//u_p_tmp := make([]int64, pp.paramDC)
+
+	// compute u_p = B (fL || fR) + e and check the normal
+	for i := 0; i < pp.paramDC; i++ {
+		//u_p_temp[i] = e[i]
+		u_p[i] = e[i]
+		for j := 0; j < pp.paramDC; j++ {
+			if (binM[i][j/8]>>(j%8))&1 == 1 {
+				//u_p_temp[i] += fL[j]
+				u_p[i] += fL[j]
+			}
+			if (binM[i][(pp.paramDC+j)/8]>>((pp.paramDC+j)%8))&1 == 1 {
+				//u_p_temp[i] += fR[j]
+				u_p[i] += fR[j]
+			}
+		}
+
+		//infNorm := u_p_temp[i]
+		infNorm := u_p[i]
+		if infNorm < 0 {
+			infNorm = -infNorm
+		}
+
+		if infNorm > boundF {
+			goto genBalanceProofLmRnRestart
+		}
+
+		// u_p[i] = reduceInt64(u_p_temp[i], pp.paramQC) // todo_done: 2022.04.03 Do need reduce? no.
+	}
+
+	u_hats := make([][]int64, 5) //	for LmRn, the rpulp matrix will have m=5
+	u_hats[0] = make([]int64, pp.paramDC)
+	u_hats[1] = make([]int64, pp.paramDC) //	-u
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[1][i] = -u[i]
+	}
+	u_hats[2] = make([]int64, pp.paramDC)
+	u_hats[3] = make([]int64, pp.paramDC)
+	u_hats[4] = u_p
+
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[0][i] = 0
+		u_hats[2][i] = 0
+		u_hats[3][i] = 0
+	}
+
+	n1 := n + 1 //	vSum needs to be proven in [0, V]
+
+	rprlppi, pi_err := pp.rpulpProveMLP(msg, cmts, cmtrs, uint8(n), b_hat, r_hat, c_hats, msg_hats, uint8(n2), uint8(n1), RpUlpTypeLmRn, binM, nL, nR, 5, u_hats)
+
+	if pi_err != nil {
+		return nil, pi_err
+	}
+
+	return &BalanceProofLmRn{
+		balanceProofCase: BalanceProofCaseLmRn,
+		leftCommNum:      nL,
+		rightCommNum:     nR,
+		// bpf
+		b_hat:      b_hat,
+		c_hats:     c_hats,
+		u_p:        u_p,
+		rpulpproof: rprlppi,
+	}, nil
+
+	return nil, nil
+}
+
+func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
 	return false, nil
 }
 
@@ -1630,6 +1895,80 @@ func (pp *PublicParameter) collectBytesForBalanceProofL1RnChallenge(msg []byte, 
 		return nil, err
 	}
 	rst = append(rst, serializedCmtL...)
+
+	// cmtRs
+	for i := 0; i < len(cmtRs); i++ {
+		serializedCmtR, err := pp.SerializeValueCommitment(cmtRs[i])
+		if err != nil {
+			return nil, err
+		}
+		rst = append(rst, serializedCmtR...)
+	}
+
+	// vRPub
+	rst = append(rst, byte(vRPub>>0))
+	rst = append(rst, byte(vRPub>>8))
+	rst = append(rst, byte(vRPub>>16))
+	rst = append(rst, byte(vRPub>>24))
+	rst = append(rst, byte(vRPub>>32))
+	rst = append(rst, byte(vRPub>>40))
+	rst = append(rst, byte(vRPub>>48))
+	rst = append(rst, byte(vRPub>>56))
+
+	//	b_hat
+	for i := 0; i < len(b_hat.polyCNTTs); i++ {
+		appendPolyCNTTToBytes(b_hat.polyCNTTs[i])
+	}
+
+	//	c_hats
+	for i := 0; i < len(c_hats); i++ {
+		appendPolyCNTTToBytes(c_hats[i])
+	}
+
+	return rst, nil
+}
+
+// collectBytesForBalanceProofLmRnChallenge collects pre-message bytes for the challenge in genBalanceProofLmRn.
+// todo: multi-round review
+func (pp *PublicParameter) collectBytesForBalanceProofLmRnChallenge(msg []byte, nL uint8, nR uint8,
+	cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
+
+	length := len(msg) + 2 +
+		(int(nL+nR))*pp.ValueCommitmentSerializeSize() + 8 +
+		pp.paramKC*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
+
+	rst := make([]byte, 0, length)
+
+	appendPolyCNTTToBytes := func(a *PolyCNTT) {
+		for k := 0; k < pp.paramDC; k++ {
+			rst = append(rst, byte(a.coeffs[k]>>0))
+			rst = append(rst, byte(a.coeffs[k]>>8))
+			rst = append(rst, byte(a.coeffs[k]>>16))
+			rst = append(rst, byte(a.coeffs[k]>>24))
+			rst = append(rst, byte(a.coeffs[k]>>32))
+			rst = append(rst, byte(a.coeffs[k]>>40))
+			rst = append(rst, byte(a.coeffs[k]>>48))
+			rst = append(rst, byte(a.coeffs[k]>>56))
+		}
+	}
+
+	//	msg
+	rst = append(rst, msg...)
+
+	//	nL
+	rst = append(rst, nL)
+
+	//	nR
+	rst = append(rst, nR)
+
+	//	cmtLs
+	for i := 0; i < len(cmtLs); i++ {
+		serializedCmtL, err := pp.SerializeValueCommitment(cmtLs[i])
+		if err != nil {
+			return nil, err
+		}
+		rst = append(rst, serializedCmtL...)
+	}
 
 	// cmtRs
 	for i := 0; i < len(cmtRs); i++ {
