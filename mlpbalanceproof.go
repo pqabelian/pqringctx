@@ -120,7 +120,8 @@ func (pp *PublicParameter) genBalanceProofL0R0() (*BalanceProofL0R0, error) {
 	}, nil
 }
 
-// todo: review
+// verifyBalanceProofL0R0 verifies the input BalanceProofL0R0.
+// reviewed on 2023.12.16
 func (pp *PublicParameter) verifyBalanceProofL0R0(balanceProof *BalanceProofL0R0) (bool, error) {
 	if balanceProof == nil {
 		return false, nil

@@ -120,12 +120,17 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 	if err != nil {
 		return nil, err
 	}
-	txWitness, err := pp.genTxWitnessCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cmtrs, vRs)
+
+	txCase, balanceProof, err := pp.genBalanceProofCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cmtrs, vRs)
 	if err != nil {
 		return nil, err
 	}
-
-	retCbTx.txWitness = txWitness
+	retCbTx.txWitness = &TxWitnessCbTx{
+		txCase:       txCase,
+		vL:           vL,
+		outForRing:   uint8(outForRing),
+		balanceProof: balanceProof,
+	}
 
 	return retCbTx, nil
 }
@@ -144,6 +149,10 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 	}
 
 	if len(cbTx.txos) == 0 {
+		return false, nil
+	}
+
+	if cbTx.txWitness == nil {
 		return false, nil
 	}
 
@@ -225,7 +234,18 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 		return false, err
 	}
 
-	return pp.verifyTxWitnessCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cbTx.txWitness)
+	//	verify the witness
+	if cbTx.txWitness.vL != vL {
+		return false, err
+	}
+	if int(cbTx.txWitness.outForRing) != outForRing {
+		return false, err
+	}
+	if cbTx.txWitness.balanceProof == nil {
+		return false, err
+	}
+
+	return pp.verifyBalanceProofCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
 }
 
 // todo:
@@ -1180,6 +1200,103 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 	}
 
 	return txCase, balanceProof, nil
+}
+
+func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
+
+	//	The caller should guarantee the sanity of the inputs.
+	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
+	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
+	//}
+
+	//if outForRing == 0 && vL != 0 {
+	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
+	//}
+
+	var err error
+	var txCase TxWitnessCbTxCase
+	var balanceProof BalanceProof
+	if outForRing == 0 {
+		txCase = TxWitnessCbTxCaseC0
+		balanceProof, err = pp.genBalanceProofL0R0()
+		if err != nil {
+			return 0, nil, err
+		}
+	} else if outForRing == 1 {
+		txCase = TxWitnessCbTxCaseC1
+		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
+		if err != nil {
+			return 0, nil, err
+		}
+	} else {
+		//	outForRing >= 2
+		txCase = TxWitnessCbTxCaseCn
+		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, cmtrRs, vRs)
+		if err != nil {
+			return 0, nil, err
+		}
+	}
+
+	return txCase, balanceProof, nil
+}
+
+// verifyBalanceProofCbTx verifies the BalanceProof.
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
+	if len(serializedCbTxCon) == 0 {
+		return false, nil
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+
+	if vL > V {
+		return false, nil
+	}
+
+	if len(cmtRs) != int(outForRing) {
+		return false, nil
+	}
+
+	if balanceProof == nil {
+		return false, nil
+	}
+
+	switch bpfInst := balanceProof.(type) {
+	case *BalanceProofL0R0:
+		if txCase != TxWitnessCbTxCaseC0 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the txCase is not TxWitnessCbTxCaseC0")
+		}
+		if outForRing != 0 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the outForRing is not 0")
+		}
+
+		if vL != 0 {
+			// balance is checked publicly.
+			return false, nil
+		}
+		return pp.verifyBalanceProofL0R0(bpfInst)
+
+	case *BalanceProofL0R1:
+		if txCase != TxWitnessCbTxCaseC1 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the txCase is not TxWitnessCbTxCaseC1")
+		}
+		if outForRing != 1 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the outForRing is not 1")
+		}
+		return pp.verifyBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], bpfInst)
+
+	case *BalanceProofLmRn:
+		if txCase != TxWitnessCbTxCaseCn {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the txCase is not TxWitnessCbTxCaseCn")
+		}
+		if outForRing < 2 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
+		}
+		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, bpfInst)
+	}
+
+	return false, nil
 }
 
 //	helper functions	end
