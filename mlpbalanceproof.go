@@ -711,9 +711,141 @@ genBalanceProofL1R1Restart:
 	}, nil
 }
 
-// todo
-func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, balanceProof BalanceProofL1R1) (bool, error) {
-	return false, nil
+// verifyBalanceProofL1R1 verifies BalanceProofL1R1.
+// todo: multi-round review
+func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, balanceProof *BalanceProofL1R1) (bool, error) {
+
+	if len(msg) == 0 {
+		return false, nil
+	}
+
+	if cmt1 == nil || cmt1.b == nil || len(cmt1.b.polyCNTTs) != pp.paramKC || cmt1.c == nil {
+		return false, nil
+	}
+
+	if cmt2 == nil || cmt2.b == nil || len(cmt2.b.polyCNTTs) != pp.paramKC || cmt2.c == nil {
+		return false, nil
+	}
+
+	if balanceProof == nil || balanceProof.balanceProofCase != BalanceProofCaseL1R1 || balanceProof.psi == nil ||
+		len(balanceProof.chseed) != HashOutputBytesLen ||
+		len(balanceProof.z1s) != pp.paramK || len(balanceProof.z2s) != pp.paramK {
+		return false, nil
+	}
+
+	bound := pp.paramEtaC - int64(pp.paramBetaC)
+	for t := 0; t < pp.paramK; t++ {
+		if len(balanceProof.z1s[t].polyCs) != pp.paramLC || len(balanceProof.z2s[t].polyCs) != pp.paramLC {
+			return false, nil
+		}
+
+		if balanceProof.z1s[t].infNorm() > bound {
+			return false, nil
+		}
+
+		if balanceProof.z2s[t].infNorm() > bound {
+			return false, nil
+		}
+	}
+
+	ch_poly, err := pp.expandChallengeC(balanceProof.chseed)
+	if err != nil {
+		return false, nil
+	}
+	ch := pp.NTTPolyC(ch_poly)
+
+	sigma_chs := make([]*PolyCNTT, pp.paramK)
+
+	//	w1[t], w2[t]
+	w1s := make([]*PolyCNTTVec, pp.paramK)
+	w2s := make([]*PolyCNTTVec, pp.paramK)
+	deltas := make([]*PolyCNTT, pp.paramK)
+
+	z1s_ntt := make([]*PolyCNTTVec, pp.paramK)
+	z2s_ntt := make([]*PolyCNTTVec, pp.paramK)
+
+	for t := 0; t < pp.paramK; t++ {
+		sigma_chs[t] = pp.sigmaPowerPolyCNTT(ch, t)
+
+		z1s_ntt[t] = pp.NTTPolyCVec(balanceProof.z1s[t])
+		w1s[t] = pp.PolyCNTTVecSub(
+			pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z1s_ntt[t], pp.paramKC, pp.paramLC),
+			pp.PolyCNTTVecScaleMul(sigma_chs[t], cmt1.b, pp.paramKC),
+			pp.paramKC)
+
+		z2s_ntt[t] = pp.NTTPolyCVec(balanceProof.z2s[t])
+		w2s[t] = pp.PolyCNTTVecSub(
+			pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z2s_ntt[t], pp.paramKC, pp.paramLC),
+			pp.PolyCNTTVecScaleMul(sigma_chs[t], cmt2.b, pp.paramKC),
+			pp.paramKC)
+
+		deltas[t] = pp.PolyCNTTSub(
+			pp.PolyCNTTVecInnerProduct(
+				pp.paramMatrixH[0],
+				pp.PolyCNTTVecSub(z1s_ntt[t], z2s_ntt[t], pp.paramLC),
+				pp.paramLC),
+			pp.PolyCNTTMul(sigma_chs[t], pp.PolyCNTTSub(cmt1.c, cmt2.c)),
+		)
+	}
+
+	// splicing the data to be processed
+	preMsg, err := pp.collectBytesForBalanceProofL1R1Challenge1(msg, cmt1, cmt2, w1s, w2s, deltas)
+	if err != nil {
+		return false, err
+	}
+
+	seed_rand, err := Hash(preMsg)
+	if err != nil {
+		return false, err
+	}
+
+	//fmt.Println("prove seed_rand=", seed_rand)
+	betas, err := pp.expandCombChallengeInBalanceProofL1R1(seed_rand)
+	if err != nil {
+		return false, err
+	}
+
+	// psi'
+	psip := pp.NewZeroPolyCNTT()
+	//mu := pp.paramMu
+	for t := 0; t < pp.paramK; t++ {
+		//	f_t = <h, z1_t> - sigma_c_t c_1
+		f_t := pp.PolyCNTTSub(
+			//	<h, z1_t>
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], z1s_ntt[t], pp.paramLC),
+			//	sigma_c_t c_1
+			pp.PolyCNTTMul(sigma_chs[t], cmt1.c),
+		)
+		//	tmp = f_t + sigma_c_t mu
+		tmp := pp.PolyCNTTAdd(
+			f_t,
+			//	sigma_c_t mu
+			pp.PolyCNTTMul(sigma_chs[t], pp.paramMu),
+		)
+
+		tmp = pp.PolyCNTTMul(tmp, f_t)
+		tmp = pp.sigmaInvPolyCNTT(tmp, t)
+		tmp = pp.PolyCNTTMul(betas[t], tmp)
+
+		psip = pp.PolyCNTTAdd(psip, tmp)
+	}
+
+	psip = pp.PolyCNTTSub(psip, pp.PolyCNTTMul(ch, balanceProof.psi))
+	psip = pp.PolyCNTTAdd(psip,
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], z1s_ntt[0], pp.paramLC))
+
+	//	seed_ch and ch
+	preMsgAll := pp.collectBytesForBalanceProofL1R1Challenge2(preMsg, balanceProof.psi, psip)
+	chseed, err := Hash(preMsgAll)
+	if err != nil {
+		return false, err
+	}
+
+	if bytes.Compare(chseed, balanceProof.chseed) != 0 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // genBalanceProofL1Rn generates BalanceProofL1Rn.
