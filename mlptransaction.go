@@ -995,6 +995,7 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 }
 
 // genBalanceProofTrTx generates balanceProof for transferTx.
+// reviewed on 2023.12.16
 // todo: multi-round review
 func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	cmtrs_in_p []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
@@ -1020,6 +1021,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				// assert, since previous codes have checked.
 				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
 			}
+			//  -vPublic = cmt_{out,0}
 			txCase = TxWitnessTrTxCaseI0C1
 			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(-vPublic), cmts_out[0], cmtrs_out[0])
 			if err != nil {
@@ -1031,6 +1033,8 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				// assert, the caller should have checked.
 				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
 			}
+
+			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 			txCase = TxWitnessTrTxCaseI0Cn
 			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(-vPublic), outForRing, cmts_out, cmtrs_out, values_out)
 			if err != nil {
@@ -1044,6 +1048,8 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				// assert, the caller should have checked.
 				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
 			}
+
+			//	vPublic = cmt_{in,0}
 			txCase = TxWitnessTrTxCaseI1C0
 			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmts_in_p[0], cmtrs_in_p[0])
 			if err != nil {
