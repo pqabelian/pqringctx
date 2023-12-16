@@ -485,8 +485,9 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 		return false, nil
 	}
 
-	if nR < 2 {
-		return false, fmt.Errorf("verifyBalanceProofL0Rn: the input nR should be >= 2")
+	if nR < 2 || int(nR) > pp.paramJ {
+		//	nope that pp.paramI = pp.paramJ
+		return false, fmt.Errorf("verifyBalanceProofL0Rn: the input nR should be in [2, %d]", pp.paramJ)
 	}
 
 	V := uint64(1)<<pp.paramN - 1
@@ -1041,8 +1042,123 @@ genBalanceProofL1RnRestart:
 	return nil, nil
 }
 
+// verifyBalanceProofL1Rn verifies BalanceProofL1Rn.
+// todo: multi-round view
 func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
-	return false, nil
+	if len(msg) == 0 {
+		return false, nil
+	}
+
+	//	Note that BalanceProofL1Rn could be
+	//	(nR == 1 && vRPub > 0) || nR >= 2
+	if int(nR) > pp.paramJ {
+		//	Note that pp.paramI = pp.paramJ
+		return false, nil
+	}
+	if nR == 0 {
+		return false, nil
+	}
+
+	if nR == 1 && vRPub == 0 {
+		return false, nil
+	}
+
+	if cmtL == nil || cmtL.b == nil || len(cmtL.b.polyCNTTs) != pp.paramKC || cmtL.c == nil {
+		return false, nil
+	}
+
+	if len(cmtRs) != int(nR) {
+		return false, nil
+	}
+
+	for i := uint8(0); i < nR; i++ {
+		cmt := cmtRs[i]
+		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+			return false, nil
+		}
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+	if vRPub > V {
+		return false, nil
+	}
+
+	if balanceProof == nil {
+		return false, nil
+	}
+
+	if balanceProof.balanceProofCase != BalanceProofCaseL1Rn {
+		return false, fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.balanceProofCase is not BalanceProofCaseL1Rn")
+	}
+
+	if balanceProof.leftCommNum != 1 || balanceProof.rightCommNum != nR {
+		return false, nil
+	}
+
+	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
+		return false, nil
+	}
+
+	nL := uint8(1)
+	n := int(nL + nR)
+	n2 := n + 2
+	if len(balanceProof.c_hats) != n2 {
+		return false, nil
+	}
+
+	if len(balanceProof.u_p) != pp.paramDC {
+		return false, nil
+	}
+
+	if balanceProof.rpulpproof == nil {
+		return false, nil
+	}
+
+	betaF := (pp.paramN - 1) * int(nR) //	for the case of vRPub > 0
+	if vRPub == 0 {
+		betaF = (pp.paramN - 1) * int(nR-1)
+	}
+
+	boundF := pp.paramEtaF - int64(betaF)
+	infNorm := int64(0)
+	for i := 0; i < pp.paramDC; i++ {
+		infNorm = balanceProof.u_p[i]
+		if infNorm < 0 {
+			infNorm = -infNorm
+		}
+
+		if infNorm > boundF {
+			return false, nil
+		}
+	}
+
+	seedMsg, err := pp.collectBytesForBalanceProofL1RnChallenge(msg, nR, cmtL, cmtRs, vRPub, balanceProof.b_hat, balanceProof.c_hats)
+	if err != nil {
+		return false, err
+	}
+	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+	if err != nil {
+		return false, err
+	}
+	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
+	if err != nil {
+		return false, err
+	}
+
+	u_hats := make([][]int64, 3)
+
+	u := pp.intToBinary(vRPub)
+	u_hats[0] = u
+	u_hats[1] = make([]int64, pp.paramDC)
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[1][i] = 0
+	}
+	u_hats[2] = balanceProof.u_p
+
+	n1 := n
+	flag := pp.rpulpVerifyMLP(msg, cmtRs, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL1Rn, binM, 1, nR, 3, u_hats, balanceProof.rpulpproof)
+
+	return flag, nil
 }
 
 // genBalanceProofLmRn generates BalanceProofLmRn.
