@@ -593,7 +593,8 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(preMsg []byte, vL uint64, outF
 // genBalanceProofL1R1 generates BalanceProofL1R1.
 // reviewed on 2023.12.16
 // todo: multi-round review
-func (pp *PublicParameter) genBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, value uint64, cmtr1 *PolyCNTTVec, cmtr2 *PolyCNTTVec) (*BalanceProofL1R1, error) {
+func (pp *PublicParameter) genBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment,
+	cmtr1 *PolyCNTTVec, cmtr2 *PolyCNTTVec, value uint64) (*BalanceProofL1R1, error) {
 
 	y1s := make([]*PolyCNTTVec, pp.paramK)
 	y2s := make([]*PolyCNTTVec, pp.paramK)
