@@ -682,183 +682,9 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	//	balance proof
-	var txCase TxWitnessTrTxCase
-	var balanceProof BalanceProof
-
-	if inForRing == 0 {
-		if outForRing == 0 {
-			if vPublic != 0 {
-				// assert, since previous codes have checked.
-				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
-			}
-			txCase = TxWitnessTrTxCaseI0C0
-			balanceProof, err = pp.genBalanceProofL0R0()
-			if err != nil {
-				return nil, err
-			}
-		} else if outForRing == 1 {
-			//	0 = cmt_{out,0} + vPublic
-			if vPublic > 0 {
-				// assert, since previous codes have checked.
-				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
-			}
-			txCase = TxWitnessTrTxCaseI0C1
-			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(-vPublic), cmts_out[0], cmtrs_out[0])
-			if err != nil {
-				return nil, err
-			}
-		} else { //	outForRing >= 2
-			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1}+vPublic
-			if vPublic > 0 {
-				// assert, since previous codes have checked.
-				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
-			}
-			txCase = TxWitnessTrTxCaseI0Cn
-			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(-vPublic), uint8(outForRing), cmts_out, cmtrs_out, values_out)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else if inForRing == 1 {
-		if outForRing == 0 {
-			//	cmt_{in,0} = vPublic
-			if vPublic < 0 {
-				// assert, since previous codes have checked.
-				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
-			}
-			txCase = TxWitnessTrTxCaseI1C0
-			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-			if err != nil {
-				return nil, err
-			}
-		} else if outForRing == 1 {
-			//	cmt_{in,0} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0}
-				txCase = TxWitnessTrTxCaseI1C1Exact
-				// todo
-				//balanceProof, err = pp.genBalanceProofL1R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + vPublic
-				txCase = TxWitnessTrTxCaseI1C1CAdd
-				// todo
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
-				txCase = TxWitnessTrTxCaseI1C1IAdd
-				// todo
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			}
-		} else { //	outForRing >= 2
-			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				txCase = TxWitnessTrTxCaseI1CnExact
-				// todo
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-				txCase = TxWitnessTrTxCaseI1CnCAdd
-				// todo
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
-				txCase = TxWitnessTrTxCaseI1CnIAdd
-				// todo
-				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
-				//if err != nil {
-				//	return nil, err
-				//}
-			}
-		}
-
-	} else { //	inForRing >= 2
-		if outForRing == 0 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
-			if vPublic < 0 {
-				// assert, since previous codes have checked.
-				return nil, fmt.Errorf("TransferTxMLPGen: this should not happen, where inForRing >= 1 and outForRing == 0, but vPublic < 0")
-			}
-
-			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-			txCase = TxWitnessTrTxCaseImC0
-			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-			if err != nil {
-				return nil, err
-			}
-
-		} else if outForRing == 1 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-				txCase = TxWitnessTrTxCaseImC1Exact
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-				txCase = TxWitnessTrTxCaseImC1CAdd
-				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				txCase = TxWitnessTrTxCaseImC1IAdd
-				//balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-			}
-
-		} else { // outForRing >= 2
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				txCase = TxWitnessTrTxCaseImCnExact
-				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-				txCase = TxWitnessTrTxCaseImCnCAdd
-				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				txCase = TxWitnessTrTxCaseImCnIAdd
-				//balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, uint64(vPublic), uint8(inForRing), cmt_ps, cmtr_ps, values_in)
-				//if err != nil {
-				//	return nil, err
-				//}
-			}
-		}
+	txCase, balanceProof, err := pp.genBalanceProofTrTx(extTrTxCon, uint8(inForRing), uint8(outForRing), cmt_ps, cmts_out, vPublic, cmtr_ps, values_in, cmtrs_out, values_out)
+	if err != nil {
+		return nil, err
 	}
 
 	trTx.txWitness = &TxWitnessTrTx{
@@ -878,308 +704,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	return trTx, nil
-
-	//// original
-	//
-	//n := I + J
-	//n2 := I + J + 2
-	//if I > 1 {
-	//	n2 = I + J + 4
-	//}
-	//
-	//c_hats := make([]*PolyCNTT, n2)
-	//msg_hats := make([][]int64, n2)
-	//
-	//cmtrs := make([]*PolyCNTTVec, n)
-	//cmts := make([]*ValueCommitment, n)
-	//for i := 0; i < I; i++ {
-	//	cmts[i] = cmt_ps[i]
-	//	cmtrs[i] = cmtr_ps[i]
-	//	msg_hats[i] = msgs_in[i]
-	//}
-	//for j := 0; j < J; j++ {
-	//	cmts[I+j] = rettrTx.OutputTxos[j].ValueCommitment
-	//	cmtrs[I+j] = cmtrs_out[j]
-	//	msg_hats[I+j] = pp.intToBinary(outputDescs[j].value)
-	//}
-	//
-	//r_hat_poly, err := pp.sampleValueCmtRandomness()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//r_hat := pp.NTTPolyCVec(r_hat_poly)
-	//b_hat := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, r_hat, pp.paramKC, pp.paramLC)
-	//for i := 0; i < n; i++ { // n = I+J
-	//	c_hats[i] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[i+1], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[i]},
-	//	)
-	//}
-	//
-	////	fee
-	//u := pp.intToBinary(fee)
-	//
-	//if I == 1 {
-	//	//	n2 = n+2
-	//	//	f is the carry vector, such that, m_1 = m_2+ ... + m_n + u
-	//	//	f[0] = 0, and for i=1 to d-1,
-	//	//	m_0[i-1] + 2 f[i] = m_1[i-1] + .. + m_{n-1}[i-1] + u[i-1] + f[i-1],
-	//	//	m_0[d-1] 		  = m_1[d-1] + .. + m_{n-1}[d-1] + f[d-1],
-	//	f := make([]int64, pp.paramDC)
-	//	f[0] = 0
-	//	for i := 1; i < pp.paramDC; i++ {
-	//		tmp := int64(0)
-	//		for j := 1; j < n; j++ {
-	//			tmp = tmp + msg_hats[j][i-1]
-	//		}
-	//
-	//		//	-1 >> 1 = -1, -1/2=0
-	//		//	In our design, the carry should be in [0, J] and (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) >=0,
-	//		//	which means >> 1 and /2 are equivalent.
-	//		//	A negative carry bit will not pass the verification,
-	//		//	and the case (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) < 0 will not pass the verification.
-	//		//	f[0] = 0 and other proved verification (msg[i] \in {0,1}, |f[i]| < q_c/8) are important.
-	//
-	//		f[i] = (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) >> 1
-	//		//f[i] = (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) / 2
-	//	}
-	//	msg_hats[n] = f
-	//	c_hats[n] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+1], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n]},
-	//	)
-	//
-	//trTxGenI1Restart:
-	//	//e, err := pp.sampleUniformWithinEtaFv2()
-	//	e, err := pp.randomDcIntegersInQcEtaF()
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	msg_hats[n+1] = e
-	//	c_hats[n+1] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+2], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n+1]},
-	//	)
-	//
-	//	//	todo_done 2022.04.03: check the scope of u_p in theory
-	//	//	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/16.
-	//	//	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not modular reduction.
-	//	betaF := pp.paramDC * (J + 1)
-	//	boundF := pp.paramEtaF - int64(betaF)
-	//	u_p := make([]int64, pp.paramDC)
-	//	//u_p_temp := make([]int64, pp.paramDC) // todo_done 2022.04.03: make sure that (eta_f, d) will not make the value of u_p[i] over int32
-	//	preMsg := pp.collectBytesForTransferTx(msgTrTxCon, b_hat, c_hats)
-	//	seed_binM, err := Hash(preMsg)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	// compute B f + e and check the normal
-	//	// up = B * f + e
-	//	for i := 0; i < pp.paramDC; i++ {
-	//		//u_p_temp[i] = e[i]
-	//		u_p[i] = e[i]
-	//		for j := 0; j < pp.paramDC; j++ {
-	//			if (binM[i][j/8]>>(j%8))&1 == 1 {
-	//				//u_p_temp[i] += f[j]
-	//				u_p[i] += f[j]
-	//			}
-	//		}
-	//
-	//		//infNorm := u_p_temp[i]
-	//		infNorm := u_p[i]
-	//		if infNorm < 0 {
-	//			infNorm = -infNorm
-	//		}
-	//
-	//		if infNorm > boundF {
-	//			goto trTxGenI1Restart
-	//		}
-	//
-	//		// u_p[i] = reduceInt64(u_p_temp[i], pp.paramQC) // todo_done: need to confirm. Do not need to modulo.
-	//	}
-	//
-	//	u_hats := make([][]int64, 3)
-	//	u_hats[0] = u
-	//	u_hats[1] = make([]int64, pp.paramDC)
-	//	for i := 0; i < pp.paramDC; i++ {
-	//		u_hats[1][i] = 0
-	//	}
-	//	u_hats[2] = u_p
-	//
-	//	n1 := n
-	//	rpulppi, pi_err := pp.rpulpProve(msgTrTxCon, cmts, cmtrs, uint8(n), b_hat, r_hat, c_hats, msg_hats, uint8(n2), uint8(n1), RpUlpTypeTrTx1, binM, uint8(I), uint8(J), 3, u_hats)
-	//
-	//	if pi_err != nil {
-	//		return nil, pi_err
-	//	}
-	//
-	//	rettrTx.TxWitness = &TrTxWitness{
-	//		ma_ps,
-	//		cmt_ps,
-	//		elrsSigs,
-	//		b_hat,
-	//		c_hats,
-	//		u_p,
-	//		rpulppi,
-	//	}
-	//} else {
-	//	//	n2 = n+4
-	//	msg_hats[n] = pp.intToBinary(inputTotal) //	the sum of input coins
-	//	c_hats[n] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+1], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n]},
-	//	)
-	//	//	f1 is the carry vector, such that, m_0 + m_1+ ... + m_{I-1} = m_{n}
-	//	//	f1[0] = 0, and for i=1 to d-1,
-	//	//	m_0[i-1] + .. + m_{I-1}[i-1] + f1[i-1] = m_n[i-1] + 2 f[i] ,
-	//	//	m_0[d-1] + .. + m_{I-1}[d-1] + f1[d-1] = m_n[d-1] ,
-	//	f1 := make([]int64, pp.paramDC)
-	//	f1[0] = 0
-	//	for i := 1; i < pp.paramDC; i++ {
-	//		tmp := int64(0)
-	//		for j := 0; j < I; j++ {
-	//			tmp = tmp + msg_hats[j][i-1]
-	//		}
-	//
-	//		//	-1 >> 1 = -1, -1/2=0
-	//		//	In our design, the carry should be in [0, J] and (tmp + f1[i-1] - msg_hats[n][i-1]) >=0,
-	//		//	which means >> 1 and /2 are equivalent.
-	//		//	A negative carry bit will not pass the verification,
-	//		//	and the case (tmp + f1[i-1] - msg_hats[n][i-1]) < 0 will not pass the verification.
-	//		//	f[0] = 0 and other proved verification (msg[i] \in {0,1}, |f[i]| < q_c/8) are important.
-	//		f1[i] = (tmp + f1[i-1] - msg_hats[n][i-1]) >> 1
-	//		//f1[i] = (tmp + f1[i-1] - msg_hats[n][i-1]) / 2
-	//	}
-	//	msg_hats[n+1] = f1
-	//	c_hats[n+1] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+2], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n+1]},
-	//	)
-	//
-	//	//	f2 is the carry vector, such that, m_I + m_{I+1}+ ... + m_{(I+J)-1} + u = m_{n}
-	//	//	f2[0] = 0, and for i=1 to d-1,
-	//	//	m_I[i-1] + .. + m_{I+J-1}[i-1] + u[i-1] + f2[i-1] = m_n[i-1] + 2 f[i] ,
-	//	//	m_I[d-1] + .. + m_{I+J-1}[d-1] + u[d-1] + f2[d-1] = m_n[d-1] ,
-	//	f2 := make([]int64, pp.paramDC)
-	//	f2[0] = 0
-	//	for i := 1; i < pp.paramDC; i++ {
-	//		tmp := int64(0)
-	//		for j := 0; j < J; j++ {
-	//			tmp = tmp + msg_hats[I+j][i-1]
-	//		}
-	//		//	-1 >> 1 = -1, -1/2=0
-	//		//	In our design, the carry should be in [0, J] and (tmp + u[i-1] + f2[i-1] - msg_hats[n][i-1]) >=0,
-	//		//	which means >> 1 and /2 are equivalent.
-	//		//	A negative carry bit will not pass the verification,
-	//		//	and the case (tmp + u[i-1] + f2[i-1] - msg_hats[n][i-1]) < 0 will not pass the verification.
-	//		//	f[0] = 0 and other proved verification (msg[i] \in {0,1}, |f[i]| < q_c/8) are important.
-	//
-	//		f2[i] = (tmp + u[i-1] + f2[i-1] - msg_hats[n][i-1]) >> 1
-	//		//f2[i] = (tmp + u[i-1] + f2[i-1] - msg_hats[n][i-1]) / 2
-	//	}
-	//	msg_hats[n+2] = f2
-	//	c_hats[n+2] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+3], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n+2]},
-	//	)
-	//trTxGenI2Restart:
-	//	//e, err := pp.sampleUniformWithinEtaFv2()
-	//	e, err := pp.randomDcIntegersInQcEtaF()
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	msg_hats[n+3] = e
-	//	c_hats[n+3] = pp.PolyCNTTAdd(
-	//		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+4], r_hat, pp.paramLC),
-	//		&PolyCNTT{coeffs: msg_hats[n+3]},
-	//	)
-	//
-	//	// todo_done: (2022.04.03) check the scope of u_p in theory
-	//	//	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/16.
-	//	//	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not modular reduction.
-	//	betaF := pp.paramDC * (I + J + 1)
-	//	boundF := pp.paramEtaF - int64(betaF)
-	//
-	//	u_p := make([]int64, pp.paramDC)
-	//	//u_p_temp := make([]int64, pp.paramDC) // todo_done: make sure that (eta_f, d) will not make the value of u_p[i] over int32
-	//	preMsg := pp.collectBytesForTransferTx(msgTrTxCon, b_hat, c_hats)
-	//	seed_binM, err := Hash(preMsg)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, 2*pp.paramDC)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	// compute B (f_1 || f_2) + e and check the normal
-	//	for i := 0; i < pp.paramDC; i++ {
-	//		//u_p_temp[i] = e[i]
-	//		u_p[i] = e[i]
-	//		for j := 0; j < pp.paramDC; j++ {
-	//			//	u_p_temp[i] = u_p_temp[i] + int64(e[j])
-	//
-	//			if (binM[i][j/8]>>(j%8))&1 == 1 {
-	//				//u_p_temp[i] += f1[j]
-	//				u_p[i] += f1[j]
-	//			}
-	//			if (binM[i][(pp.paramDC+j)/8]>>((pp.paramDC+j)%8))&1 == 1 {
-	//				//u_p_temp[i] += f2[j]
-	//				u_p[i] += f2[j]
-	//			}
-	//		}
-	//
-	//		//infNorm := u_p_temp[i]
-	//		infNorm := u_p[i]
-	//		if infNorm < 0 {
-	//			infNorm = -infNorm
-	//		}
-	//
-	//		if infNorm > boundF {
-	//			goto trTxGenI2Restart
-	//		}
-	//
-	//		// u_p[i] = reduceInt64(u_p_temp[i], pp.paramQC) // todo_done: 2022.04.03 confirm whether need to reduce
-	//	}
-	//
-	//	u_hats := make([][]int64, 5)
-	//	u_hats[0] = make([]int64, pp.paramDC)
-	//	// todo_DONE: -u
-	//	u_hats[1] = make([]int64, pp.paramDC)
-	//	for i := 0; i < pp.paramDC; i++ {
-	//		u_hats[1][i] = -u[i]
-	//	}
-	//	u_hats[2] = make([]int64, pp.paramDC)
-	//	u_hats[3] = make([]int64, pp.paramDC)
-	//	u_hats[4] = u_p
-	//	for i := 0; i < pp.paramDC; i++ {
-	//		u_hats[0][i] = 0
-	//		u_hats[2][i] = 0
-	//		u_hats[3][i] = 0
-	//	}
-	//
-	//	n1 := n + 1
-	//	rpulppi, pi_err := pp.rpulpProve(msgTrTxCon, cmts, cmtrs, uint8(n), b_hat, r_hat, c_hats, msg_hats, uint8(n2), uint8(n1), RpUlpTypeTrTx2, binM, uint8(I), uint8(J), 5, u_hats)
-	//
-	//	if pi_err != nil {
-	//		return nil, pi_err
-	//	}
-	//
-	//	rettrTx.TxWitness = &TrTxWitness{
-	//		ma_ps,
-	//		cmt_ps,
-	//		elrsSigs,
-	//		b_hat,
-	//		c_hats,
-	//		u_p,
-	//		rpulppi,
-	//	}
-	//}
-	//return rettrTx, err
-	////	return nil, nil
+	
 }
 
 //	TxWitness		begin
@@ -1467,6 +992,188 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 	}
 
 	return rst, nil
+}
+
+// genBalanceProofTrTx generates balanceProof for transferTx.
+// todo: multi-round review
+func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmt_ps []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
+	cmtr_ps []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
+
+	var txCase TxWitnessTrTxCase
+	var balanceProof BalanceProof
+	var err error
+
+	if inForRing == 0 {
+		if outForRing == 0 {
+			if vPublic != 0 {
+				// assert, the caller should have checked.
+				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
+			}
+			txCase = TxWitnessTrTxCaseI0C0
+			balanceProof, err = pp.genBalanceProofL0R0()
+			if err != nil {
+				return 0, nil, err
+			}
+		} else if outForRing == 1 {
+			//	0 = cmt_{out,0} + vPublic
+			if vPublic > 0 {
+				// assert, since previous codes have checked.
+				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
+			}
+			txCase = TxWitnessTrTxCaseI0C1
+			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(-vPublic), cmts_out[0], cmtrs_out[0])
+			if err != nil {
+				return 0, nil, err
+			}
+		} else { //	outForRing >= 2
+			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic > 0 {
+				// assert, the caller should have checked.
+				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
+			}
+			txCase = TxWitnessTrTxCaseI0Cn
+			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(-vPublic), outForRing, cmts_out, cmtrs_out, values_out)
+			if err != nil {
+				return 0, nil, err
+			}
+		}
+	} else if inForRing == 1 {
+		if outForRing == 0 {
+			//	cmt_{in,0} = vPublic
+			if vPublic < 0 {
+				// assert, the caller should have checked.
+				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
+			}
+			txCase = TxWitnessTrTxCaseI1C0
+			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+			if err != nil {
+				return 0, nil, err
+			}
+		} else if outForRing == 1 {
+			//	cmt_{in,0} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0}
+				txCase = TxWitnessTrTxCaseI1C1Exact
+				balanceProof, err = pp.genBalanceProofL1R1(extTrTxCon, cmt_ps[0], cmts_out[0], cmtr_ps[0], cmtrs_out[0], values_out[0])
+				if err != nil {
+					return 0, nil, err
+				}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + vPublic
+				txCase = TxWitnessTrTxCaseI1C1CAdd
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmt_ps[0], cmts_out, uint64(vPublic), cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
+				txCase = TxWitnessTrTxCaseI1C1IAdd
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmts_out[0], cmt_ps, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				if err != nil {
+					return 0, nil, err
+				}
+			}
+		} else { //	outForRing >= 2
+			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				txCase = TxWitnessTrTxCaseI1CnExact
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmt_ps[0], cmts_out, 0, cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+				txCase = TxWitnessTrTxCaseI1CnCAdd
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmt_ps[0], cmts_out, uint64(vPublic), cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
+				txCase = TxWitnessTrTxCaseI1CnIAdd
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmt_ps, uint64(-vPublic), cmtrs_out, values_out, cmtr_ps, values_in)
+				if err != nil {
+					return 0, nil, err
+				}
+			}
+		}
+
+	} else { //	inForRing >= 2
+		if outForRing == 0 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
+			if vPublic < 0 {
+				// assert, the caller should have checked.
+				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing >= 2 and outForRing == 0, but vPublic < 0")
+			}
+
+			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+			txCase = TxWitnessTrTxCaseImC0
+			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(vPublic), inForRing, cmt_ps, cmtr_ps, values_in)
+			if err != nil {
+				return 0, nil, err
+			}
+
+		} else if outForRing == 1 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+				txCase = TxWitnessTrTxCaseImC1Exact
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmt_ps, 0, cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				if err != nil {
+					return 0, nil, err
+				}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+				txCase = TxWitnessTrTxCaseImC1CAdd
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, uint64(vPublic), cmtr_ps, values_in, cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				txCase = TxWitnessTrTxCaseImC1IAdd
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmt_ps, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				if err != nil {
+					return 0, nil, err
+				}
+			}
+
+		} else { // outForRing >= 2
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				txCase = TxWitnessTrTxCaseImCnExact
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, 0, cmtr_ps, values_in, cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+				txCase = TxWitnessTrTxCaseImCnCAdd
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, uint64(vPublic), cmtr_ps, values_in, cmtrs_out, values_out)
+				if err != nil {
+					return 0, nil, err
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				txCase = TxWitnessTrTxCaseImCnIAdd
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmt_ps, uint64(-vPublic), cmtrs_out, values_out, cmtr_ps, values_in)
+				if err != nil {
+					return 0, nil, err
+				}
+			}
+		}
+	}
+
+	return txCase, balanceProof, nil
 }
 
 //	helper functions	end
