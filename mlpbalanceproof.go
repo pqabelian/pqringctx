@@ -56,10 +56,10 @@ type BalanceProofL1R1 struct {
 	// bpf
 	psi    *PolyCNTT
 	chseed []byte
-	//	zs1 and zs2, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
+	//	z1s and z2s, as the responses, need to have the infinite normal in a scope, say [-(eta_c-beta_c), (eta_c-beta_c)].
 	//	That is why here we use PolyCVec rather than PolyCNTTVec.
-	zs1 []*PolyCVec //	dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
-	zs2 []*PolyCVec //	dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
+	z1s []*PolyCVec //	dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
+	z2s []*PolyCVec //	dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
 }
 
 // BalanceProofCase is a method that must be implemented to implement the interface BalanceProof.
@@ -588,6 +588,140 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(preMsg []byte, vL uint64, outF
 	return flag, nil
 }
 
+// genBalanceProofL1R1 generates BalanceProofL1R1.
+// reviewed on 2023.12.16
+// todo: multi-round review
+func (pp *PublicParameter) genBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, value uint64, cmtr1 *PolyCNTTVec, cmtr2 *PolyCNTTVec) (*BalanceProofL1R1, error) {
+
+	y1s := make([]*PolyCNTTVec, pp.paramK)
+	y2s := make([]*PolyCNTTVec, pp.paramK)
+
+	w1s := make([]*PolyCNTTVec, pp.paramK)
+	w2s := make([]*PolyCNTTVec, pp.paramK)
+	deltas := make([]*PolyCNTT, pp.paramK)
+
+genBalanceProofL1R1Restart:
+	for t := 0; t < pp.paramK; t++ {
+		//	y_1[t], y_2[t] \in (S_{eta_c})^{L_c}
+		tmpY1, err := pp.sampleMaskingVecC()
+		if err != nil {
+			return nil, err
+		}
+		tmpY2, err := pp.sampleMaskingVecC()
+		if err != nil {
+			return nil, err
+		}
+		y1s[t] = pp.NTTPolyCVec(tmpY1)
+		y2s[t] = pp.NTTPolyCVec(tmpY2)
+
+		//	w_1[t] = B y_1[t], w_2[t] = B y_2[t], \delta[t] = <h, y_1[t]> - <h, y_2[t]>
+		w1s[t] = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, y1s[t], pp.paramKC, pp.paramLC)
+		w2s[t] = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, y2s[t], pp.paramKC, pp.paramLC)
+		deltas[t] = pp.PolyCNTTVecInnerProduct(
+			pp.paramMatrixH[0],
+			pp.PolyCNTTVecSub(y1s[t], y2s[t], pp.paramLC),
+			pp.paramLC,
+		)
+	}
+
+	// splicing the data to be processed
+	preMsg, err := pp.collectBytesForBalanceProofL1R1Challenge1(msg, cmt1, cmt2, w1s, w2s, deltas)
+	if err != nil {
+		return nil, err
+	}
+
+	seed_rand, err := Hash(preMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	//fmt.Println("prove seed_rand=", seed_rand)
+	betas, err := pp.expandCombChallengeInBalanceProofL1R1(seed_rand)
+	if err != nil {
+		return nil, err
+	}
+
+	//	psi, psi'
+	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], cmtr1, pp.paramLC)
+	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], y1s[0], pp.paramLC)
+
+	msg_value := pp.intToBinary(value)
+	msgNTT, err := pp.NewPolyCNTTFromCoeffs(msg_value)
+	if err != nil {
+		return nil, err
+	}
+	// 2 * m - mu
+	TwoMSubMu := pp.PolyCNTTSub(
+		//  m + m
+		pp.PolyCNTTAdd(
+			msgNTT,
+			msgNTT,
+		),
+		pp.paramMu,
+	)
+
+	for t := 0; t < pp.paramK; t++ {
+		// <h , y_1[t]>
+		tmp := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], y1s[t], pp.paramLC)
+
+		// (2 * m - mu) <h, y_1[t]>
+		tmp1 := pp.PolyCNTTMul(TwoMSubMu, tmp)
+
+		//	(<h , y_1[t]>)^2
+		tmp2 := pp.PolyCNTTMul(tmp, tmp)
+
+		psi = pp.PolyCNTTSub(psi, pp.PolyCNTTMul(betas[t], pp.sigmaInvPolyCNTT(tmp1, t)))
+		psip = pp.PolyCNTTAdd(psip, pp.PolyCNTTMul(betas[t], pp.sigmaInvPolyCNTT(tmp2, t)))
+	}
+
+	//	seed_ch and ch
+	preMsgAll := pp.collectBytesForBalanceProofL1R1Challenge2(preMsg, psi, psip)
+	chseed, err := Hash(preMsgAll)
+	if err != nil {
+		return nil, err
+	}
+	ch_ploy, err := pp.expandChallengeC(chseed)
+	if err != nil {
+		return nil, err
+	}
+	ch := pp.NTTPolyC(ch_ploy)
+
+	//	z_1[t] = y_1[t] + sigma^t(c) * r_1
+	//	z_2[t] = y_2[t] + sigma^t(c) * r_2
+	z1s_ntt := make([]*PolyCNTTVec, pp.paramK)
+	z2s_ntt := make([]*PolyCNTTVec, pp.paramK)
+	z1s := make([]*PolyCVec, pp.paramK)
+	z2s := make([]*PolyCVec, pp.paramK)
+	for t := 0; t < pp.paramK; t++ {
+		sigma_t_ch := pp.sigmaPowerPolyCNTT(ch, t)
+
+		z1s_ntt[t] = pp.PolyCNTTVecAdd(y1s[t], pp.PolyCNTTVecScaleMul(sigma_t_ch, cmtr1, pp.paramLC), pp.paramLC)
+		z1s[t] = pp.NTTInvPolyCVec(z1s_ntt[t])
+		if z1s[t].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
+			goto genBalanceProofL1R1Restart
+		}
+
+		z2s_ntt[t] = pp.PolyCNTTVecAdd(y2s[t], pp.PolyCNTTVecScaleMul(sigma_t_ch, cmtr2, pp.paramLC), pp.paramLC)
+		z2s[t] = pp.NTTInvPolyCVec(z2s_ntt[t])
+		if z2s[t].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
+			goto genBalanceProofL1R1Restart
+		}
+	}
+
+	return &BalanceProofL1R1{
+		balanceProofCase: BalanceProofCaseL1R1,
+		psi:              psi,
+		chseed:           chseed,
+		z1s:              z1s,
+		z2s:              z2s,
+	}, nil
+}
+
+// todo
+func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, balanceProof BalanceProofL1R1) (bool, error) {
+	return false, nil
+}
+
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofL0R0SerializeSize() int {
@@ -716,7 +850,7 @@ func (pp *PublicParameter) balanceProofL1R1SerializeSize() int {
 	n := 1 + // balanceProofCase BalanceProofCase
 		pp.PolyCNTTSerializeSize() + //  psi              *PolyCNTT
 		HashOutputBytesLen + // chseed           []byte
-		+2*pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) // zs1, zs2        []*PolyCVec : dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
+		+2*pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) // z1s, z2s        []*PolyCVec : dimension [paramK], each is a PolyCVec with vevLen = paramLc, i.e, (S_{eta_c - beta_c})^{L_c}
 	return n
 }
 
@@ -744,19 +878,19 @@ func (pp *PublicParameter) serializeBalanceProofL1R1(bpf *BalanceProofL1R1) ([]b
 		return nil, err
 	}
 
-	//	zs1               []*PolyCVec
+	//	z1s               []*PolyCVec
 	//	fixed-length paramK
 	for i := 0; i < pp.paramK; i++ {
-		err = pp.writePolyCVecEta(w, bpf.zs1[i])
+		err = pp.writePolyCVecEta(w, bpf.z1s[i])
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	//	zs2               []*PolyCVec
+	//	z2s               []*PolyCVec
 	//	fixed-length paramK
 	for i := 0; i < pp.paramK; i++ {
-		err = pp.writePolyCVecEta(w, bpf.zs2[i])
+		err = pp.writePolyCVecEta(w, bpf.z2s[i])
 		if err != nil {
 			return nil, err
 		}
@@ -795,7 +929,7 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 		return nil, err
 	}
 
-	//	zs1               []*PolyCVec
+	//	z1s               []*PolyCVec
 	//	fixed-length paramK
 	zs1 := make([]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
@@ -805,7 +939,7 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 		}
 	}
 
-	//	zs2               []*PolyCVec
+	//	z2s               []*PolyCVec
 	//	fixed-length paramK
 	zs2 := make([]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
@@ -819,8 +953,8 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 		balanceProofCase: BalanceProofCaseL1R1,
 		psi:              psi,
 		chseed:           chseed,
-		zs1:              zs1,
-		zs2:              zs2,
+		z1s:              zs1,
+		z2s:              zs2,
 	}, nil
 }
 
@@ -1129,6 +1263,135 @@ func (pp *PublicParameter) collectBytesForBalanceProofL0Rn(preMsg []byte, vL uin
 	}
 
 	return rst, nil
+}
+
+// collectBytesForBalanceProofL1R1Challenge1 collects pre-message bytes for the challenge 1 in genBalanceProofL1R1.
+// reviewed on 2023.12.16
+// todo: multi-round review
+func (pp *PublicParameter) collectBytesForBalanceProofL1R1Challenge1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, w1s []*PolyCNTTVec, w2s []*PolyCNTTVec, deltas []*PolyCNTT) ([]byte, error) {
+
+	length := len(msg) + //	msg []byte
+		2*pp.ValueCommitmentSerializeSize() + //	cmtL *ValueCommitment, cmtR *ValueCommitment
+		2*pp.paramK*pp.paramKC*pp.paramDC*8 + //	w1s []*PolyCNTTVec, w2s []*PolyCNTTVec		dimension[K][Ka]
+		pp.paramK*pp.paramDC*8 //	deltas []*PolyCNTT
+
+	rst := make([]byte, 0, length)
+
+	appendPolyCNTTToBytes := func(a *PolyCNTT) {
+		for k := 0; k < pp.paramDC; k++ {
+			rst = append(rst, byte(a.coeffs[k]>>0))
+			rst = append(rst, byte(a.coeffs[k]>>8))
+			rst = append(rst, byte(a.coeffs[k]>>16))
+			rst = append(rst, byte(a.coeffs[k]>>24))
+			rst = append(rst, byte(a.coeffs[k]>>32))
+			rst = append(rst, byte(a.coeffs[k]>>40))
+			rst = append(rst, byte(a.coeffs[k]>>48))
+			rst = append(rst, byte(a.coeffs[k]>>56))
+		}
+	}
+
+	//	msg []byte
+	rst = append(rst, msg...)
+
+	//	cmt1 *ValueCommitment
+	serializedCmt1, err := pp.SerializeValueCommitment(cmt1)
+	if err != nil {
+		return nil, err
+	}
+	rst = append(rst, serializedCmt1...)
+
+	//	cmt2 *ValueCommitment
+	serializedCmt2, err := pp.SerializeValueCommitment(cmt2)
+	if err != nil {
+		return nil, err
+	}
+	rst = append(rst, serializedCmt2...)
+
+	//	w1s []*PolyCNTTVec
+	for i := 0; i < len(w1s); i++ {
+		for j := 0; j < len(w1s[i].polyCNTTs); j++ {
+			appendPolyCNTTToBytes(w1s[i].polyCNTTs[j])
+		}
+	}
+
+	//	w2s []*PolyCNTTVec
+	for i := 0; i < len(w2s); i++ {
+		for j := 0; j < len(w2s[i].polyCNTTs); j++ {
+			appendPolyCNTTToBytes(w2s[i].polyCNTTs[j])
+		}
+	}
+
+	//	deltas
+	for i := 0; i < len(deltas); i++ {
+		appendPolyCNTTToBytes(deltas[i])
+	}
+
+	return rst, nil
+}
+
+// expandCombChallengeInBalanceProofL1R1 generates paramK R_{q_c} elements from a random seed.
+// reviewed on 2023.12.16
+// todo: multi-round review
+func (pp *PublicParameter) expandCombChallengeInBalanceProofL1R1(seed []byte) (betas []*PolyCNTT, err error) {
+
+	// check the length of seed
+	if len(seed) == 0 {
+		return nil, fmt.Errorf("expandCombChallengeInBalanceProofL1R1: seed is empty")
+	}
+
+	// betas
+	betas = make([]*PolyCNTT, pp.paramK)
+
+	betaSeed := append([]byte{'B'}, seed...)
+	tmpSeedLen := len(betaSeed) + 1 //	1 byte for index in [0, paramK]
+	tmpSeed := make([]byte, tmpSeedLen)
+	for i := 0; i < pp.paramK; i++ {
+		copy(tmpSeed, betaSeed)
+		tmpSeed[tmpSeedLen-1] = byte(i)
+		//tmpSeed = append(tmpSeed, byte(i))
+		coeffs, err := pp.randomDcIntegersInQc(tmpSeed)
+		if err != nil {
+			return nil, err
+		}
+		betas[i] = &PolyCNTT{coeffs}
+	}
+
+	return betas, nil
+}
+
+// collectBytesForBalanceProofL1R1Challenge2 collects pre-message bytes for the challenge 2 in genBalanceProofL1R1.
+// reviewed on 2023.12.16
+// todo: multi-round review
+func (pp *PublicParameter) collectBytesForBalanceProofL1R1Challenge2(preMsg []byte,
+	psi *PolyCNTT, psip *PolyCNTT) []byte {
+
+	length := len(preMsg) + 2*pp.paramDC*8
+
+	rst := make([]byte, 0, length)
+
+	appendPolyNTTToBytes := func(a *PolyCNTT) {
+		for k := 0; k < pp.paramDC; k++ {
+			rst = append(rst, byte(a.coeffs[k]>>0))
+			rst = append(rst, byte(a.coeffs[k]>>8))
+			rst = append(rst, byte(a.coeffs[k]>>16))
+			rst = append(rst, byte(a.coeffs[k]>>24))
+			rst = append(rst, byte(a.coeffs[k]>>32))
+			rst = append(rst, byte(a.coeffs[k]>>40))
+			rst = append(rst, byte(a.coeffs[k]>>48))
+			rst = append(rst, byte(a.coeffs[k]>>56))
+		}
+	}
+
+	//	preMsg []byte
+	rst = append(rst, preMsg...)
+
+	// psi
+	appendPolyNTTToBytes(psi)
+
+	// psip
+	appendPolyNTTToBytes(psip)
+
+	return rst
 }
 
 //	helper functions	end
