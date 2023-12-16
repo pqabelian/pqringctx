@@ -129,7 +129,7 @@ func (pp *PublicParameter) genTxWitnessCbTx(serializedCbTxCon []byte, vL uint64,
 	} else {
 		//	outForRing >= 2
 		txCase = TxWitnessCbTxCaseCn
-		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, cmtrRs, vRs)
+		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +199,7 @@ func (pp *PublicParameter) verifyTxWitnessCbTx(serializedCbTxCon []byte, vL uint
 		if outForRing < 2 {
 			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
 		}
-		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, bpfInst)
+		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, bpfInst)
 	}
 
 	return false, nil
@@ -517,7 +517,7 @@ func (pp *PublicParameter) genTxWitnessTrTx(serializedCbTxCon []byte, vL uint64,
 	} else {
 		//	outForRing >= 2
 		txCase = TxWitnessCbTxCaseCn
-		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, vL, outForRing, cmtRs, cmtrRs, vRs)
+		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
 		if err != nil {
 			return nil, err
 		}
