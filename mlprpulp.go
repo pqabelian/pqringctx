@@ -309,6 +309,7 @@ rpUlpProveMLPRestart:
 
 // rpulpVerifyMLP verifies rpulpProofMLP for the input cmts, range proof and unstructured-linear-relation proof.
 // reviewed on 2023.12.05.
+// reviewed on 2023.12.16
 func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
@@ -340,6 +341,10 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	}
 
 	if b_hat == nil {
+		return false
+	}
+
+	if len(b_hat.polyCNTTs) != pp.paramKC {
 		return false
 	}
 
@@ -394,12 +399,21 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if rpulppi.cmt_zs == nil || len(rpulppi.cmt_zs) != pp.paramK || rpulppi.zs == nil || len(rpulppi.zs) != pp.paramK {
+	if len(rpulppi.cmt_zs) != pp.paramK || len(rpulppi.zs) != pp.paramK {
 		return false
 	}
 
 	for t := 0; t < pp.paramK; t++ {
-		if rpulppi.cmt_zs[t] == nil || len(rpulppi.cmt_zs[t]) != int(n) {
+		if len(rpulppi.cmt_zs[t]) != int(n) {
+			return false
+		}
+		for i := 0; i < len(rpulppi.cmt_zs[t]); i++ {
+			if len(rpulppi.cmt_zs[t][i].polyCs) != pp.paramLC {
+				return false
+			}
+		}
+
+		if len(rpulppi.zs[t].polyCs) != pp.paramLC {
 			return false
 		}
 	}
@@ -414,16 +428,18 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	}
 
 	// infNorm of z^t_i and z^t
+	bound := pp.paramEtaC - int64(pp.paramBetaC)
 	for t := 0; t < pp.paramK; t++ {
 		for i := uint8(0); i < n; i++ {
-			if rpulppi.cmt_zs[t][i].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
+			if rpulppi.cmt_zs[t][i].infNorm() > bound {
 				return false
 			}
 		}
-		if rpulppi.zs[t].infNorm() > pp.paramEtaC-int64(pp.paramBetaC) {
+		if rpulppi.zs[t].infNorm() > bound {
 			return false
 		}
 	}
+
 	ch_poly, err := pp.expandChallengeC(rpulppi.chseed)
 	if err != nil {
 		return false
@@ -431,6 +447,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	ch := pp.NTTPolyC(ch_poly)
 
 	sigma_chs := make([]*PolyCNTT, pp.paramK)
+
 	//	w^t_i, w_t
 	cmt_ws := make([][]*PolyCNTTVec, pp.paramK)
 	ws := make([]*PolyCNTTVec, pp.paramK)
@@ -1196,6 +1213,7 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
 
 	length := len(preMsg) + 3*pp.paramDC*8 + len(phips)*pp.paramDC*8
+
 	rst := make([]byte, 0, length)
 
 	appendPolyNTTToBytes := func(a *PolyCNTT) {
