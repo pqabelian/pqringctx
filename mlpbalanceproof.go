@@ -736,7 +736,7 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 
 	if int(nR) > pp.paramJ || nR < 2 {
 		// Note that pp.paramI == pp.paramI
-		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) is not in [2, %d]", n, pp.paramJ)
+		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) is not in [2, %d]", nR, pp.paramJ)
 	}
 
 	n := int(nL + nR)
