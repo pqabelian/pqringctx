@@ -983,7 +983,7 @@ genBalanceProofL1RnRestart:
 	//	As Bf should be bound by betaF, so that |B f + e| < q_c/2, there should not be modular reduction.
 	betaF := (pp.paramN - 1) * int(nR) // for the case of vRPub > 0
 	if vRPub == 0 {
-		betaF = (pp.paramN - 1) * (int(nR) - 1)
+		betaF = (pp.paramN - 1) * int(nR-1)
 	}
 	boundF := pp.paramEtaF - int64(betaF)
 
@@ -1155,8 +1155,14 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	}
 	u_hats[2] = balanceProof.u_p
 
+	cmts := make([]*ValueCommitment, n)
+	cmts[0] = cmtL
+	for j := uint8(0); j < nR; j++ {
+		cmts[1+j] = cmtRs[j]
+	}
+
 	n1 := n
-	flag := pp.rpulpVerifyMLP(msg, cmtRs, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL1Rn, binM, 1, nR, 3, u_hats, balanceProof.rpulpproof)
+	flag := pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL1Rn, binM, 1, nR, 3, u_hats, balanceProof.rpulpproof)
 
 	return flag, nil
 }
@@ -1423,8 +1429,147 @@ genBalanceProofLmRnRestart:
 	return nil, nil
 }
 
+// verifyBalanceProofLmRn verifies BalanceProofLmRn.
+// todo: multi-round review
 func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
-	return false, nil
+	if len(msg) == 0 {
+		return false, nil
+	}
+
+	if nL < 2 || int(nL) > pp.paramI {
+		//	Note that pp.paramI = pp.paramJ
+		return false, nil
+	}
+
+	//	Note that BalanceProofLmRn could be
+	//	(nR == 1 && vRPub > 0) || nR >= 2
+	if int(nR) > pp.paramJ {
+		//	Note that pp.paramI = pp.paramJ
+		return false, nil
+	}
+	if nR == 0 {
+		return false, nil
+	}
+	if nR == 1 && vRPub == 0 {
+		return false, nil
+	}
+
+	if len(cmtLs) != int(nL) {
+		return false, nil
+	}
+
+	for i := uint8(0); i < nL; i++ {
+		cmt := cmtLs[i]
+		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+			return false, nil
+		}
+	}
+
+	if len(cmtRs) != int(nR) {
+		return false, nil
+	}
+
+	for i := uint8(0); i < nR; i++ {
+		cmt := cmtRs[i]
+		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+			return false, nil
+		}
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+	if vRPub > V {
+		return false, nil
+	}
+
+	if balanceProof == nil {
+		return false, nil
+	}
+
+	if balanceProof.balanceProofCase != BalanceProofCaseLmRn {
+		return false, fmt.Errorf("verifyBalanceProofLmRn: balanceProof.balanceProofCase is not BalanceProofCaseLmRn")
+	}
+
+	if balanceProof.leftCommNum != nL || balanceProof.rightCommNum != nR {
+		return false, nil
+	}
+
+	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
+		return false, nil
+	}
+
+	n := int(nL + nR)
+	n2 := n + 2
+	if len(balanceProof.c_hats) != n2 {
+		return false, nil
+	}
+
+	if len(balanceProof.u_p) != pp.paramDC {
+		return false, nil
+	}
+
+	if balanceProof.rpulpproof == nil {
+		return false, nil
+	}
+
+	betaF := (pp.paramN - 1) * int(nL-1+nR) // for the case of vRPub > 0
+	if vRPub == 0 {
+		betaF = (pp.paramN - 1) * int(nL-1+nR-1)
+	}
+	boundF := pp.paramEtaF - int64(betaF)
+	infNorm := int64(0)
+	for i := 0; i < pp.paramDC; i++ {
+		infNorm = balanceProof.u_p[i]
+		if infNorm < 0 {
+			infNorm = -infNorm
+		}
+
+		if infNorm > boundF {
+			return false, nil
+		}
+	}
+
+	seedMsg, err := pp.collectBytesForBalanceProofLmRnChallenge(msg, nL, nR, cmtLs, cmtRs, vRPub, balanceProof.b_hat, balanceProof.c_hats)
+	if err != nil {
+		return false, err
+	}
+	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+	if err != nil {
+		return false, err
+	}
+	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
+	if err != nil {
+		return false, err
+	}
+
+	u_hats := make([][]int64, 5) //	for LmRn, the rpulp matrix will have m=5
+	u := pp.intToBinary(vRPub)
+	u_hats[0] = make([]int64, pp.paramDC)
+	u_hats[1] = make([]int64, pp.paramDC) //	-u
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[1][i] = -u[i]
+	}
+	u_hats[2] = make([]int64, pp.paramDC)
+	u_hats[3] = make([]int64, pp.paramDC)
+	u_hats[4] = balanceProof.u_p
+
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[0][i] = 0
+		u_hats[2][i] = 0
+		u_hats[3][i] = 0
+	}
+
+	cmts := make([]*ValueCommitment, n)
+	for i := uint8(0); i < nL; i++ {
+		cmts[i] = cmtLs[i]
+	}
+	for j := uint8(0); j < nR; j++ {
+		cmts[nL+j] = cmtRs[j]
+	}
+
+	n1 := n
+	flag := pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeLmRn, binM, nL, nR, 5, u_hats, balanceProof.rpulpproof)
+
+	return flag, nil
 }
 
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
