@@ -316,6 +316,88 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	rpulppi *RpulpProofMLP) (valid bool) {
 
+	if len(cmts) != int(n) {
+		return false
+	}
+
+	if b_hat == nil || len(b_hat.polyCNTTs) != pp.paramKC {
+		return false
+	}
+
+	if len(c_hats) != int(n2) {
+		return false
+	}
+
+	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
+		return false
+	}
+
+	// check the matrix and m, u_hats
+	if len(binMatrixB) != pp.paramDC {
+		return false
+	}
+
+	if len(u_hats) != int(m) {
+		return false
+	}
+	for i := 0; i < len(u_hats); i++ {
+		if len(u_hats[i]) != pp.paramDC {
+			return false
+		}
+	}
+
+	switch rpulpType {
+	case RpUlpTypeL0Rn:
+		for i := 0; i < len(binMatrixB); i++ {
+			if len(binMatrixB[i]) != pp.paramDC/8 {
+				return false
+			}
+		}
+		if nL != 0 {
+			return false
+		}
+		if m != 3 {
+			return false
+		}
+
+	case RpUlpTypeL1Rn:
+		for i := 0; i < len(binMatrixB); i++ {
+			if len(binMatrixB[i]) != pp.paramDC/8 {
+				return false
+			}
+		}
+		if nL != 1 {
+			return false
+		}
+		if m != 3 {
+			return false
+		}
+
+	case RpUlpTypeLmRn:
+		for i := 0; i < len(binMatrixB); i++ {
+			if len(binMatrixB[i]) != 2*pp.paramDC/8 {
+				return false
+			}
+		}
+		if nL < 2 {
+			return false
+		}
+		if m != 5 {
+			return false
+		}
+
+	default:
+		return false
+	}
+
+	if int(nL) > pp.paramI || int(nR) > pp.paramJ { // Note that pp.paramI == pp.paramJ
+		return false
+	}
+
+	if nL+nR != n { // nL (resp. nR) is the number of commitments on left (resp. right) side
+		return false
+	}
+
 	if rpulppi == nil {
 		return false
 	}
@@ -324,65 +406,6 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
-		return false
-	}
-
-	if int(nL) > pp.paramI || int(nR) > pp.paramJ { // Note that pp.paramI == pp.paramJ
-		return false
-	}
-
-	if n != nL+nR { // nL (resp. nR) is the number of commitments on left (resp. right) side
-		return false
-	}
-
-	if len(cmts) != int(n) {
-		return false
-	}
-
-	if b_hat == nil {
-		return false
-	}
-
-	if len(b_hat.polyCNTTs) != pp.paramKC {
-		return false
-	}
-
-	if len(c_hats) != int(n2) {
-		return false
-	}
-
-	// check the matrix and u_hats
-	if len(binMatrixB) != pp.paramDC {
-		return false
-	} else {
-		for i := 0; i < len(binMatrixB); i++ {
-			switch rpulpType {
-			case RpUlpTypeL0Rn:
-				fallthrough
-			case RpUlpTypeL1Rn:
-				if len(binMatrixB[i]) != pp.paramDC/8 {
-					return false
-				}
-			case RpUlpTypeLmRn:
-				if len(binMatrixB[i]) != 2*pp.paramDC/8 {
-					return false
-				}
-			default:
-				return false
-			}
-		}
-	}
-	if len(u_hats) != int(m) {
-		return false
-	} else {
-		for i := 0; i < len(u_hats); i++ {
-			if len(u_hats[i]) != pp.paramDC {
-				return false
-			}
-		}
-
-	}
 	// check the well-formness of the \pi
 	//if len(rpulppi.c_waves) != int(n) || len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC || len(rpulppi.zs) != pp.paramK || len(rpulppi.zs[0].polyCs) != pp.paramLC {
 	//	return false
@@ -392,7 +415,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || rpulppi.chseed == nil {
+	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || len(rpulppi.chseed) == 0 {
 		return false
 	}
 	if len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC {
@@ -411,10 +434,20 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 			if len(rpulppi.cmt_zs[t][i].polyCs) != pp.paramLC {
 				return false
 			}
+			for j := 0; j < len(rpulppi.cmt_zs[t][i].polyCs); j++ {
+				if len(rpulppi.cmt_zs[t][i].polyCs[j].coeffs) != pp.paramDC {
+					return false
+				}
+			}
 		}
 
 		if len(rpulppi.zs[t].polyCs) != pp.paramLC {
 			return false
+		}
+		for j := 0; j < len(rpulppi.zs[t].polyCs); j++ {
+			if len(rpulppi.zs[t].polyCs[j].coeffs) != pp.paramDC {
+				return false
+			}
 		}
 	}
 
