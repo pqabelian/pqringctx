@@ -558,8 +558,8 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 
 	//	fill trTx.txInputs
 	ma_ps := make([]*PolyANTT, inForRing)
-	cmt_ps := make([]*ValueCommitment, inForRing)
-	cmtr_ps := make([]*PolyCNTTVec, inForRing)
+	cmts_in_p := make([]*ValueCommitment, inForRing)
+	cmtrs_in_p := make([]*PolyCNTTVec, inForRing)
 	values_in := make([]uint64, inForRing)
 
 	for i := 0; i < inForRing; i++ {
@@ -595,11 +595,11 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		values_in[i] = txInputDescItem.value //	this has been checked during the sanity-check steps
 		msg_in := pp.intToBinary(txInputDescItem.value)
 
-		cmtr_ps[i] = pp.NTTPolyCVec(cmtr_p_poly)
-		cmt_ps[i] = &ValueCommitment{}
-		cmt_ps[i].b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr_ps[i], pp.paramKC, pp.paramLC)
-		cmt_ps[i].c = pp.PolyCNTTAdd(
-			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr_ps[i], pp.paramLC),
+		cmtrs_in_p[i] = pp.NTTPolyCVec(cmtr_p_poly)
+		cmts_in_p[i] = &ValueCommitment{}
+		cmts_in_p[i].b = pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtrs_in_p[i], pp.paramKC, pp.paramLC)
+		cmts_in_p[i].c = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtrs_in_p[i], pp.paramLC),
 			&PolyCNTT{coeffs: msg_in},
 		)
 	}
@@ -634,7 +634,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		return nil, err
 	}
 	// extTrTxCon = trTxCon || cmt_p[0] || cmt_p[inForRing]
-	extTrTxCon, err := pp.extendSerializedTransferTxContent(trTxCon, cmt_ps)
+	extTrTxCon, err := pp.extendSerializedTransferTxContent(trTxCon, cmts_in_p)
 	if err != nil {
 		return nil, err
 	}
@@ -649,8 +649,8 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		}
 		askSp_ntt := pp.NTTPolyAVec(askSp.s)
 
-		elrSigs[i], err = pp.elrSignatureMLPSign(txInputDescItem.lgrTxoList, ma_ps[i], cmt_ps[i], extTrTxCon,
-			txInputDescItem.sidx, askSp_ntt, cmtrs_in[i], cmtr_ps[i])
+		elrSigs[i], err = pp.elrSignatureMLPSign(txInputDescItem.lgrTxoList, ma_ps[i], cmts_in_p[i], extTrTxCon,
+			txInputDescItem.sidx, askSp_ntt, cmtrs_in[i], cmtrs_in_p[i])
 		if err != nil {
 			return nil, fmt.Errorf("TransferTxMLPGen: fail to generate the extend linkable ring signature for the %d -th coin to spend", i)
 		}
@@ -682,7 +682,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	//	balance proof
-	txCase, balanceProof, err := pp.genBalanceProofTrTx(extTrTxCon, uint8(inForRing), uint8(outForRing), cmt_ps, cmts_out, vPublic, cmtr_ps, values_in, cmtrs_out, values_out)
+	txCase, balanceProof, err := pp.genBalanceProofTrTx(extTrTxCon, uint8(inForRing), uint8(outForRing), cmts_in_p, cmts_out, vPublic, cmtrs_in_p, values_in, cmtrs_out, values_out)
 	if err != nil {
 		return nil, err
 	}
@@ -696,7 +696,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		outForSingle:               uint8(outForSingle),
 		vPublic:                    vPublic,
 		ma_ps:                      ma_ps,
-		cmt_ps:                     cmt_ps,
+		cmts_in_p:                  cmts_in_p,
 		elrSigs:                    elrSigs,
 		addressPublicKeyForSingles: addressPublicKeyForSingles,
 		simpleSigs:                 simpleSigs,
@@ -704,7 +704,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	return trTx, nil
-	
+
 }
 
 //	TxWitness		begin
@@ -996,8 +996,8 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 
 // genBalanceProofTrTx generates balanceProof for transferTx.
 // todo: multi-round review
-func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmt_ps []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
-	cmtr_ps []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
+func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
+	cmtrs_in_p []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
 
 	var txCase TxWitnessTrTxCase
 	var balanceProof BalanceProof
@@ -1045,7 +1045,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				return 0, nil, fmt.Errorf("genBalanceProofTrTx: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
 			}
 			txCase = TxWitnessTrTxCaseI1C0
-			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmt_ps[0], cmtr_ps[0])
+			balanceProof, err = pp.genBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmts_in_p[0], cmtrs_in_p[0])
 			if err != nil {
 				return 0, nil, err
 			}
@@ -1054,14 +1054,14 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 			if vPublic == 0 {
 				//	cmt_{in,0} = cmt_{out,0}
 				txCase = TxWitnessTrTxCaseI1C1Exact
-				balanceProof, err = pp.genBalanceProofL1R1(extTrTxCon, cmt_ps[0], cmts_out[0], cmtr_ps[0], cmtrs_out[0], values_out[0])
+				balanceProof, err = pp.genBalanceProofL1R1(extTrTxCon, cmts_in_p[0], cmts_out[0], cmtrs_in_p[0], cmtrs_out[0], values_out[0])
 				if err != nil {
 					return 0, nil, err
 				}
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + vPublic
 				txCase = TxWitnessTrTxCaseI1C1CAdd
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmt_ps[0], cmts_out, uint64(vPublic), cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmts_in_p[0], cmts_out, uint64(vPublic), cmtrs_in_p[0], values_in[0], cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1069,7 +1069,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
 				txCase = TxWitnessTrTxCaseI1C1IAdd
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmts_out[0], cmt_ps, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, 1, cmts_out[0], cmts_in_p, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtrs_in_p, values_in)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1079,14 +1079,14 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 			if vPublic == 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				txCase = TxWitnessTrTxCaseI1CnExact
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmt_ps[0], cmts_out, 0, cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, 0, cmtrs_in_p[0], values_in[0], cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
 				txCase = TxWitnessTrTxCaseI1CnCAdd
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmt_ps[0], cmts_out, uint64(vPublic), cmtr_ps[0], values_in[0], cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, uint64(vPublic), cmtrs_in_p[0], values_in[0], cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1094,7 +1094,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
 				txCase = TxWitnessTrTxCaseI1CnIAdd
-				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmt_ps, uint64(-vPublic), cmtrs_out, values_out, cmtr_ps, values_in)
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), cmtrs_out, values_out, cmtrs_in_p, values_in)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1111,7 +1111,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
 			txCase = TxWitnessTrTxCaseImC0
-			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(vPublic), inForRing, cmt_ps, cmtr_ps, values_in)
+			balanceProof, err = pp.genBalanceProofL0Rn(extTrTxCon, uint64(vPublic), inForRing, cmts_in_p, cmtrs_in_p, values_in)
 			if err != nil {
 				return 0, nil, err
 			}
@@ -1122,14 +1122,14 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
 				txCase = TxWitnessTrTxCaseImC1Exact
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmt_ps, 0, cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, 0, cmtrs_out[0], values_out[0], cmtrs_in_p, values_in)
 				if err != nil {
 					return 0, nil, err
 				}
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
 				txCase = TxWitnessTrTxCaseImC1CAdd
-				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, uint64(vPublic), cmtr_ps, values_in, cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), cmtrs_in_p, values_in, cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1137,7 +1137,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
 				txCase = TxWitnessTrTxCaseImC1IAdd
-				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmt_ps, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtr_ps, values_in)
+				balanceProof, err = pp.genBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, uint64(-vPublic), cmtrs_out[0], values_out[0], cmtrs_in_p, values_in)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1148,7 +1148,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 			if vPublic == 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				txCase = TxWitnessTrTxCaseImCnExact
-				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, 0, cmtr_ps, values_in, cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, 0, cmtrs_in_p, values_in, cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1156,7 +1156,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
 				txCase = TxWitnessTrTxCaseImCnCAdd
-				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmt_ps, cmts_out, uint64(vPublic), cmtr_ps, values_in, cmtrs_out, values_out)
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), cmtrs_in_p, values_in, cmtrs_out, values_out)
 				if err != nil {
 					return 0, nil, err
 				}
@@ -1165,7 +1165,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
 				txCase = TxWitnessTrTxCaseImCnIAdd
-				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmt_ps, uint64(-vPublic), cmtrs_out, values_out, cmtr_ps, values_in)
+				balanceProof, err = pp.genBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), cmtrs_out, values_out, cmtrs_in_p, values_in)
 				if err != nil {
 					return 0, nil, err
 				}
