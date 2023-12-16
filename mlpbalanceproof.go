@@ -722,6 +722,359 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 	return false, nil
 }
 
+func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, outForRing uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, cmtrL *PolyCNTTVec, vL uint64, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
+
+	// reference from I=1 Case of pqringct.TransferTxGen	begin
+	n := I + J
+	n2 := I + J + 2
+	if I > 1 {
+		n2 = I + J + 4
+	}
+
+	c_hats := make([]*PolyCNTT, n2)
+	msg_hats := make([][]int64, n2)
+
+	cmtrs := make([]*PolyCNTTVec, n)
+	cmts := make([]*ValueCommitment, n)
+	for i := 0; i < I; i++ {
+		cmts[i] = cmt_ps[i]
+		cmtrs[i] = cmtr_ps[i]
+		msg_hats[i] = msgs_in[i]
+	}
+	for j := 0; j < J; j++ {
+		cmts[I+j] = rettrTx.OutputTxos[j].ValueCommitment
+		cmtrs[I+j] = cmtrs_out[j]
+		msg_hats[I+j] = pp.intToBinary(outputDescs[j].value)
+	}
+
+	r_hat_poly, err := pp.sampleValueCmtRandomness()
+	if err != nil {
+		return nil, err
+	}
+	r_hat := pp.NTTPolyCVec(r_hat_poly)
+	b_hat := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, r_hat, pp.paramKC, pp.paramLC)
+	for i := 0; i < n; i++ { // n = I+J
+		c_hats[i] = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[i+1], r_hat, pp.paramLC),
+			&PolyCNTT{coeffs: msg_hats[i]},
+		)
+	}
+
+	//	fee
+	u := pp.intToBinary(fee)
+
+	if I == 1 {
+		//	n2 = n+2
+		//	f is the carry vector, such that, m_1 = m_2+ ... + m_n + u
+		//	f[0] = 0, and for i=1 to d-1,
+		//	m_0[i-1] + 2 f[i] = m_1[i-1] + .. + m_{n-1}[i-1] + u[i-1] + f[i-1],
+		//	m_0[d-1] 		  = m_1[d-1] + .. + m_{n-1}[d-1] + f[d-1],
+		f := make([]int64, pp.paramDC)
+		f[0] = 0
+		for i := 1; i < pp.paramDC; i++ {
+			tmp := int64(0)
+			for j := 1; j < n; j++ {
+				tmp = tmp + msg_hats[j][i-1]
+			}
+
+			//	-1 >> 1 = -1, -1/2=0
+			//	In our design, the carry should be in [0, J] and (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) >=0,
+			//	which means >> 1 and /2 are equivalent.
+			//	A negative carry bit will not pass the verification,
+			//	and the case (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) < 0 will not pass the verification.
+			//	f[0] = 0 and other proved verification (msg[i] \in {0,1}, |f[i]| < q_c/8) are important.
+
+			f[i] = (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) >> 1
+			//f[i] = (tmp + u[i-1] + f[i-1] - msg_hats[0][i-1]) / 2
+		}
+		msg_hats[n] = f
+		c_hats[n] = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+1], r_hat, pp.paramLC),
+			&PolyCNTT{coeffs: msg_hats[n]},
+		)
+
+	trTxGenI1Restart:
+		//e, err := pp.sampleUniformWithinEtaFv2()
+		e, err := pp.randomDcIntegersInQcEtaF()
+		if err != nil {
+			return nil, err
+		}
+		msg_hats[n+1] = e
+		c_hats[n+1] = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+2], r_hat, pp.paramLC),
+			&PolyCNTT{coeffs: msg_hats[n+1]},
+		)
+
+		//	todo_done 2022.04.03: check the scope of u_p in theory
+		//	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/16.
+		//	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not modular reduction.
+		betaF := pp.paramDC * (J + 1)
+		boundF := pp.paramEtaF - int64(betaF)
+		u_p := make([]int64, pp.paramDC)
+		//u_p_temp := make([]int64, pp.paramDC) // todo_done 2022.04.03: make sure that (eta_f, d) will not make the value of u_p[i] over int32
+		preMsg := pp.collectBytesForTransferTx(msgTrTxCon, b_hat, c_hats)
+		seed_binM, err := Hash(preMsg)
+		if err != nil {
+			return nil, err
+		}
+		binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
+		if err != nil {
+			return nil, err
+		}
+		// compute B f + e and check the normal
+		// up = B * f + e
+		for i := 0; i < pp.paramDC; i++ {
+			//u_p_temp[i] = e[i]
+			u_p[i] = e[i]
+			for j := 0; j < pp.paramDC; j++ {
+				if (binM[i][j/8]>>(j%8))&1 == 1 {
+					//u_p_temp[i] += f[j]
+					u_p[i] += f[j]
+				}
+			}
+
+			//infNorm := u_p_temp[i]
+			infNorm := u_p[i]
+			if infNorm < 0 {
+				infNorm = -infNorm
+			}
+
+			if infNorm > boundF {
+				goto trTxGenI1Restart
+			}
+
+			// u_p[i] = reduceInt64(u_p_temp[i], pp.paramQC) // todo_done: need to confirm. Do not need to modulo.
+		}
+
+		u_hats := make([][]int64, 3)
+		u_hats[0] = u
+		u_hats[1] = make([]int64, pp.paramDC)
+		for i := 0; i < pp.paramDC; i++ {
+			u_hats[1][i] = 0
+		}
+		u_hats[2] = u_p
+
+		n1 := n
+		rpulppi, pi_err := pp.rpulpProve(msgTrTxCon, cmts, cmtrs, uint8(n), b_hat, r_hat, c_hats, msg_hats, uint8(n2), uint8(n1), RpUlpTypeTrTx1, binM, uint8(I), uint8(J), 3, u_hats)
+
+		if pi_err != nil {
+			return nil, pi_err
+		}
+
+		rettrTx.TxWitness = &TrTxWitness{
+			ma_ps,
+			cmt_ps,
+			elrsSigs,
+			b_hat,
+			c_hats,
+			u_p,
+			rpulppi,
+		}
+	}
+	// reference from I=1 Case of pqringct.TransferTxGen	end
+
+	// reference from genBalanceProofL0Rn	begin
+	nR := outForRing
+
+	n := int(nR)
+	n2 := n + 2
+
+	if n != len(cmtRs) || n != len(cmtrRs) || n != len(vRs) {
+		return nil, fmt.Errorf("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
+	}
+
+	if n > pp.paramJ {
+		// Note that pp.paramI == pp.paramI
+		return nil, fmt.Errorf("genBalanceProofL0Rn: the number of cmtRs (%d) is not in [2, %d]", n, pp.paramJ)
+	}
+
+	c_hats := make([]*PolyCNTT, n2)
+
+	msg_hats := make([][]int64, n2)
+
+	u_hats := make([][]int64, 3)
+
+	u := pp.intToBinary(vL)
+
+	// msg_hats[0], ..., msg_hats[n-1]
+	for j := 0; j < n; j++ {
+		msg_hats[j] = pp.intToBinary(vRs[j])
+	}
+
+	// msg_hats[n] := f
+	// f is the carry vector for m_0 + m_1 + ... + m_{n-1}, in particular,
+	// f[0] = (m_0[0] + ... + m_{n-1}[0]       )/2
+	// f[1] = (m_0[1] + ... + m_{n-1}[1] + f[0])/2
+	// ...
+	// f[t] = (m_0[t] + ... + m_{n-1}[t] + f[t-1])/2
+	// ...
+	// f[d-1] = (m_0[d-1] + ... + m_{n-1}[d-1] + f[d-2])/2
+
+	// that is,
+	// f[0] = (m_0[0] + ... + m_{n-1}[0]         )/2
+	// for t = 1, ..., d-1
+	// f[t] = (m_0[t] + ... + m_{n-1}[t] + f[t-1])/2
+	f := make([]int64, pp.paramDC)
+
+	// f[0]
+	tmp := int64(0)
+	for j := 0; j < n; j++ {
+		tmp = tmp + msg_hats[j][0]
+	}
+	f[0] = tmp >> 1
+
+	// f[1], ..., f[d-2], f[d-1]
+	for t := 1; t < pp.paramDC; t++ {
+		tmp = int64(0)
+		for j := 0; j < n; j++ {
+			tmp = tmp + msg_hats[j][t]
+		}
+		f[t] = (tmp + f[t-1]) >> 1
+	}
+
+	msg_hats[n] = f
+
+	////	f is the carry vector, such that, u = m_0 + m_1 + ... + m_{n-1}
+	////	f[0] = 0, and for i=1 to d-1,
+	////	m_0[i-1]+ ... + m_{J-1}[i-1] + f[i-1] = u[i-1] + 2 f[i],
+	////	m_0[i-1]+ ... + m_{J-1}[i-1] + f[i-1] = u[i-1]
+	//f := make([]int64, pp.paramDC)
+	//f[0] = 0
+	//for i := 1; i < pp.paramDC; i++ {
+	//	tmp := int64(0)
+	//	for j := 0; j < J; j++ {
+	//		tmp = tmp + msg_hats[j][i-1]
+	//	}
+	//
+	//	//	-1 >> 1 = -1, -1/2=0
+	//	//	In our design, the carry should be in [0, J] and (tmp + f[i-1] - u[i-1]) >=0,
+	//	//	which means >> 1 and /2 are equivalent.
+	//	//	A negative carry bit will not pass the verification,
+	//	//	and the case (tmp + f[i-1] - u[i-1]) < 0 will not pass the verification.
+	//	//	f[0] = 0 and other proved verification (msg[i] \in {0,1}, |f[i]| < q_c/8) are important.
+	//	f[i] = (tmp + f[i-1] - u[i-1]) >> 1
+	//	// f[i] = (tmp + f[i-1] - u[i-1]) / 2
+	//}
+	//msg_hats[J] = f
+
+	r_hat_poly, err := pp.sampleValueCmtRandomness()
+	if err != nil {
+		return nil, err
+	}
+	r_hat := pp.NTTPolyCVec(r_hat_poly)
+
+	// b_hat =B * r_hat
+	b_hat := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, r_hat, pp.paramKC, pp.paramLC)
+
+	//	c_hats[0]~c_hats[n-1], c_hats[n] (for f)
+	for i := 0; i < n+1; i++ {
+		msgNTTi, err := pp.NewPolyCNTTFromCoeffs(msg_hats[i])
+		if err != nil {
+			return nil, err
+		}
+		c_hats[i] = pp.PolyCNTTAdd(
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[i+1], r_hat, pp.paramLC),
+			msgNTTi,
+			//&PolyCNTT{coeffs: msg_hats[i]},
+		)
+	}
+
+balanceProofL0RnRestart:
+	//e := make([]int64, pp.paramDC)
+	e, err := pp.randomDcIntegersInQcEtaF()
+	if err != nil {
+		return nil, err
+	}
+	msg_hats[n+1] = e
+
+	// c_hats[n+1] (for e)
+	msgNTTe, err := pp.NewPolyCNTTFromCoeffs(msg_hats[n+1])
+	if err != nil {
+		return nil, err
+	}
+	c_hats[n+1] = pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[n+2], r_hat, pp.paramLC),
+		//&PolyCNTT{coeffs: msg_hats[n+1]},
+		msgNTTe,
+	)
+
+	////	todo_done 2022.04.03: check the scope of u_p in theory
+	////	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
+	////	As Bf should be bound by d_c J, so that |B f + e| < q_c/2, there should not be modular reduction.
+	//betaF := pp.paramDC * J
+	//	2023.12.1 Using the accurate bound
+	betaF := (pp.paramN - 1) * (n - 1)
+	boundF := pp.paramEtaF - int64(betaF)
+
+	u_p := make([]int64, pp.paramDC)
+	//u_p_tmp := make([]int64, pp.paramDC)
+
+	seedMsg, err := pp.collectBytesForBalanceProofL0Rn(preMsg, vL, nR, cmtRs, b_hat, c_hats)
+	if err != nil {
+		return nil, err
+	}
+
+	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+
+	if err != nil {
+		return nil, err
+	}
+	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
+	if err != nil {
+		return nil, err
+	}
+	// compute B f + e and check the normal
+	for i := 0; i < pp.paramDC; i++ {
+		//u_p_tmp[i] = e[i]
+		u_p[i] = e[i]
+		for j := 0; j < pp.paramDC; j++ {
+			if (binM[i][j/8]>>(j%8))&1 == 1 {
+				// u_p_tmp[i] = u_p_tmp[i] + f[j]
+				u_p[i] = u_p[i] + f[j]
+			}
+		}
+
+		//infNorm := u_p_tmp[i]
+		infNorm := u_p[i]
+		if infNorm < 0 {
+			infNorm = -infNorm
+		}
+		if infNorm > boundF {
+			goto balanceProofL0RnRestart
+		}
+
+		//			u_p[i] = reduceInt64(u_p_tmp[i], pp.paramQC) // todo_done: 202203 Do need reduce? no.
+	}
+
+	u_hats[0] = u
+	u_hats[1] = make([]int64, pp.paramDC)
+	for i := 0; i < pp.paramDC; i++ {
+		u_hats[1][i] = 0
+	}
+	u_hats[2] = u_p
+
+	n1 := n
+	rprlppi, pi_err := pp.rpulpProveMLP(preMsg, cmtRs, cmtrRs, uint8(n), b_hat, r_hat, c_hats, msg_hats, uint8(n2), uint8(n1), RpUlpTypeL0Rn, binM, 0, uint8(nR), 3, u_hats)
+
+	if pi_err != nil {
+		return nil, pi_err
+	}
+
+	return &BalanceProofLmRn{
+		balanceProofCase: BalanceProofCaseLmRn,
+		leftCommNum:      0,
+		rightCommNum:     uint8(nR), // Note that nR has been checked previously, being smaller than paramJ
+		// bpf
+		b_hat:      b_hat,
+		c_hats:     c_hats,
+		u_p:        u_p,
+		rpulpproof: rprlppi,
+	}, nil
+	// reference from genBalanceProofL0Rn	end
+
+	return nil, nil
+}
+
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) balanceProofL0R0SerializeSize() int {
