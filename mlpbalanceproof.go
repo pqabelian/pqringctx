@@ -567,7 +567,6 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 	}
 
 	u_hats := make([][]int64, 3)
-
 	u := pp.intToBinary(vL)
 	u_hats[0] = u
 	u_hats[1] = make([]int64, pp.paramDC)
@@ -1146,7 +1145,6 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	}
 
 	u_hats := make([][]int64, 3)
-
 	u := pp.intToBinary(vRPub)
 	u_hats[0] = u
 	u_hats[1] = make([]int64, pp.paramDC)
