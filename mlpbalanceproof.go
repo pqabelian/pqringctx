@@ -496,6 +496,7 @@ genBalanceProofL0RnRestart:
 
 // verifyBalanceProofL0Rn verifies BalanceProofL0Rn.
 // reviewed on 2023.12.16
+// reviewed on 2023.12.17
 func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint64, cmtRs []*ValueCommitment, balanceProof *BalanceProofLmRn) (bool, error) {
 	if len(msg) == 0 {
 		return false, nil
@@ -521,6 +522,14 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
 			return false, nil
 		}
+		for j := 0; j < pp.paramKC; j++ {
+			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
+				return false, nil
+			}
+		}
+		if len(cmt.c.coeffs) != pp.paramDC {
+			return false, nil
+		}
 	}
 
 	if balanceProof == nil {
@@ -539,9 +548,20 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 		return false, nil
 	}
 
+	for i := 0; i < pp.paramKC; i++ {
+		if len(balanceProof.b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
+	}
+
 	n2 := n + 2
 	if len(balanceProof.c_hats) != n2 {
 		return false, nil
+	}
+	for i := 0; i < n2; i++ {
+		if len(balanceProof.c_hats[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
 	}
 
 	if len(balanceProof.u_p) != pp.paramDC {
@@ -551,6 +571,8 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 	if balanceProof.rpulpproof == nil {
 		return false, nil
 	}
+	//	here we do not conduct sanity-check on balanceProof.rpulpproof,
+	//	since that will be conducted by rpulpVerify.
 
 	//	infNorm of u'
 	//	u_p = B f + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
