@@ -310,22 +310,54 @@ rpUlpProveMLPRestart:
 // rpulpVerifyMLP verifies rpulpProofMLP for the input cmts, range proof and unstructured-linear-relation proof.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.16
+// reviewed on 2023.12.17
 func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	rpulppi *RpulpProofMLP) (valid bool) {
 
+	if len(message) == 0 {
+		return false
+	}
+
 	if len(cmts) != int(n) {
 		return false
+	}
+	for i := 0; i < int(n); i++ {
+		cmt := cmts[i]
+		if cmt.b == nil || cmt.c == nil {
+			return false
+		}
+		if len(cmt.b.polyCNTTs) != pp.paramKC {
+			return false
+		}
+		for j := 0; j < pp.paramKC; j++ {
+			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
+				return false
+			}
+		}
+		if len(cmt.c.coeffs) != pp.paramDC {
+			return false
+		}
 	}
 
 	if b_hat == nil || len(b_hat.polyCNTTs) != pp.paramKC {
 		return false
 	}
+	for i := 0; i < pp.paramKC; i++ {
+		if len(b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false
+		}
+	}
 
 	if len(c_hats) != int(n2) {
 		return false
+	}
+	for i := 0; i < int(n2); i++ {
+		if len(c_hats[i].coeffs) != pp.paramDC {
+			return false
+		}
 	}
 
 	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
@@ -415,7 +447,13 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || len(rpulppi.chseed) == 0 {
+	for i := 0; i < int(n); i++ {
+		if len(rpulppi.c_waves[i].coeffs) != pp.paramDC {
+			return false
+		}
+	}
+
+	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || len(rpulppi.chseed) != HashOutputBytesLen {
 		return false
 	}
 	if len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC {
@@ -430,11 +468,11 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		if len(rpulppi.cmt_zs[t]) != int(n) {
 			return false
 		}
-		for i := 0; i < len(rpulppi.cmt_zs[t]); i++ {
+		for i := 0; i < int(n); i++ {
 			if len(rpulppi.cmt_zs[t][i].polyCs) != pp.paramLC {
 				return false
 			}
-			for j := 0; j < len(rpulppi.cmt_zs[t][i].polyCs); j++ {
+			for j := 0; j < pp.paramLC; j++ {
 				if len(rpulppi.cmt_zs[t][i].polyCs[j].coeffs) != pp.paramDC {
 					return false
 				}
@@ -444,7 +482,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		if len(rpulppi.zs[t].polyCs) != pp.paramLC {
 			return false
 		}
-		for j := 0; j < len(rpulppi.zs[t].polyCs); j++ {
+		for j := 0; j < pp.paramLC; j++ {
 			if len(rpulppi.zs[t].polyCs[j].coeffs) != pp.paramDC {
 				return false
 			}
