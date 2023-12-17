@@ -1,6 +1,7 @@
 package pqringctx
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -662,14 +663,14 @@ simpleSignatureSignRestart:
 		return nil, err
 	}
 
-	tmpA, err := pp.expandChallengeA(seed_ch)
+	ch_poly, err := pp.expandChallengeA(seed_ch)
 	if err != nil {
 		return nil, err
 	}
-	dA := pp.NTTPolyA(tmpA)
+	ch := pp.NTTPolyA(ch_poly)
 
 	//	z = y + d s
-	z_ntt := pp.PolyANTTVecAdd(y, pp.PolyANTTVecScaleMul(dA, s, pp.paramLA), pp.paramLA)
+	z_ntt := pp.PolyANTTVecAdd(y, pp.PolyANTTVecScaleMul(ch, s, pp.paramLA), pp.paramLA)
 	z := pp.NTTInvPolyAVec(z_ntt)
 
 	if z.infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
@@ -680,6 +681,70 @@ simpleSignatureSignRestart:
 		seed_ch: seed_ch,
 		z:       z,
 	}, nil
+}
+
+// simpleSignatureVerify verifies simpleSignatureMLP.
+// todo: multi-round review
+func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *simpleSignatureMLP) (bool, error) {
+
+	if t == nil || len(extTrTxCon) == 0 || sig == nil {
+		return false, nil
+	}
+
+	if len(t.polyANTTs) != pp.paramKA {
+		return false, nil
+	}
+	for i := 0; i < len(t.polyANTTs); i++ {
+		if len(t.polyANTTs[i].coeffs) != pp.paramDA {
+			return false, nil
+		}
+	}
+
+	if len(sig.seed_ch) != HashOutputBytesLen || sig.z == nil {
+		return false, nil
+	}
+	if len(sig.z.polyAs) != pp.paramLA {
+		return false, nil
+	}
+
+	for i := 0; i < len(sig.z.polyAs); i++ {
+		if len(sig.z.polyAs[i].coeffs) != pp.paramDA {
+			return false, nil
+		}
+	}
+
+	if sig.z.infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
+		return false, nil
+	}
+
+	ch_poly, err := pp.expandChallengeA(sig.seed_ch)
+	if err != nil {
+		return false, err
+	}
+	ch := pp.NTTPolyA(ch_poly)
+
+	z_ntt := pp.NTTPolyAVec(sig.z)
+
+	w := pp.PolyANTTVecSub(
+		pp.PolyANTTMatrixMulVector(pp.paramMatrixA, z_ntt, pp.paramKA, pp.paramLA),
+		pp.PolyANTTVecScaleMul(ch, t, pp.paramKA),
+		pp.paramKA)
+
+	preMsg, err := pp.collectBytesForSimpleSignatureChallenge(t, extTrTxCon, w)
+	if err != nil {
+		return false, err
+	}
+
+	seed_ch, err := Hash(preMsg)
+	if err != nil {
+		return false, err
+	}
+
+	if bytes.Compare(seed_ch, sig.seed_ch) != 0 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // collectBytesForSimpleSignatureChallenge collect preMsg for simpleSignatureSign, for the Fiat-Shamir transform.
