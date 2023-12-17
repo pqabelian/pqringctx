@@ -197,6 +197,7 @@ genBalanceProofL0R1Restart:
 
 // verifyBalanceProofL0R1 verifies BalanceProofL0R1.
 // reviewed on 2023.12.16
+// reviewed on 2023.12.17
 func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *ValueCommitment, balanceProof *BalanceProofL0R1) (bool, error) {
 	if len(msg) == 0 {
 		return false, nil
@@ -210,9 +211,27 @@ func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *Va
 	if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
 		return false, nil
 	}
+	for i := 0; i < len(cmt.b.polyCNTTs); i++ {
+		if len(cmt.b.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
+	}
+	if len(cmt.c.coeffs) != pp.paramDC {
+		return false, nil
+	}
 
 	if balanceProof == nil || len(balanceProof.chseed) != HashOutputBytesLen || len(balanceProof.zs) != pp.paramK {
 		return false, nil
+	}
+	for t := 0; t < pp.paramK; t++ {
+		if len(balanceProof.zs[t].polyCs) != pp.paramLC {
+			return false, nil
+		}
+		for i := 0; i < pp.paramLC; i++ {
+			if len(balanceProof.zs[t].polyCs[i].coeffs) != pp.paramDC {
+				return false, nil
+			}
+		}
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL0R1 {
@@ -222,9 +241,6 @@ func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *Va
 	// infNorm of z^t
 	bound := pp.paramEtaC - int64(pp.paramBetaC)
 	for t := 0; t < pp.paramK; t++ {
-		if balanceProof.zs[t] == nil || len(balanceProof.zs[t].polyCs) != pp.paramLC {
-			return false, nil
-		}
 		if balanceProof.zs[t].infNorm() > bound {
 			return false, nil
 		}
