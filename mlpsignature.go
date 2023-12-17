@@ -424,12 +424,67 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 }
 
 // elrSignatureMLPVerify() verify the validity of a given (message, signature) pair.
-// todo:
-func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment, msg []byte, sig *elrsSignature) (bool, error) {
+// todo: review
+func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *elrSignatureMLP) (bool, error) {
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
 		return false, nil
 	}
+
+	if ma_p == nil || cmt_p == nil || len(extTrTxCon) == 0 || sig == nil {
+		return false, nil
+	}
+
+	if len(ma_p.coeffs) != pp.paramDA {
+		return false, nil
+	}
+
+	if cmt_p.b == nil || len(cmt_p.b.polyCNTTs) != pp.paramKC || cmt_p.c == nil {
+		return false, nil
+	}
+	for i := 0; i < len(cmt_p.b.polyCNTTs); i++ {
+		if len(cmt_p.b.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
+	}
+
+	if len(sig.seeds) != ringLen || len(sig.z_as) != ringLen || len(sig.z_cs) != ringLen || len(sig.z_cps) != ringLen {
+		return false, nil
+	}
+
+	for j := 0; j < ringLen; j++ {
+		if len(sig.seeds[j]) != HashOutputBytesLen {
+			return false, nil
+		}
+	}
+
+	for j := 0; j < ringLen; j++ {
+		if len(sig.z_as[j].polyAs) != pp.paramLA {
+			return false, nil
+		}
+		for i := 0; i < len(sig.z_as[j].polyAs); i++ {
+			if len(sig.z_as[j].polyAs[i].coeffs) != pp.paramDA {
+				return false, nil
+			}
+		}
+	}
+
+	for j := 0; j < ringLen; j++ {
+		if len(sig.z_cs[j]) != pp.paramK || len(sig.z_cps[j]) != pp.paramK {
+			return false, nil
+		}
+		for tao := 0; tao < len(sig.z_cs[j]); tao++ {
+			if len(sig.z_cs[j][tao].polyCs) != pp.paramLC || len(sig.z_cps[j][tao].polyCs) != pp.paramLC {
+				return false, nil
+			}
+			for i := 0; i < pp.paramLC; i++ {
+				if len(sig.z_cs[j][tao].polyCs[i].coeffs) != pp.paramDC || len(sig.z_cps[j][tao].polyCs[i].coeffs) != pp.paramDC {
+					return false, nil
+				}
+			}
+		}
+	}
+
 	boundA := pp.paramEtaA - int64(pp.paramBetaA)
 	boundC := pp.paramEtaC - int64(pp.paramBetaC)
 	for j := 0; j < ringLen; j++ {
@@ -465,25 +520,48 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxo, ma_p *Pol
 		}
 		dc := pp.NTTPolyC(tmpDC)
 
-		z_as_ntt := pp.NTTPolyAVec(sig.z_as[j])
+		// lgrTxoList[j].txo.addressPublicKeyForRing.t
+		// lgrTxoList[j].txo.addressPublicKeyForRing.e
+		var t_j *PolyANTTVec
+		var e_j *PolyANTT
+		var b_j *PolyCNTTVec
+		var c_j *PolyCNTT
+		switch txoInst := lgrTxoList[j].txo.(type) {
+		case *TxoRCTPre:
+			t_j = txoInst.addressPublicKeyForRing.t
+			e_j = txoInst.addressPublicKeyForRing.e
+			b_j = txoInst.valueCommitment.b
+			c_j = txoInst.valueCommitment.c
+		case *TxoRCT:
+			t_j = txoInst.addressPublicKeyForRing.t
+			e_j = txoInst.addressPublicKeyForRing.e
+			b_j = txoInst.valueCommitment.b
+			c_j = txoInst.valueCommitment.c
+		case *TxoSDN:
+			return false, fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is a TxoSDN", j)
+		default:
+			return false, fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is not TxoRCTPre, TxoRCT, or TxoSDN", j)
+		}
+
+		z_a_ntt := pp.NTTPolyAVec(sig.z_as[j])
 		// w_a_j = A*z_a_j - d_a_j*t_j
 		w_as[j] = pp.PolyANTTVecSub(
-			pp.PolyANTTMatrixMulVector(pp.paramMatrixA, z_as_ntt, pp.paramKA, pp.paramLA),
-			pp.PolyANTTVecScaleMul(da, lgrTxoList[j].txo.AddressPublicKey.t, pp.paramKA),
+			pp.PolyANTTMatrixMulVector(pp.paramMatrixA, z_a_ntt, pp.paramKA, pp.paramLA),
+			pp.PolyANTTVecScaleMul(da, t_j, pp.paramKA),
 			pp.paramKA,
 		)
 		// theta_a_j = <a,z_a_j> - d_a_j * (e_j + expandKIDR(txo[j]) - m_a_p)
-		lgrTxoH, err := pp.expandKIDR(lgrTxoList[j])
+		lgrTxoH, err := pp.expandKIDRMLP(lgrTxoList[j])
 		if err != nil {
 			return false, err
 		}
 		delta_as[j] = pp.PolyANTTSub(
-			pp.PolyANTTVecInnerProduct(pp.paramVectorA, z_as_ntt, pp.paramLA),
+			pp.PolyANTTVecInnerProduct(pp.paramVectorA, z_a_ntt, pp.paramLA),
 			pp.PolyANTTMul(
 				da,
 				pp.PolyANTTSub(
 					pp.PolyANTTAdd(
-						lgrTxoList[j].txo.AddressPublicKey.e,
+						e_j,
 						lgrTxoH,
 					),
 					ma_p,
@@ -495,21 +573,21 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxo, ma_p *Pol
 		w_cps[j] = make([]*PolyCNTTVec, pp.paramK)
 		delta_cs[j] = make([]*PolyCNTT, pp.paramK)
 		for tao := 0; tao < pp.paramK; tao++ {
-			z_cs_ntt := pp.NTTPolyCVec(sig.z_cs[j][tao])
-			z_cps_ntt := pp.NTTPolyCVec(sig.z_cps[j][tao])
+			z_c_ntt := pp.NTTPolyCVec(sig.z_cs[j][tao])
+			z_cp_ntt := pp.NTTPolyCVec(sig.z_cps[j][tao])
 			sigmataodc := pp.sigmaPowerPolyCNTT(dc, tao)
 
 			w_cs[j][tao] = pp.PolyCNTTVecSub(
-				pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z_cs_ntt, pp.paramKC, pp.paramLC),
+				pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z_c_ntt, pp.paramKC, pp.paramLC),
 				pp.PolyCNTTVecScaleMul(
 					sigmataodc,
-					lgrTxoList[j].txo.ValueCommitment.b,
+					b_j,
 					pp.paramKC,
 				),
 				pp.paramKC,
 			)
 			w_cps[j][tao] = pp.PolyCNTTVecSub(
-				pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z_cps_ntt, pp.paramKC, pp.paramLC),
+				pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, z_cp_ntt, pp.paramKC, pp.paramLC),
 				pp.PolyCNTTVecScaleMul(
 					sigmataodc,
 					cmt_p.b,
@@ -520,18 +598,18 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxo, ma_p *Pol
 			delta_cs[j][tao] = pp.PolyCNTTSub(
 				pp.PolyCNTTVecInnerProduct(
 					pp.paramMatrixH[0],
-					pp.PolyCNTTVecSub(z_cs_ntt, z_cps_ntt, pp.paramLC),
+					pp.PolyCNTTVecSub(z_c_ntt, z_cp_ntt, pp.paramLC),
 					pp.paramLC,
 				),
 				pp.PolyCNTTMul(
 					sigmataodc,
-					pp.PolyCNTTSub(lgrTxoList[j].txo.ValueCommitment.c, cmt_p.c),
+					pp.PolyCNTTSub(c_j, cmt_p.c),
 				),
 			)
 		}
 	}
 
-	preMsg, err := pp.collectBytesForElrsChallenge(lgrTxoList, ma_p, cmt_p, msg, w_as, delta_as, w_cs, w_cps, delta_cs)
+	preMsg, err := pp.collectBytesForElrSignatureMLPChallenge(lgrTxoList, ma_p, cmt_p, extTrTxCon, w_as, delta_as, w_cs, w_cps, delta_cs)
 	if err != nil {
 		return false, err
 	}
