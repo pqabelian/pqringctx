@@ -1254,17 +1254,14 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 
 // helper functions	begin
 
-func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+// genBalanceProofCbTx generates BalanceProofCbTx.
+// reviewed on 2023.12.18
+func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
 
-	//	The caller should guarantee the sanity of the inputs.
-	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
-	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
-	//}
-
-	//if outForRing == 0 && vL != 0 {
-	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
-	//}
+	//	generation algorithm does not conduct sanity-check on the inputs. This is because
+	//	(1) the caller is supposed to have conducted these checks and then call this generation algorithm.
+	//	(2) the corresponding verification algorithm will conduct all these checks.
 
 	var err error
 	var txCase TxWitnessCbTxCase
@@ -1277,14 +1274,14 @@ func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint
 		}
 	} else if outForRing == 1 {
 		txCase = TxWitnessCbTxCaseC1
-		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
+		balanceProof, err = pp.genBalanceProofL0R1(cbTxCon, vL, cmtRs[0], cmtrRs[0])
 		if err != nil {
 			return 0, nil, err
 		}
 	} else {
 		//	outForRing >= 2
 		txCase = TxWitnessCbTxCaseCn
-		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
+		balanceProof, err = pp.genBalanceProofL0Rn(cbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -1293,10 +1290,10 @@ func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint
 	return txCase, balanceProof, nil
 }
 
-// verifyBalanceProofCbTx verifies the BalanceProof.
-// todo: review
-func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
-	if len(serializedCbTxCon) == 0 {
+// verifyBalanceProofCbTx verifies the BalanceProofCbTx.
+// reviewed on 2023.12.18
+func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
+	if len(cbTxCon) == 0 {
 		return false, nil
 	}
 
@@ -1313,6 +1310,9 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL u
 	if balanceProof == nil {
 		return false, nil
 	}
+
+	//	here only these simple sanity-checks are conducted. This is because
+	//	verifyBalanceProofCbTx serves as a distributor, and will call concrete verifyBalanceProofXXYYZZ.
 
 	switch bpfInst := balanceProof.(type) {
 	case *BalanceProofL0R0:
@@ -1336,7 +1336,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL u
 		if outForRing != 1 {
 			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the outForRing is not 1")
 		}
-		return pp.verifyBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], bpfInst)
+		return pp.verifyBalanceProofL0R1(cbTxCon, vL, cmtRs[0], bpfInst)
 
 	case *BalanceProofLmRn:
 		if txCase != TxWitnessCbTxCaseCn {
@@ -1345,7 +1345,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL u
 		if outForRing < 2 {
 			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
 		}
-		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, bpfInst)
+		return pp.verifyBalanceProofL0Rn(cbTxCon, outForRing, vL, cmtRs, bpfInst)
 	}
 
 	return false, nil
