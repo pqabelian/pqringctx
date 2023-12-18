@@ -1708,6 +1708,10 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 // serializeBalanceProof serialize BalanceProof into []byte.
 // todo: review
 func (pp *PublicParameter) serializeBalanceProof(balanceProof BalanceProof) ([]byte, error) {
+	if balanceProof == nil {
+		return nil, fmt.Errorf("serializeBalanceProof: the input BalanceProof is nil")
+	}
+	
 	switch bpfInst := balanceProof.(type) {
 	case *BalanceProofL0R0:
 		return pp.serializeBalanceProofL0R0(bpfInst)
