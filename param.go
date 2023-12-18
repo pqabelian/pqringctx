@@ -11,6 +11,7 @@ func NewPublicParameter(
 	paramDA int, paramQA int64, paramThetaA int, paramKA int, paramLambdaA int, paramGammaA int, paramEtaA int64, paramBetaA int16,
 	paramI int, paramJ int,
 	paramISingle int, paramISingleDistinct, paramJSingle,
+	paramRingSizeMax int,
 	paramN int,
 	paramDC int, paramQC int64, paramK int, paramKC int, paramLambdaC int, paramEtaC int64, paramBetaC int16,
 	paramEtaF int64, paramKeyGenSeedBytesLen int,
@@ -33,6 +34,7 @@ func NewPublicParameter(
 		paramISingle:            paramISingle,
 		paramISingleDistinct:    paramISingleDistinct,
 		paramJSingle:            paramJSingle,
+		paramRingSizeMax:        paramRingSizeMax,
 		paramN:                  paramN,
 		paramDC:                 paramDC,
 		paramQC:                 paramQC,
@@ -218,6 +220,10 @@ type PublicParameter struct {
 	// paramJSingle defines the maximum number of generated Pseudonym-privacy coins of a transaction
 	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
 	paramJSingle int
+
+	// paramRingSizeMax defines the maximum allowed ring size. it should be not too big, in particular,
+	// we will assume to be smaller than 255, and we will use uint8 to restrict it.
+	paramRingSizeMax int
 
 	// paramN defines the value of V by V=2^N - 1
 	// paramN <= paramDC
@@ -462,6 +468,7 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 		100, // todo(MLP): todo
 		20,  // todo(MLP): todo
 		100, // todo(MLP): todo
+		128, // todo(MLP): todo
 		51,
 		128,
 		9007199254746113,
