@@ -655,6 +655,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	//	elrSignatureSign
+	inRingSizes := make([]uint8, inForRing) //	This is used to collect the ring sizes.
 	elrSigs := make([]*ElrSignatureMLP, inForRing)
 	for i := 0; i < inForRing; i++ {
 		txInputDescItem := txInputDescs[i]
@@ -664,6 +665,10 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		}
 		askSp_ntt := pp.NTTPolyAVec(askSp.s)
 
+		if len(txInputDescItem.lgrTxoList) > int(pp.paramRingSizeMax) {
+			return nil, fmt.Errorf("TransferTxMLPGen: the %d -th input has ring size (%d) exceeding the allowd maximum value (%d) ", i, len(txInputDescItem.lgrTxoList), pp.paramRingSizeMax)
+		}
+		inRingSizes[i] = uint8(len(txInputDescItem.lgrTxoList))
 		elrSigs[i], err = pp.elrSignatureMLPSign(txInputDescItem.lgrTxoList, ma_ps[i], cmts_in_p[i], extTrTxCon,
 			txInputDescItem.sidx, askSp_ntt, cmtrs_in[i], cmtrs_in_p[i])
 		if err != nil {
@@ -707,6 +712,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		inForRing:                  uint8(inForRing),
 		inForSingle:                uint8(inForRing),
 		inForSingleDistinct:        uint8(inForSingleDistinct),
+		inRingSizes:                inRingSizes,
 		outForRing:                 uint8(outForRing),
 		outForSingle:               uint8(outForSingle),
 		vPublic:                    vPublic,
@@ -759,7 +765,8 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 		return false, nil
 	}
 
-	if len(trTx.txWitness.ma_ps) != int(trTx.txWitness.inForRing) ||
+	if len(trTx.txWitness.inRingSizes) != int(trTx.txWitness.inForRing) ||
+		len(trTx.txWitness.ma_ps) != int(trTx.txWitness.inForRing) ||
 		len(trTx.txWitness.cmts_in_p) != int(trTx.txWitness.inForRing) ||
 		len(trTx.txWitness.elrSigs) != int(trTx.txWitness.inForRing) {
 		return false, nil
@@ -898,6 +905,11 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 					return false, fmt.Errorf("TransferTxMLPVerify: %d-th input contain repeated lgrtxo, the %d-th and the %d -th", i, t, index)
 				}
 				spentCoinSerialNumberMap[snString] = t
+			}
+
+			//	check ringSizes
+			if len(txInput.lgrTxoList) != int(trTx.txWitness.inRingSizes[i]) {
+				return false, nil
 			}
 
 			//	i-th serial number and elrSignature
@@ -1834,123 +1846,6 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 	}
 
 	return false, nil
-}
-
-// balanceProofTrTxSerializeSize returns the serialize for the BalanceProof for TxWitnessTrTx, according to the input (inForRing uint8, outForRing uint8, vPublic int64).
-// todo: review
-func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
-
-	if inForRing == 0 {
-		if outForRing == 0 {
-			if vPublic != 0 {
-				//	assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
-			}
-
-			return pp.balanceProofL0R0SerializeSize(), nil
-
-		} else if outForRing == 1 {
-			//	0 = cmt_{out,0} + vPublic
-			if vPublic > 0 {
-				//	assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
-			}
-			//  -vPublic = cmt_{out,0}
-			return pp.balanceProofL0R1SerializeSize(), nil
-
-		} else { //	outForRing >= 2
-			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if vPublic > 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
-			}
-
-			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing), nil
-
-		}
-	} else if inForRing == 1 {
-		if outForRing == 0 {
-			//	cmt_{in,0} = vPublic
-			if vPublic < 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
-			}
-
-			//	vPublic = cmt_{in,0}
-			return pp.balanceProofL0R1SerializeSize(), nil
-
-		} else if outForRing == 1 {
-			//	cmt_{in,0} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0}
-				return pp.balanceProofL1R1SerializeSize(), nil
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
-			}
-		} else { //	outForRing >= 2
-			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
-			}
-		}
-
-	} else { //	inForRing >= 2
-		if outForRing == 0 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
-			if vPublic < 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing >= 2 and outForRing == 0, but vPublic < 0")
-			}
-
-			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, inForRing), nil
-
-		} else if outForRing == 1 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
-			}
-
-		} else { // outForRing >= 2
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
-
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
-			}
-		}
-	}
 }
 
 //	helper functions	end

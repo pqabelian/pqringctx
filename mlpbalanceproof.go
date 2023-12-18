@@ -1711,7 +1711,7 @@ func (pp *PublicParameter) serializeBalanceProof(balanceProof BalanceProof) ([]b
 	if balanceProof == nil {
 		return nil, fmt.Errorf("serializeBalanceProof: the input BalanceProof is nil")
 	}
-	
+
 	switch bpfInst := balanceProof.(type) {
 	case *BalanceProofL0R0:
 		return pp.serializeBalanceProofL0R0(bpfInst)
