@@ -634,11 +634,11 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 
 // elrSignatureMLPSerializeSize returns the serialize size for a ElrSignatureMLP with the input ringSize.
 // todo: review
-func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize int) int {
-	length := VarIntSerializeSize(uint64(ringSize)) + //	for the ringSize
-		ringSize*HashOutputBytesLen + //	seeds [][]byte
-		ringSize*pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) + //	z_as  []*PolyAVec
-		ringSize*pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC)*2 //	z_cs  [][]*PolyCVec, z_cps [][]*PolyCVec
+func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize uint8) int {
+	length := 1 + //	for the ringSize
+		int(ringSize)*HashOutputBytesLen + //	seeds [][]byte
+		int(ringSize)*pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) + //	z_as  []*PolyAVec
+		int(ringSize)*pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC)*2 //	z_cs  [][]*PolyCVec, z_cps [][]*PolyCVec
 	return length
 }
 
@@ -650,15 +650,18 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 	}
 
 	ringSize := len(sig.seeds)
+	if ringSize > int(pp.paramRingSizeMax) {
+		return nil, fmt.Errorf("serializeElrSignatureMLP: the input ElrSignatureMLP's ring size (%d) exceeds the allowed maximum value (%d)", ringSize, pp.paramRingSizeMax)
+	}
 	if len(sig.z_as) != ringSize || len(sig.z_cs) != ringSize || len(sig.z_cps) != ringSize {
 		return nil, fmt.Errorf("serializeElrSignatureMLP: the input sig.seeds, sig.z_as, sig.z_cs, sig.z_cps should have the same length")
 	}
 
-	length := pp.elrSignatureMLPSerializeSize(ringSize)
+	length := pp.elrSignatureMLPSerializeSize(uint8(ringSize))
 	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	ringSize
-	err := WriteVarInt(w, uint64(ringSize))
+	err := w.WriteByte(uint8(ringSize))
 
 	// seeds [][]byte
 	for i := 0; i < ringSize; i++ {
@@ -707,7 +710,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 
 	r := bytes.NewReader(serializedSig)
 
-	ringSize, err := ReadVarInt(r)
+	ringSize, err := r.ReadByte()
 
 	seeds := make([][]byte, ringSize)      //	seeds [][]byte
 	z_as := make([]*PolyAVec, ringSize)    //	z_as  []*PolyAVec
@@ -715,7 +718,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	z_cps := make([][]*PolyCVec, ringSize) //	z_cps [][]*PolyCVec
 
 	//	seeds [][]byte
-	for i := uint64(0); i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		seeds[i] = make([]byte, HashOutputBytesLen)
 		_, err = r.Read(seeds[i])
 		if err != nil {
@@ -724,7 +727,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	}
 
 	//	z_as  []*PolyAVec
-	for i := uint64(0); i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		z_as[i], err = pp.readPolyAVecEta(r)
 		if err != nil {
 			return nil, err
@@ -732,7 +735,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	}
 
 	//	z_cs  [][]*PolyCVec
-	for i := uint64(0); i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		z_cs[i] = make([]*PolyCVec, pp.paramK)
 		for t := 0; t < pp.paramK; t++ {
 			z_cs[i][t], err = pp.readPolyCVecEta(r)
@@ -743,7 +746,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	}
 
 	//	z_cps [][]*PolyCVec
-	for i := uint64(0); i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		z_cps[i] = make([]*PolyCVec, pp.paramK)
 		for t := 0; t < pp.paramK; t++ {
 			z_cps[i][t], err = pp.readPolyCVecEta(r)
