@@ -655,7 +655,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	//	elrSignatureSign
-	elrSigs := make([]*elrSignatureMLP, inForRing)
+	elrSigs := make([]*ElrSignatureMLP, inForRing)
 	for i := 0; i < inForRing; i++ {
 		txInputDescItem := txInputDescs[i]
 		askSp, err := pp.coinSpendSecretKeyForPKRingParse(txInputDescItem.coinSpendSecretKey)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type elrSignatureMLP struct {
+type ElrSignatureMLP struct {
 	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
 	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
 	//	z_cs, z_cps, as the responses, need to have the infinite normal ina scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
@@ -25,12 +25,12 @@ type simpleSignatureMLP struct {
 
 // elr Signature	begin
 
-// elrSignatureMLPSign generates elrSignatureMLP.
+// elrSignatureMLPSign generates ElrSignatureMLP.
 // Note that this is the same as pqringct.elrsSign.
 // reviewed on 2023.12.15
 func (pp *PublicParameter) elrSignatureMLPSign(
 	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte,
-	sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*elrSignatureMLP, error) {
+	sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*ElrSignatureMLP, error) {
 
 	var err error
 	ringLen := len(lgrTxoList)
@@ -294,7 +294,7 @@ elrSignatureMLPSignRestart:
 		//}
 	}
 
-	return &elrSignatureMLP{
+	return &ElrSignatureMLP{
 		seeds: seeds,
 		z_as:  z_as,
 		z_cs:  z_cs,
@@ -425,7 +425,7 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 
 // elrSignatureMLPVerify() verify the validity of a given (message, signature) pair.
 // todo: review
-func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *elrSignatureMLP) (bool, error) {
+func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *ElrSignatureMLP) (bool, error) {
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
 		return false, nil
@@ -632,7 +632,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	return true, nil
 }
 
-// elrSignatureMLPSerializeSize returns the serialize size for a elrSignatureMLP with the input ringSize.
+// elrSignatureMLPSerializeSize returns the serialize size for a ElrSignatureMLP with the input ringSize.
 // todo: review
 func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize int) int {
 	length := VarIntSerializeSize(uint64(ringSize)) + //	for the ringSize
@@ -642,11 +642,11 @@ func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize int) int {
 	return length
 }
 
-// serializeElrSignatureMLP serializes the input elrSignatureMLP into []byte.
+// serializeElrSignatureMLP serializes the input ElrSignatureMLP into []byte.
 // todo: review
-func (pp *PublicParameter) serializeElrSignatureMLP(sig *elrSignatureMLP) ([]byte, error) {
+func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byte, error) {
 	if sig == nil || len(sig.seeds) == 0 {
-		return nil, fmt.Errorf("serializeElrSignatureMLP: there is nil pointer in the input elrSignatureMLP")
+		return nil, fmt.Errorf("serializeElrSignatureMLP: there is nil pointer in the input ElrSignatureMLP")
 	}
 
 	ringSize := len(sig.seeds)
@@ -699,8 +699,8 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *elrSignatureMLP) ([]byt
 	return w.Bytes(), nil
 }
 
-// deserializeElrSignatureMLP deserialize the input []byte to an elrSignatureMLP.
-func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*elrSignatureMLP, error) {
+// deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
+func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*ElrSignatureMLP, error) {
 	if len(serializedSig) == 0 {
 		return nil, fmt.Errorf("deserializeElrSignatureMLP: the input serializedSig is nil/empty")
 	}
@@ -753,7 +753,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*el
 		}
 	}
 
-	return &elrSignatureMLP{
+	return &ElrSignatureMLP{
 		seeds: seeds,
 		z_as:  z_as,
 		z_cs:  z_cs,
@@ -910,7 +910,7 @@ func (pp *PublicParameter) serializeSimpleSignature(sig *simpleSignatureMLP) ([]
 	return w.Bytes(), nil
 }
 
-// deserializeElrSignatureMLP deserialize the input []byte to an elrSignatureMLP.
+// deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
 // todo: review
 func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*simpleSignatureMLP, error) {
 	if len(serializedSig) == 0 {
