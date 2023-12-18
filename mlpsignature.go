@@ -769,6 +769,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*el
 // The input t and s should satisfy t = A s.
 // In this algorithm we do not check the sanity of (t) and (s),
 // and will leave the sanity-check work (e.g., t != nil ) to the corresponding simpleSignatureVerify algorithm.
+// reviewed on 2023.12.18
 // todo: multi-round review
 func (pp *PublicParameter) simpleSignatureSign(t *PolyANTTVec, extTrTxCon []byte,
 	s *PolyANTTVec) (*simpleSignatureMLP, error) {
@@ -814,6 +815,7 @@ simpleSignatureSignRestart:
 }
 
 // simpleSignatureVerify verifies simpleSignatureMLP.
+// reviewed on 2023.12.18
 // todo: multi-round review
 func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *simpleSignatureMLP) (bool, error) {
 
@@ -824,7 +826,7 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 	if len(t.polyANTTs) != pp.paramKA {
 		return false, nil
 	}
-	for i := 0; i < len(t.polyANTTs); i++ {
+	for i := 0; i < pp.paramKA; i++ {
 		if len(t.polyANTTs[i].coeffs) != pp.paramDA {
 			return false, nil
 		}
@@ -836,8 +838,7 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 	if len(sig.z.polyAs) != pp.paramLA {
 		return false, nil
 	}
-
-	for i := 0; i < len(sig.z.polyAs); i++ {
+	for i := 0; i < pp.paramLA; i++ {
 		if len(sig.z.polyAs[i].coeffs) != pp.paramDA {
 			return false, nil
 		}
@@ -877,8 +878,69 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 	return true, nil
 }
 
+// simpleSignatureSerializeSize returns the serialize size for simpleSignatureMLP.
+func (pp *PublicParameter) simpleSignatureSerializeSize() int {
+	length := HashOutputBytesLen + //	seed_ch []byte
+		pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) //	z       *PolyAVec
+	return length
+}
+
+// serializeSimpleSignature serializes the input simpleSignatureMLP into []byte.
+// todo: review
+func (pp *PublicParameter) serializeSimpleSignature(sig *simpleSignatureMLP) ([]byte, error) {
+	if sig == nil || len(sig.seed_ch) == 0 || sig.z == nil {
+		return nil, fmt.Errorf("serializeSimpleSignature: there is nil pointer in the input simpleSignatureMLP")
+	}
+
+	length := pp.simpleSignatureSerializeSize()
+	w := bytes.NewBuffer(make([]byte, 0, length))
+
+	// seed_ch []byte
+	_, err := w.Write(sig.seed_ch)
+	if err != nil {
+		return nil, err
+	}
+
+	// z       *PolyAVec
+	err = pp.writePolyAVecEta(w, sig.z)
+	if err != nil {
+		return nil, err
+	}
+
+	return w.Bytes(), nil
+}
+
+// deserializeElrSignatureMLP deserialize the input []byte to an elrSignatureMLP.
+// todo: review
+func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*simpleSignatureMLP, error) {
+	if len(serializedSig) == 0 {
+		return nil, fmt.Errorf("deserializeSimpleSignature: the input serializedSig is nil/empty")
+	}
+
+	r := bytes.NewReader(serializedSig)
+
+	//	seed_ch []byte
+	seed_ch := make([]byte, HashOutputBytesLen)
+	_, err := r.Read(seed_ch)
+	if err != nil {
+		return nil, err
+	}
+
+	//	z       *PolyAVec
+	z, err := pp.readPolyAVecEta(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &simpleSignatureMLP{
+		seed_ch: seed_ch,
+		z:       z,
+	}, nil
+}
+
 // collectBytesForSimpleSignatureChallenge collect preMsg for simpleSignatureSign, for the Fiat-Shamir transform.
 // todo: concat the system public parameter
+// reviewed on 2023.12.18
 // todo: review
 func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(t *PolyANTTVec, extTrTxCon []byte,
 	w *PolyANTTVec) ([]byte, error) {
