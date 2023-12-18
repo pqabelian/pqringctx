@@ -138,21 +138,13 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // CoinbaseTxMLPVerify verifies the input CoinbaseTxMLP.
 // todo: review
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error) {
-	if cbTx == nil {
+	if cbTx == nil || len(cbTx.txos) == 0 || cbTx.txWitness == nil {
 		return false, nil
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 
 	if cbTx.vin > V {
-		return false, nil
-	}
-
-	if len(cbTx.txos) == 0 {
-		return false, nil
-	}
-
-	if cbTx.txWitness == nil {
 		return false, nil
 	}
 
@@ -168,12 +160,15 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
 				return false, fmt.Errorf("CoinbaseTxMLPVerify: the coinAddresses for RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
 			}
+
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
 			outForSingle += 1
+
 		} else {
 			return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", i, coinAddressType)
 		}
 	}
+
 	if outForRing > pp.paramJ {
 		return false, fmt.Errorf("CoinbaseTxMLPVerify: the number of RingCT-Privacy coinAddresses in the input cbTx.txos (%d) exceeds the allowd maxumim %d", outForRing, pp.paramJ)
 	}
@@ -248,8 +243,9 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 	return pp.verifyBalanceProofCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
 }
 
-// todo:
+// TransferTxMLPGen generates TransferTxMLP.
 // todo: review pp.CoinValueKeyVerify
+// todo: review 2023.12.18
 func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -638,9 +634,8 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 
 		//askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(txInputDescItem.coinSerialNumberSecretKey)
 		//ma_ps[i] = pp.PolyANTTAdd(askSn.ma, m_r)
-		ma_ps[i] = m_r
 
-		sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_ps[i])
+		sn, err := pp.ledgerTxoSerialNumberComputeMLP(m_r)
 		if err != nil {
 			return nil, err
 		}
@@ -725,6 +720,275 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 
 	return trTx, nil
 
+}
+
+// TransferTxMLPVerify verifies TransferTxMLP.
+// todo: multi-round review
+func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error) {
+	if trTx == nil ||
+		len(trTx.txInputs) == 0 || len(trTx.txos) == 0 ||
+		trTx.txWitness == nil {
+		return false, nil
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+
+	if trTx.fee > V {
+		return false, nil
+	}
+
+	inputNum := len(trTx.txInputs)
+	outputNum := len(trTx.txos)
+
+	//	the following check will make use the txWitness,
+	//	conduct sanity-check on txWitness here
+	if int(trTx.txWitness.outForRing) > pp.paramJ || int(trTx.txWitness.outForSingle) > pp.paramJSingle {
+		return false, nil
+	}
+	if int(trTx.txWitness.outForRing+trTx.txWitness.outForSingle) != outputNum {
+		return false, nil
+	}
+
+	if int(trTx.txWitness.inForRing) > pp.paramI || int(trTx.txWitness.inForSingle) > pp.paramISingle || int(trTx.txWitness.inForSingleDistinct) > pp.paramISingleDistinct {
+		return false, nil
+	}
+	if trTx.txWitness.inForSingleDistinct > trTx.txWitness.inForSingle {
+		return false, nil
+	}
+	if int(trTx.txWitness.inForRing+trTx.txWitness.inForSingle) != inputNum {
+		return false, nil
+	}
+
+	if len(trTx.txWitness.ma_ps) != int(trTx.txWitness.inForRing) ||
+		len(trTx.txWitness.cmts_in_p) != int(trTx.txWitness.inForRing) ||
+		len(trTx.txWitness.elrSigs) != int(trTx.txWitness.inForRing) {
+		return false, nil
+	}
+
+	if len(trTx.txWitness.addressPublicKeyForSingles) != int(trTx.txWitness.inForSingleDistinct) ||
+		len(trTx.txWitness.simpleSigs) != int(trTx.txWitness.inForSingleDistinct) {
+		return false, nil
+	}
+
+	addressPublicKeyForSingleMap := make(map[string]int)
+	if trTx.txWitness.inForSingleDistinct > 0 {
+		//	prepare addressPublicKeyForSingleMap, which will be used later to guarantee the spent-coins with pseudonym have corresponding signature
+		for i := 0; i < int(trTx.txWitness.inForSingleDistinct); i++ {
+			serializedApk, err := pp.serializeAddressPublicKeyForSingle(trTx.txWitness.addressPublicKeyForSingles[i])
+			if err != nil {
+				return false, err
+			}
+			apkHash, err := Hash(serializedApk) //	This is the same as that in CoinAddressKeyForPKHSingleGen
+			apkHashString := hex.EncodeToString(apkHash)
+			if _, exists := addressPublicKeyForSingleMap[apkHashString]; exists {
+				return false, fmt.Errorf("TransferTxMLPVerify: there are repated addressPublicKeyForSingles in trTx.txWitness.addressPublicKeyForSingles")
+			} else {
+				addressPublicKeyForSingleMap[apkHashString] = 0 // the count = 0 will be used later to count the appearing times
+			}
+		}
+
+		if len(addressPublicKeyForSingleMap) != int(trTx.txWitness.inForSingleDistinct) {
+			//	just assert
+			return false, fmt.Errorf("TransferTxMLPVerify: This should not happen, where len(addressPublicKeyForSingleMap)(%d) != int(trTx.txWitness.inForSingleDistinct) (%d)", len(addressPublicKeyForSingleMap), trTx.txWitness.inForSingleDistinct)
+		}
+	}
+
+	//	check the txos
+	vOutPublic := trTx.fee
+	cmts_out := make([]*ValueCommitment, trTx.txWitness.outForRing)
+	for j := 0; j < outputNum; j++ {
+		txo := trTx.txos[j]
+		coinAddressType := txo.CoinAddressType()
+
+		if j < int(trTx.txWitness.outForRing) {
+			//	outForRing
+			if coinAddressType != CoinAddressTypePublicKeyForRingPre && CoinAddressTypePublicKeyForRingPre != CoinAddressTypePublicKeyForRing {
+				return false, fmt.Errorf("TransferTxMLPVerify: the fisrt %d txo should have RingCT-privacy, but %d-th does not", trTx.txWitness.outForRing, j)
+			}
+			switch txoInst := txo.(type) {
+			case *TxoRCTPre:
+				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRingPre {
+					return false, fmt.Errorf("TransferTxMLPVerify: the %d -th txo is TxoRCTPre, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRingPre", j, coinAddressType)
+				}
+				cmts_out[j] = txoInst.valueCommitment
+
+			case *TxoRCT:
+				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRing {
+					return false, fmt.Errorf("TransferTxMLPVerify: the %d -th txo is TxoRCT, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRing", j, coinAddressType)
+				}
+				cmts_out[j] = txoInst.valueCommitment
+
+			default:
+				//	just assert
+				return false, fmt.Errorf("TransferTxMLPVerify: This should not happen, where the %d -th txo is not TxoRCTPre or TxoRCT", j)
+			}
+
+		} else {
+			//	outForSingle
+			if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+				return false, fmt.Errorf("TransferTxMLPVerify: the %d-th txo should have Pseudonym-privacy, but it does not", j)
+			}
+			switch txoInst := txo.(type) {
+			case *TxoSDN:
+				if txoInst.value > V {
+					return false, nil
+				}
+				vOutPublic += txoInst.value
+				if vOutPublic > V {
+					return false, nil
+				}
+
+			default:
+				//	just assert
+				return false, fmt.Errorf("TransferTxMLPVerify: This should not happen, where the %d -th txo is not TxoSDN", j)
+			}
+		}
+	}
+
+	// check the txInputs
+	// prepare trTxCon which will be used in signature verifications and balance proof verifications
+	trTxCon, err := pp.SerializeTransferTxMLP(trTx, false)
+	if err != nil {
+		return false, err
+	}
+	// extTrTxCon = trTxCon || cmt_p[0] || cmt_p[inForRing]
+	extTrTxCon, err := pp.extendSerializedTransferTxContent(trTxCon, trTx.txWitness.cmts_in_p)
+	if err != nil {
+		return false, err
+	}
+
+	vInPublic := uint64(0)
+	spentCoinSerialNumberMap := make(map[string]int) // There should not be double spending in one transaction.
+
+	for i := 0; i < inputNum; i++ {
+		txInput := trTx.txInputs[i]
+
+		//	serialNumber (double-spending) check inside the transaction
+		if len(txInput.serialNumber) == 0 {
+			return false, nil
+		}
+		snString := hex.EncodeToString(txInput.serialNumber)
+		if index, exists := spentCoinSerialNumberMap[snString]; exists {
+			return false, fmt.Errorf("TransferTxMLPVerify: double-spending detected, the %d-th txInput and the %d -th txInput", i, index)
+		}
+		spentCoinSerialNumberMap[snString] = i
+
+		//	sanity-check on the lgrTxoList
+		//	Here we need to use the information in TxWitness, which is also a manner of double-check
+		if len(txInput.lgrTxoList) == 0 {
+			return false, nil
+		}
+
+		if i < int(trTx.txWitness.inForRing) {
+			//	txInput.lgrTxoList should be a ring with ring member being RingCT-privacy
+			//	in a ring, there should not be repeated lgrTxoId
+
+			lgrTxoIdMap := make(map[string]int)
+			for t := 0; t < len(txInput.lgrTxoList); t++ {
+				if txInput.lgrTxoList[t].txo.CoinAddressType() != CoinAddressTypePublicKeyForRingPre &&
+					txInput.lgrTxoList[t].txo.CoinAddressType() != CoinAddressTypePublicKeyForRing {
+					return false, nil
+				}
+
+				if len(txInput.lgrTxoList[t].id) == 0 {
+					return false, nil
+				}
+				lgrTxoIdString := hex.EncodeToString(txInput.lgrTxoList[t].id)
+				if index, exists := lgrTxoIdMap[lgrTxoIdString]; exists {
+					return false, fmt.Errorf("TransferTxMLPVerify: %d-th input contain repeated lgrtxo, the %d-th and the %d -th", i, t, index)
+				}
+				spentCoinSerialNumberMap[snString] = t
+			}
+
+			//	i-th serial number and elrSignature
+			//	txInputs[i].serialNumber, trTx.txWitness.ma_ps[i], trTx.txWitness.cmts_in_p[i], extTrTxCon, trTx.txWitness.elrSigs[i]
+			snFromKeyImg, err := pp.ledgerTxoSerialNumberComputeMLP(trTx.txWitness.ma_ps[i])
+			if err != nil {
+				return false, err
+			}
+			if bytes.Compare(snFromKeyImg, txInput.serialNumber) != 0 {
+				return false, nil
+			}
+			valid, err := pp.elrSignatureMLPVerify(txInput.lgrTxoList, trTx.txWitness.ma_ps[i], trTx.txWitness.cmts_in_p[i], extTrTxCon, trTx.txWitness.elrSigs[i])
+			if err != nil {
+				return false, err
+			}
+			if valid == false {
+				return false, nil
+			}
+
+		} else {
+			//	txInput.lgrTxoList should be a ring with only one ring member, and the ring member should be pseudo-privacy
+			//	collect the coin-value
+			if len(txInput.lgrTxoList) != 1 {
+				return false, nil
+			}
+
+			//	i-th serial number
+			// Note that for CoinAddressTypePublicKeyHashForSingle,
+			// m'_a = m_a + m_r = m_r, since m_a is empty.
+			m_r, err := pp.expandKIDRMLP(txInput.lgrTxoList[0])
+			if err != nil {
+				return false, err
+			}
+			snFromLgrTxo, err := pp.ledgerTxoSerialNumberComputeMLP(m_r)
+			if err != nil {
+				return false, err
+			}
+			if bytes.Compare(snFromLgrTxo, txInput.serialNumber) != 0 {
+				return false, nil
+			}
+
+			//	txo
+			switch txoInst := txInput.lgrTxoList[0].txo.(type) {
+			case *TxoSDN:
+				if txoInst.coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+					return false, fmt.Errorf("TransferTxMLPVerify: the %d -th input is a TxoSDN, but it's coinAddressType is not CoinAddressTypePublicKeyHashForSingle", i)
+				}
+
+				//	value
+				if txoInst.value > V {
+					return false, nil
+				}
+				vInPublic = vInPublic + txoInst.value
+				if vInPublic > V {
+					return false, nil
+				}
+
+				//	addressPublicKeyForSingleHash shall have a corresponding addressPublicKeyForSingle in trTx.txWitness.addressPublicKeyForSingles
+				apkHashString := hex.EncodeToString(txoInst.addressPublicKeyForSingleHash)
+				if count, exists := addressPublicKeyForSingleMap[apkHashString]; exists {
+					addressPublicKeyForSingleMap[apkHashString] = count + 1
+				} else {
+					return false, nil
+				}
+
+			default:
+				return false, fmt.Errorf("TransferTxMLPVerify: the %d -th input should be a TxoSDN, but it is not", i)
+			}
+		}
+	}
+
+	//	To guarantee that there are no dummy addressPublicKeyForSingles in trTx.txWitness.addressPublicKeyForSingles
+	for apkHashString, count := range addressPublicKeyForSingleMap {
+		if count == 0 {
+			return false, fmt.Errorf("TransferTxMLPVerify: the addressPublicKeyForSingle (with Hash = %s) in trTx.txWitness.addressPublicKeyForSingles does not have corresponding spent-coin", apkHashString)
+		}
+	}
+	//	verify the simpleSignatures
+	for i := 0; i < len(trTx.txWitness.addressPublicKeyForSingles); i++ {
+		valid, err := pp.simpleSignatureVerify(trTx.txWitness.addressPublicKeyForSingles[i].t, extTrTxCon, trTx.txWitness.simpleSigs[i])
+		if err != nil {
+			return false, err
+		}
+		if valid == false {
+			return false, nil
+		}
+	}
+
+	vPublic := int64(vOutPublic) - int64(vInPublic)
+
+	return pp.verifyBalanceProofTrTx(extTrTxCon, trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.cmts_in_p, cmts_out, vPublic, trTx.txWitness.txCase, trTx.txWitness.balanceProof)
 }
 
 //	TxWitness		begin
@@ -990,6 +1254,103 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 
 // helper functions	begin
 
+func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
+
+	//	The caller should guarantee the sanity of the inputs.
+	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
+	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
+	//}
+
+	//if outForRing == 0 && vL != 0 {
+	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
+	//}
+
+	var err error
+	var txCase TxWitnessCbTxCase
+	var balanceProof BalanceProof
+	if outForRing == 0 {
+		txCase = TxWitnessCbTxCaseC0
+		balanceProof, err = pp.genBalanceProofL0R0()
+		if err != nil {
+			return 0, nil, err
+		}
+	} else if outForRing == 1 {
+		txCase = TxWitnessCbTxCaseC1
+		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
+		if err != nil {
+			return 0, nil, err
+		}
+	} else {
+		//	outForRing >= 2
+		txCase = TxWitnessCbTxCaseCn
+		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
+		if err != nil {
+			return 0, nil, err
+		}
+	}
+
+	return txCase, balanceProof, nil
+}
+
+// verifyBalanceProofCbTx verifies the BalanceProof.
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
+	if len(serializedCbTxCon) == 0 {
+		return false, nil
+	}
+
+	V := uint64(1)<<pp.paramN - 1
+
+	if vL > V {
+		return false, nil
+	}
+
+	if len(cmtRs) != int(outForRing) {
+		return false, nil
+	}
+
+	if balanceProof == nil {
+		return false, nil
+	}
+
+	switch bpfInst := balanceProof.(type) {
+	case *BalanceProofL0R0:
+		if txCase != TxWitnessCbTxCaseC0 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the txCase is not TxWitnessCbTxCaseC0")
+		}
+		if outForRing != 0 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the outForRing is not 0")
+		}
+
+		if vL != 0 {
+			// balance is checked publicly.
+			return false, nil
+		}
+		return pp.verifyBalanceProofL0R0(bpfInst)
+
+	case *BalanceProofL0R1:
+		if txCase != TxWitnessCbTxCaseC1 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the txCase is not TxWitnessCbTxCaseC1")
+		}
+		if outForRing != 1 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the outForRing is not 1")
+		}
+		return pp.verifyBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], bpfInst)
+
+	case *BalanceProofLmRn:
+		if txCase != TxWitnessCbTxCaseCn {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the txCase is not TxWitnessCbTxCaseCn")
+		}
+		if outForRing < 2 {
+			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
+		}
+		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, bpfInst)
+	}
+
+	return false, nil
+}
+
 // extendSerializedTransferTxContent extend the serialized TransferTx Content by appending the cmt_ps.
 // added on 2023.12.15
 // todo: review
@@ -1202,98 +1563,274 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 	return txCase, balanceProof, nil
 }
 
-func (pp *PublicParameter) genBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
-	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
+// verifyBalanceProofTrTx verifies BalanceProofTrTx
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
+	txCase TxWitnessTrTxCase, balcenProof BalanceProof) (bool, error) {
 
-	//	The caller should guarantee the sanity of the inputs.
-	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
-	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
-	//}
-
-	//if outForRing == 0 && vL != 0 {
-	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
-	//}
-
-	var err error
-	var txCase TxWitnessCbTxCase
-	var balanceProof BalanceProof
-	if outForRing == 0 {
-		txCase = TxWitnessCbTxCaseC0
-		balanceProof, err = pp.genBalanceProofL0R0()
-		if err != nil {
-			return 0, nil, err
-		}
-	} else if outForRing == 1 {
-		txCase = TxWitnessCbTxCaseC1
-		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
-		if err != nil {
-			return 0, nil, err
-		}
-	} else {
-		//	outForRing >= 2
-		txCase = TxWitnessCbTxCaseCn
-		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
-		if err != nil {
-			return 0, nil, err
-		}
+	if len(extTrTxCon) == 0 {
+		return false, nil
 	}
 
-	return txCase, balanceProof, nil
-}
+	if int(inForRing) > pp.paramI || int(outForRing) > pp.paramJ {
+		return false, nil
+	}
 
-// verifyBalanceProofCbTx verifies the BalanceProof.
-// todo: review
-func (pp *PublicParameter) verifyBalanceProofCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
-	if len(serializedCbTxCon) == 0 {
+	if len(cmts_in_p) != int(inForRing) || len(cmts_out) != int(outForRing) {
 		return false, nil
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 
-	if vL > V {
+	if vPublic > V || vPublic < -V {
 		return false, nil
 	}
 
-	if len(cmtRs) != int(outForRing) {
-		return false, nil
-	}
+	//	here we do not conduct sanity-check on the (cmts_in_p, cmts_out),
+	//	since verifyBalanceProofTrTx serves as a distributor, and will call concrete verifyBalanceProofXXYYZZ.
 
-	if balanceProof == nil {
-		return false, nil
-	}
+	if inForRing == 0 {
+		if outForRing == 0 {
+			if vPublic != 0 {
+				return false, nil
+			}
+			if txCase != TxWitnessTrTxCaseI0C0 {
+				return false, nil
+			}
+			switch bpfInst := balcenProof.(type) {
+			case *BalanceProofL0R0:
+				return pp.verifyBalanceProofL0R0(bpfInst)
+			default:
+				return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 0, outForRing = 0), but the input balance proof is not BalanceProofL0R0")
+			}
 
-	switch bpfInst := balanceProof.(type) {
-	case *BalanceProofL0R0:
-		if txCase != TxWitnessCbTxCaseC0 {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the txCase is not TxWitnessCbTxCaseC0")
+		} else if outForRing == 1 {
+			//	0 = cmt_{out,0} + vPublic
+			if vPublic > 0 {
+				return false, nil
+			}
+			//  -vPublic = cmt_{out,0}
+			if txCase != TxWitnessTrTxCaseI0C1 {
+				return false, nil
+			}
+			switch bpfInst := balcenProof.(type) {
+			case *BalanceProofL0R1:
+				return pp.verifyBalanceProofL0R1(extTrTxCon, uint64(-vPublic), cmts_out[0], bpfInst)
+			default:
+				return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 0, outForRing = 1), but the input balance proof is not BalanceProofL0R1")
+			}
+
+		} else { //	outForRing >= 2
+			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic > 0 {
+				return false, nil
+			}
+
+			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+			if txCase != TxWitnessTrTxCaseI0Cn {
+				return false, nil
+			}
+			switch bpfInst := balcenProof.(type) {
+			case *BalanceProofLmRn:
+				return pp.verifyBalanceProofL0Rn(extTrTxCon, outForRing, uint64(-vPublic), cmts_out, bpfInst)
+			default:
+				return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 0, outForRing >= 2), but the input balance proof is not BalanceProofLmRn")
+			}
 		}
-		if outForRing != 0 {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R0, but the outForRing is not 0")
+	} else if inForRing == 1 {
+		if outForRing == 0 {
+			//	cmt_{in,0} = vPublic
+			if vPublic < 0 {
+				return false, nil
+			}
+
+			//	vPublic = cmt_{in,0}
+			if txCase != TxWitnessTrTxCaseI1C0 {
+				return false, nil
+			}
+			switch bpfInst := balcenProof.(type) {
+			case *BalanceProofL0R1:
+				return pp.verifyBalanceProofL0R1(extTrTxCon, uint64(vPublic), cmts_in_p[0], bpfInst)
+			default:
+				return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 0), but the input balance proof is not BalanceProofL0R1")
+			}
+		} else if outForRing == 1 {
+			//	cmt_{in,0} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0}
+				if txCase != TxWitnessTrTxCaseI1C1Exact {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofL1R1:
+					return pp.verifyBalanceProofL1R1(extTrTxCon, cmts_in_p[0], cmts_out[0], bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 1, vPublic = 0), but the input balance proof is not BalanceProofL1R1")
+				}
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + vPublic
+				if txCase != TxWitnessTrTxCaseI1C1CAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, 1, cmts_in_p[0], cmts_out, uint64(vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 1, vPublic > 0), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
+				if txCase != TxWitnessTrTxCaseI1C1IAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, 1, cmts_out[0], cmts_in_p, uint64(-vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 1, vPublic < 0), but the input balance proof is not BalanceProofLmRn")
+				}
+			}
+		} else { //	outForRing >= 2
+			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				if txCase != TxWitnessTrTxCaseI1CnExact {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, 0, bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic = 0), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+				if txCase != TxWitnessTrTxCaseI1CnCAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, uint64(vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic > 0), but the input balance proof is not BalanceProofLmRn")
+				}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
+				if txCase != TxWitnessTrTxCaseI1CnIAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic < 0), but the input balance proof is not BalanceProofLmRn")
+				}
+			}
 		}
 
-		if vL != 0 {
-			// balance is checked publicly.
-			return false, nil
-		}
-		return pp.verifyBalanceProofL0R0(bpfInst)
+	} else { //	inForRing >= 2
+		if outForRing == 0 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
+			if vPublic < 0 {
+				return false, nil
+			}
 
-	case *BalanceProofL0R1:
-		if txCase != TxWitnessCbTxCaseC1 {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the txCase is not TxWitnessCbTxCaseC1")
-		}
-		if outForRing != 1 {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofL0R1, but the outForRing is not 1")
-		}
-		return pp.verifyBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], bpfInst)
+			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+			if txCase != TxWitnessTrTxCaseImC0 {
+				return false, nil
+			}
+			switch bpfInst := balcenProof.(type) {
+			case *BalanceProofLmRn:
+				return pp.verifyBalanceProofL0Rn(extTrTxCon, inForRing, uint64(vPublic), cmts_in_p, bpfInst)
+			default:
+				return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 0 ), but the input balance proof is not BalanceProofLmRn")
+			}
 
-	case *BalanceProofLmRn:
-		if txCase != TxWitnessCbTxCaseCn {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the txCase is not TxWitnessCbTxCaseCn")
+		} else if outForRing == 1 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+				if txCase != TxWitnessTrTxCaseImC1Exact {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, 0, bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic = 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+				if txCase != TxWitnessTrTxCaseImC1CAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic > 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				if txCase != TxWitnessTrTxCaseImC1IAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, uint64(-vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic < 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			}
+
+		} else { // outForRing >= 2
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				if txCase != TxWitnessTrTxCaseImCnExact {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, 0, bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic = 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+				if txCase != TxWitnessTrTxCaseImCnCAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic > 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				if txCase != TxWitnessTrTxCaseImCnIAdd {
+					return false, nil
+				}
+				switch bpfInst := balcenProof.(type) {
+				case *BalanceProofLmRn:
+					return pp.verifyBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), bpfInst)
+				default:
+					return false, fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic < 0 ), but the input balance proof is not BalanceProofLmRn")
+				}
+			}
 		}
-		if outForRing < 2 {
-			return false, fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
-		}
-		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, bpfInst)
 	}
 
 	return false, nil
