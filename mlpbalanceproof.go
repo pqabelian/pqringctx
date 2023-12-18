@@ -1707,6 +1707,7 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.18
 func (pp *PublicParameter) balanceProofL0R0SerializeSize() int {
 	n := 1 // balanceProofCase BalanceProofCase
 	return n
@@ -1792,6 +1793,7 @@ func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *BalanceProofL0R1) ([]b
 
 // deserializeBalanceProofL0R1 deserialize the input []byte to a BalanceProofL0R1.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.18
 func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*BalanceProofL0R1, error) {
 
 	r := bytes.NewReader(serializdBpfL0R1)

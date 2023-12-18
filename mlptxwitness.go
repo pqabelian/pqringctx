@@ -103,6 +103,7 @@ func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 
 // TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.18
 func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + // vL           uint64
@@ -128,9 +129,10 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 
 // SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.18
 func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
-	if txWitness == nil {
-		return nil, errors.New("SerializeTxWitnessCbTx: the input TxWitnessCbTx is nil")
+	if txWitness == nil || txWitness.balanceProof == nil {
+		return nil, errors.New("SerializeTxWitnessCbTx: there is nil pointer in the input TxWitnessCbTx")
 	}
 
 	w := bytes.NewBuffer(make([]byte, 0, pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)))
@@ -197,6 +199,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 
 // DeserializeTxWitnessCbTx deserialize the input []byte to TxWitnessCbTx.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.18
 func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
