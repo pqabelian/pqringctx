@@ -916,6 +916,7 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 }
 
 // genBalanceProofL1Rn generates BalanceProofL1Rn.
+// reviewed on 2023.12.18
 // todo: multi-round review
 func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, cmtrL *PolyCNTTVec, vL uint64, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
 
@@ -925,9 +926,17 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 		return nil, fmt.Errorf("genBalanceProofL1Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
-	if int(nR) > pp.paramJ || nR < 2 {
+	if int(nR) > pp.paramJ {
 		// Note that pp.paramI == pp.paramJ
-		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) is not in [2, %d]", nR, pp.paramJ)
+		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) exceeds the allowed maximum value (%d)", nR, pp.paramJ)
+	}
+
+	if nR == 0 {
+		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs is 0")
+	}
+
+	if nR == 1 && vRPub == 0 {
+		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs is 1 while vRPub = 0")
 	}
 
 	n := int(nL + nR)
@@ -1036,7 +1045,6 @@ genBalanceProofL1RnRestart:
 	}
 
 	seed_binM, err := Hash(seedMsg)
-
 	if err != nil {
 		return nil, err
 	}
@@ -1109,6 +1117,7 @@ genBalanceProofL1RnRestart:
 }
 
 // verifyBalanceProofL1Rn verifies BalanceProofL1Rn.
+// reviewed on 2023.12.18
 // todo: multi-round view
 func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
 	if len(msg) == 0 {
@@ -1117,11 +1126,8 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 
 	//	Note that BalanceProofL1Rn could be
 	//	(nR == 1 && vRPub > 0) || nR >= 2
-	if int(nR) > pp.paramJ {
+	if int(nR) > pp.paramJ || nR == 0 {
 		//	Note that pp.paramI = pp.paramJ
-		return false, nil
-	}
-	if nR == 0 {
 		return false, nil
 	}
 
@@ -1132,6 +1138,14 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	if cmtL == nil || cmtL.b == nil || len(cmtL.b.polyCNTTs) != pp.paramKC || cmtL.c == nil {
 		return false, nil
 	}
+	for i := 0; i < pp.paramKC; i++ {
+		if len(cmtL.b.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
+	}
+	if len(cmtL.c.coeffs) != pp.paramDC {
+		return false, nil
+	}
 
 	if len(cmtRs) != int(nR) {
 		return false, nil
@@ -1140,6 +1154,14 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	for i := uint8(0); i < nR; i++ {
 		cmt := cmtRs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
+			return false, nil
+		}
+		for j := 0; j < pp.paramKC; j++ {
+			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
+				return false, nil
+			}
+		}
+		if len(cmt.c.coeffs) != pp.paramDC {
 			return false, nil
 		}
 	}
@@ -1164,12 +1186,22 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
 		return false, nil
 	}
+	for i := 0; i < pp.paramKC; i++ {
+		if len(balanceProof.b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
+	}
 
 	nL := uint8(1)
 	n := int(nL + nR)
 	n2 := n + 2
 	if len(balanceProof.c_hats) != n2 {
 		return false, nil
+	}
+	for i := 0; i < n2; i++ {
+		if len(balanceProof.c_hats[i].coeffs) != pp.paramDC {
+			return false, nil
+		}
 	}
 
 	if len(balanceProof.u_p) != pp.paramDC {
@@ -1179,6 +1211,8 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	if balanceProof.rpulpproof == nil {
 		return false, nil
 	}
+	//	here we do not conduct the sanity-check on balanceProof.rpulpproof,
+	//	since that will be guaranteed by the call on rpulpVerify
 
 	betaF := (pp.paramN - 1) * int(nR) //	for the case of vRPub > 0
 	if vRPub == 0 {
@@ -1202,7 +1236,7 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	if err != nil {
 		return false, err
 	}
-	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+	seed_binM, err := Hash(seedMsg)
 	if err != nil {
 		return false, err
 	}
@@ -2314,6 +2348,7 @@ func (pp *PublicParameter) collectBytesForBalanceProofL1R1Challenge2(preMsg []by
 }
 
 // collectBytesForBalanceProofL1RnChallenge collects pre-message bytes for the challenge in genBalanceProofL1Rn.
+// reviewed on 2023.12.18
 // todo: multi-round review
 func (pp *PublicParameter) collectBytesForBalanceProofL1RnChallenge(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
 
