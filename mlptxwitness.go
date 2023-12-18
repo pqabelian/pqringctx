@@ -17,10 +17,11 @@ const (
 	TxWitnessCbTxCaseCn TxWitnessCbTxCase = 2
 )
 
-// todo: to review
+// TxWitnessTrTxCase defines the TxCase which will be used to characterize the TxWitnessTrTx.
+// reviewed on 2023.12.18
 type TxWitnessTrTxCase uint8
 
-// todo: to review
+// reviewed on 2023.12.18
 const (
 	TxWitnessTrTxCaseI0C0      TxWitnessTrTxCase = 0
 	TxWitnessTrTxCaseI0C1      TxWitnessTrTxCase = 1
@@ -74,7 +75,7 @@ func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // Note that with (inForRing, inForSingle, inForSingleDistinct, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has).
-// todo: to review
+// reviewed on 2023.12.18
 type TxWitnessTrTx struct {
 	txCase              TxWitnessTrTxCase
 	inForRing           uint8
@@ -84,126 +85,21 @@ type TxWitnessTrTx struct {
 	outForSingle        uint8
 	vPublic             int64
 	//	abf
-	ma_ps                      []*PolyANTT                  // length I_ring, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
-	cmts_in_p                  []*ValueCommitment           // length I_ring, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
-	elrSigs                    []*elrSignatureMLP           // length I_ring, each for one RingCT-privacy Input.
-	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	simpleSigs                 []*simpleSignatureMLP        // length I_single_distinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	ma_ps                      []*PolyANTT                  // length inForRing, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
+	cmts_in_p                  []*ValueCommitment           // length inForRing, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
+	elrSigs                    []*elrSignatureMLP           // length inForRing, each for one RingCT-privacy Input.
+	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	simpleSigs                 []*simpleSignatureMLP        // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
 	balanceProof               BalanceProof
 }
 
-// todo: to review
+// TxCase returns the txCase of TxWitnessTrTx.
+// reviewed on 2023.12.18
 func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
 
 // TxWitnessCbTx	begin
-// genTxWitnessCbTx generates TxWitnessCbTx.
-// reviewed on 2023.12.07
-func (pp *PublicParameter) genTxWitnessCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, cmtrRs []*PolyCNTTVec, vRs []uint64) (*TxWitnessCbTx, error) {
-
-	//	The caller should guarantee the sanity of the inputs.
-	//if len(cmtRs) != int(outForRing) || len(cmtrRs) != int(outForRing) || len(vRs) != int(outForRing) {
-	//	return nil, fmt.Errorf("at least one of cmtRs, cmtrRs, vRs has length that does match the input outForRing")
-	//}
-
-	//if outForRing == 0 && vL != 0 {
-	//	return nil, fmt.Errorf("outForRing == 0 should be accompanied by vL == 0")
-	//}
-
-	var err error
-	txCase := TxWitnessCbTxCaseC0
-	var balanceProof BalanceProof
-	if outForRing == 0 {
-		txCase = TxWitnessCbTxCaseC0
-		balanceProof, err = pp.genBalanceProofL0R0()
-		if err != nil {
-			return nil, err
-		}
-	} else if outForRing == 1 {
-		txCase = TxWitnessCbTxCaseC1
-		balanceProof, err = pp.genBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], cmtrRs[0])
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		//	outForRing >= 2
-		txCase = TxWitnessCbTxCaseCn
-		balanceProof, err = pp.genBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, cmtrRs, vRs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &TxWitnessCbTx{
-		txCase:       txCase,
-		vL:           vL,
-		outForRing:   outForRing,
-		balanceProof: balanceProof,
-	}, nil
-}
-
-// verifyTxWitnessCbTx verifies the TxWitnessCbTx.
-// todo: review
-func (pp *PublicParameter) verifyTxWitnessCbTx(serializedCbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txWitness *TxWitnessCbTx) (bool, error) {
-	if len(serializedCbTxCon) == 0 {
-		return false, nil
-	}
-
-	V := uint64(1)<<pp.paramN - 1
-
-	if vL > V {
-		return false, nil
-	}
-
-	if len(cmtRs) != int(outForRing) {
-		return false, nil
-	}
-
-	if txWitness == nil {
-		return false, nil
-	}
-
-	if txWitness.balanceProof == nil {
-		return false, nil
-	}
-
-	switch bpfInst := txWitness.balanceProof.(type) {
-	case *BalanceProofL0R0:
-		if txWitness.txCase != TxWitnessCbTxCaseC0 {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofL0R0, but the txWitness.txCase is not TxWitnessCbTxCaseC0")
-		}
-		if outForRing != 0 {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofL0R0, but the outForRing is not 0")
-		}
-
-		if vL != 0 {
-			// balance is checked publicly.
-			return false, nil
-		}
-		return pp.verifyBalanceProofL0R0(bpfInst)
-
-	case *BalanceProofL0R1:
-		if txWitness.txCase != TxWitnessCbTxCaseC1 {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofL0R1, but the txWitness.txCase is not TxWitnessCbTxCaseC1")
-		}
-		if outForRing != 1 {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofL0R1, but the outForRing is not 1")
-		}
-		return pp.verifyBalanceProofL0R1(serializedCbTxCon, vL, cmtRs[0], bpfInst)
-
-	case *BalanceProofLmRn:
-		if txWitness.txCase != TxWitnessCbTxCaseCn {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofLmRn, but the txWitness.txCase is not TxWitnessCbTxCaseCn")
-		}
-		if outForRing < 2 {
-			return false, fmt.Errorf("verifyTxWitnessCbTx: txWitness.balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
-		}
-		return pp.verifyBalanceProofL0Rn(serializedCbTxCon, outForRing, vL, cmtRs, bpfInst)
-	}
-
-	return false, nil
-}
 
 // TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
 // reviewed on 2023.12.07
