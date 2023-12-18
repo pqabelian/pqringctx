@@ -15,7 +15,7 @@ type ElrSignatureMLP struct {
 	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
 }
 
-type simpleSignatureMLP struct {
+type SimpleSignatureMLP struct {
 	seed_ch []byte
 	//	z, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
 	//	That is why we use PolyAVec, rather than PolyANTTVec.
@@ -772,7 +772,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 // reviewed on 2023.12.18
 // todo: multi-round review
 func (pp *PublicParameter) simpleSignatureSign(t *PolyANTTVec, extTrTxCon []byte,
-	s *PolyANTTVec) (*simpleSignatureMLP, error) {
+	s *PolyANTTVec) (*SimpleSignatureMLP, error) {
 
 simpleSignatureSignRestart:
 	// randomness y
@@ -808,16 +808,16 @@ simpleSignatureSignRestart:
 		goto simpleSignatureSignRestart
 	}
 
-	return &simpleSignatureMLP{
+	return &SimpleSignatureMLP{
 		seed_ch: seed_ch,
 		z:       z,
 	}, nil
 }
 
-// simpleSignatureVerify verifies simpleSignatureMLP.
+// simpleSignatureVerify verifies SimpleSignatureMLP.
 // reviewed on 2023.12.18
 // todo: multi-round review
-func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *simpleSignatureMLP) (bool, error) {
+func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *SimpleSignatureMLP) (bool, error) {
 
 	if t == nil || len(extTrTxCon) == 0 || sig == nil {
 		return false, nil
@@ -878,18 +878,18 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 	return true, nil
 }
 
-// simpleSignatureSerializeSize returns the serialize size for simpleSignatureMLP.
+// simpleSignatureSerializeSize returns the serialize size for SimpleSignatureMLP.
 func (pp *PublicParameter) simpleSignatureSerializeSize() int {
 	length := HashOutputBytesLen + //	seed_ch []byte
 		pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) //	z       *PolyAVec
 	return length
 }
 
-// serializeSimpleSignature serializes the input simpleSignatureMLP into []byte.
+// serializeSimpleSignature serializes the input SimpleSignatureMLP into []byte.
 // todo: review
-func (pp *PublicParameter) serializeSimpleSignature(sig *simpleSignatureMLP) ([]byte, error) {
+func (pp *PublicParameter) serializeSimpleSignature(sig *SimpleSignatureMLP) ([]byte, error) {
 	if sig == nil || len(sig.seed_ch) == 0 || sig.z == nil {
-		return nil, fmt.Errorf("serializeSimpleSignature: there is nil pointer in the input simpleSignatureMLP")
+		return nil, fmt.Errorf("serializeSimpleSignature: there is nil pointer in the input SimpleSignatureMLP")
 	}
 
 	length := pp.simpleSignatureSerializeSize()
@@ -912,7 +912,7 @@ func (pp *PublicParameter) serializeSimpleSignature(sig *simpleSignatureMLP) ([]
 
 // deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
 // todo: review
-func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*simpleSignatureMLP, error) {
+func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*SimpleSignatureMLP, error) {
 	if len(serializedSig) == 0 {
 		return nil, fmt.Errorf("deserializeSimpleSignature: the input serializedSig is nil/empty")
 	}
@@ -932,7 +932,7 @@ func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*si
 		return nil, err
 	}
 
-	return &simpleSignatureMLP{
+	return &SimpleSignatureMLP{
 		seed_ch: seed_ch,
 		z:       z,
 	}, nil

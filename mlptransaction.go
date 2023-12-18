@@ -673,7 +673,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 
 	//	simpleSignatureSign
 	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
-	simpleSigs := make([]*simpleSignatureMLP, inForSingleDistinct)
+	simpleSigs := make([]*SimpleSignatureMLP, inForSingleDistinct)
 	for i := 0; i < inForSingleDistinct; i++ {
 		coinAddress := coinAddressForSingleDistinctList[i]
 		coinAddressString := hex.EncodeToString(coinAddress)

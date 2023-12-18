@@ -89,7 +89,7 @@ type TxWitnessTrTx struct {
 	cmts_in_p                  []*ValueCommitment           // length inForRing, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
 	elrSigs                    []*ElrSignatureMLP           // length inForRing, each for one RingCT-privacy Input.
 	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	simpleSigs                 []*simpleSignatureMLP        // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
+	simpleSigs                 []*SimpleSignatureMLP        // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
 	balanceProof               BalanceProof
 }
 
