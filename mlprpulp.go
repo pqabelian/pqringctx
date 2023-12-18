@@ -1322,10 +1322,11 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 	return rst
 }
 
-// rpulpProofMLPSerializeSizeByCommNum returns the serialized size for a range and balance proof among n commitments.
+// rpulpProofMLPSerializeSizeByCommNum returns the serialized size for a range and balance proof among n commitments, RpulpProofMLP.
 // Input two params nL and nR, rather than n = nL + nR, to avoid confusion.
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
+// reviewed on 2023.12.18
 func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
 
@@ -1340,9 +1341,10 @@ func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint
 	return length
 }
 
-// serializeRpulpProofMLP serialize the input rpulpProofMLP to []byte.
+// serializeRpulpProofMLP serialize the input RpulpProofMLP to []byte.
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
+// reviewed on 2023.12.18
 func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, error) {
 	if prf == nil || prf.c_waves == nil ||
 		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
@@ -1428,9 +1430,10 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, e
 	return w.Bytes(), nil
 }
 
-// deserializeRpulpProofMLP deserialize the input serializedRpulpProofMLP to a rpulpProofMLP
+// deserializeRpulpProofMLP deserialize the input serializedRpulpProofMLP to a RpulpProofMLP.
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
+// reviewed on 2023.12.18
 func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*RpulpProofMLP, error) {
 
 	r := bytes.NewReader(serializedRpulpProofMLP)
