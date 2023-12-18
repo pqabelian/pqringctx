@@ -232,6 +232,16 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 	return polyA, nil
 }
 
+// PolyAVecSerializeSizeEtaByVecLen returns the serialize size for a PolyAVec with the input length vecLen.
+// added on 2023.12.18
+// todo: review
+func (pp *PublicParameter) PolyAVecSerializeSizeEtaByVecLen(vecLen int) int {
+	if vecLen <= 0 {
+		return VarIntSerializeSize(0)
+	}
+	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyASerializeSizeEta()
+}
+
 func (pp *PublicParameter) PolyAVecSerializeSizeEta(a *PolyAVec) int {
 	if a == nil {
 		return VarIntSerializeSize(0)
