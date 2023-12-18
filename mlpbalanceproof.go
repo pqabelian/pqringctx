@@ -1705,6 +1705,56 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 	return flag, nil
 }
 
+// serializeBalanceProof serialize BalanceProof into []byte.
+// todo: review
+func (pp *PublicParameter) serializeBalanceProof(balanceProof BalanceProof) ([]byte, error) {
+	switch bpfInst := balanceProof.(type) {
+	case *BalanceProofL0R0:
+		return pp.serializeBalanceProofL0R0(bpfInst)
+	case *BalanceProofL0R1:
+		return pp.serializeBalanceProofL0R1(bpfInst)
+	case *BalanceProofL1R1:
+		return pp.serializeBalanceProofL1R1(bpfInst)
+	case *BalanceProofLmRn:
+		return pp.serializeBalanceProofLmRn(bpfInst)
+	default:
+		return nil, fmt.Errorf("serializeBalanceProofTrTx: the input BalanceProof is not BalanceProofL0R0, BalanceProofL0R1, BalanceProofL1R1, or serializeBalanceProofLmRn")
+	}
+}
+
+// deserializeBalanceProof deserialize []byte to BalanceProof.
+// todo: review
+func (pp *PublicParameter) deserializeBalanceProof(serializedBpf []byte) (BalanceProof, error) {
+	if len(serializedBpf) == 0 {
+		return nil, fmt.Errorf("deserializeBalanceProofTrTx: the input serializedBpf is empty")
+	}
+
+	r := bytes.NewReader(serializedBpf)
+
+	// balanceProofCase BalanceProofCase
+	balanceProofCase, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	switch BalanceProofCase(balanceProofCase) {
+	case BalanceProofCaseL0R0:
+		return pp.deserializeBalanceProofL0R0(serializedBpf)
+	case BalanceProofCaseL0R1:
+		return pp.deserializeBalanceProofL0R1(serializedBpf)
+	case BalanceProofCaseL0Rn:
+		return pp.deserializeBalanceProofLmRn(serializedBpf)
+	case BalanceProofCaseL1R1:
+		return pp.deserializeBalanceProofL1R1(serializedBpf)
+	case BalanceProofCaseL1Rn:
+		return pp.deserializeBalanceProofLmRn(serializedBpf)
+	case BalanceProofCaseLmRn:
+		return pp.deserializeBalanceProofLmRn(serializedBpf)
+	default:
+		return nil, fmt.Errorf("deserializeBalanceProofTrTx: the extracted balanceProofCase (%d) is not suppoted", balanceProofCase)
+	}
+}
+
 // balanceProofL0R0SerializeSize returns the serialize size for balanceProofL0R0.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
