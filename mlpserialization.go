@@ -12,6 +12,7 @@ import (
 // CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.
 // reviewed on 2023.12.04
 // reviewed on 2023.12.07
+// todo: refactor to have the same architecture with trTx
 func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWitness bool) (int, error) {
 	var length int
 
@@ -43,6 +44,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(tx *CoinbaseTxMLP, withWit
 // SerializeCoinbaseTxMLP serialize the input CoinbaseTxMLP to []byte.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
+// todo: refactor to have the same architecture with trTx
 func (pp *PublicParameter) SerializeCoinbaseTxMLP(tx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
 	if tx == nil || len(tx.txos) == 0 {
 		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: there is nil pointer in the input CoinbaseTxMLP")
@@ -205,7 +207,7 @@ func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*
 }
 
 // TransferTxMLPSerializeSize returns the serialize size for the input TransferTxMLP.
-// todo: implement pp.TxWitnessTrTxSerializeSize
+// todo: review
 func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withWitness bool) (int, error) {
 	var length int
 
@@ -237,8 +239,13 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 
 	//	txWitness *TxWitnessTrTx
 	if withWitness {
-		// todo
-		witnessLen := pp.TxWitnessTrTxSerializeSize()
+		if trTx.txWitness == nil {
+			return 0, fmt.Errorf("TransferTxMLPSerializeSize: withWitness = true while trTx.txWitness is nil")
+		}
+		witnessLen, err := pp.TxWitnessTrTxSerializeSize(trTx.txWitness.inForRing, trTx.txWitness.inForSingleDistinct, trTx.txWitness.outForRing, trTx.txWitness.inRingSizes, trTx.txWitness.vPublic)
+		if err != nil {
+			return 0, err
+		}
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
 
@@ -247,7 +254,7 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 
 // SerializeTransferTxMLP serialize the input TransferTxMLP to []byte.
 // Note that SerializeTransferTxMLP serializes the details bytes of the input and out Txos.
-// todo: pp.SerializeTxWitnessTrTx
+// todo: review
 func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
 
 	if trTx == nil || len(trTx.txInputs) == 0 || len(trTx.txos) == 0 {
@@ -307,7 +314,6 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 
 	//	txWitness *TxWitnessTrTx
 	if withWitness {
-		// todo:
 		serializedWitness, err := pp.SerializeTxWitnessTrTx(trTx.txWitness)
 		if err != nil {
 			return nil, err

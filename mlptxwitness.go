@@ -426,7 +426,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 
 	//	elrSigs                    []*ElrSignatureMLP
 	for i := 0; i < int(inForRing); i++ {
-		elrSigSize := pp.elrSignatureMLPSerializeSize(int(ringSizes[i]))
+		elrSigSize := pp.elrSignatureMLPSerializeSize(ringSizes[i])
 		length = length + VarIntSerializeSize(uint64(elrSigSize)) + elrSigSize
 	}
 
