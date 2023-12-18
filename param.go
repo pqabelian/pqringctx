@@ -10,8 +10,8 @@ import (
 func NewPublicParameter(
 	paramDA int, paramQA int64, paramThetaA int, paramKA int, paramLambdaA int, paramGammaA int, paramEtaA int64, paramBetaA int16,
 	paramI int, paramJ int,
-	paramISingle int, paramISingleDistinct, paramJSingle,
-	paramRingSizeMax int,
+	paramISingle int, paramISingleDistinct int, paramJSingle int,
+	paramRingSizeMax uint8,
 	paramN int,
 	paramDC int, paramQC int64, paramK int, paramKC int, paramLambdaC int, paramEtaC int64, paramBetaC int16,
 	paramEtaF int64, paramKeyGenSeedBytesLen int,
@@ -222,8 +222,8 @@ type PublicParameter struct {
 	paramJSingle int
 
 	// paramRingSizeMax defines the maximum allowed ring size. it should be not too big, in particular,
-	// we will assume to be smaller than 255, and we will use uint8 to restrict it.
-	paramRingSizeMax int
+	// we assume it to be smaller than 255, and use uint8 to restrict it.
+	paramRingSizeMax uint8
 
 	// paramN defines the value of V by V=2^N - 1
 	// paramN <= paramDC
