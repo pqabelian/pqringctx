@@ -40,6 +40,7 @@ type RpulpProofMLP struct {
 
 // rpulpProveMLP generates rpulpProofMLP for the input cmts, including range proof and unstructured-linear-relation proof.
 // reviewed on 2023.12.05.
+// todo: review more rounds
 func (pp *PublicParameter) rpulpProveMLP(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte,
@@ -1137,6 +1138,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 
 // collectBytesForRPULP1MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
 // reviewed on 2023.12.05
+// reviewed on 2023.12.18
 func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
@@ -1279,6 +1281,7 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmt
 
 // collectBytesForRPULP2MLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
 // reviewed on 2023.12.05
+// reviewed on 2023.12.18
 func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
