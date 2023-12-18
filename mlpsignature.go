@@ -5,7 +5,6 @@ import (
 	"fmt"
 )
 
-// Signatures	begin
 type elrSignatureMLP struct {
 	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
 	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
@@ -24,7 +23,7 @@ type simpleSignatureMLP struct {
 
 }
 
-//	Signatures	end
+// elr Signature	begin
 
 // elrSignatureMLPSign generates elrSignatureMLP.
 // Note that this is the same as pqringct.elrsSign.
@@ -632,6 +631,137 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	}
 	return true, nil
 }
+
+// elrSignatureMLPSerializeSize returns the serialize size for a elrSignatureMLP with the input ringSize.
+// todo: review
+func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize int) int {
+	length := VarIntSerializeSize(uint64(ringSize)) + //	for the ringSize
+		ringSize*HashOutputBytesLen + //	seeds [][]byte
+		ringSize*pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) + //	z_as  []*PolyAVec
+		ringSize*pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC)*2 //	z_cs  [][]*PolyCVec, z_cps [][]*PolyCVec
+	return length
+}
+
+// serializeElrSignatureMLP serializes the input elrSignatureMLP into []byte.
+// todo: review
+func (pp *PublicParameter) serializeElrSignatureMLP(sig *elrSignatureMLP) ([]byte, error) {
+	if sig == nil || len(sig.seeds) == 0 {
+		return nil, fmt.Errorf("serializeElrSignatureMLP: there is nil pointer in the input elrSignatureMLP")
+	}
+
+	ringSize := len(sig.seeds)
+	if len(sig.z_as) != ringSize || len(sig.z_cs) != ringSize || len(sig.z_cps) != ringSize {
+		return nil, fmt.Errorf("serializeElrSignatureMLP: the input sig.seeds, sig.z_as, sig.z_cs, sig.z_cps should have the same length")
+	}
+
+	length := pp.elrSignatureMLPSerializeSize(ringSize)
+	w := bytes.NewBuffer(make([]byte, 0, length))
+
+	//	ringSize
+	err := WriteVarInt(w, uint64(ringSize))
+
+	// seeds [][]byte
+	for i := 0; i < ringSize; i++ {
+		_, err = w.Write(sig.seeds[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// z_as  []*PolyAVec eta
+	for i := 0; i < ringSize; i++ {
+		err = pp.writePolyAVecEta(w, sig.z_as[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// z_cs  [][]*PolyCVec eta
+	for i := 0; i < ringSize; i++ {
+		for t := 0; t < pp.paramK; t++ {
+			err = pp.writePolyCVecEta(w, sig.z_cs[i][t])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// z_cps [][]*PolyCVec eta
+	for i := 0; i < ringSize; i++ {
+		for t := 0; t < pp.paramK; t++ {
+			err = pp.writePolyCVecEta(w, sig.z_cps[i][t])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return w.Bytes(), nil
+}
+
+// deserializeElrSignatureMLP deserialize the input []byte to an elrSignatureMLP.
+func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*elrSignatureMLP, error) {
+	if len(serializedSig) == 0 {
+		return nil, fmt.Errorf("deserializeElrSignatureMLP: the input serializedSig is nil/empty")
+	}
+
+	r := bytes.NewReader(serializedSig)
+
+	ringSize, err := ReadVarInt(r)
+
+	seeds := make([][]byte, ringSize)      //	seeds [][]byte
+	z_as := make([]*PolyAVec, ringSize)    //	z_as  []*PolyAVec
+	z_cs := make([][]*PolyCVec, ringSize)  //	z_cs  [][]*PolyCVec
+	z_cps := make([][]*PolyCVec, ringSize) //	z_cps [][]*PolyCVec
+
+	//	seeds [][]byte
+	for i := uint64(0); i < ringSize; i++ {
+		seeds[i] = make([]byte, HashOutputBytesLen)
+		_, err = r.Read(seeds[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//	z_as  []*PolyAVec
+	for i := uint64(0); i < ringSize; i++ {
+		z_as[i], err = pp.readPolyAVecEta(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//	z_cs  [][]*PolyCVec
+	for i := uint64(0); i < ringSize; i++ {
+		z_cs[i] = make([]*PolyCVec, pp.paramK)
+		for t := 0; t < pp.paramK; t++ {
+			z_cs[i][t], err = pp.readPolyCVecEta(r)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//	z_cps [][]*PolyCVec
+	for i := uint64(0); i < ringSize; i++ {
+		z_cps[i] = make([]*PolyCVec, pp.paramK)
+		for t := 0; t < pp.paramK; t++ {
+			z_cps[i][t], err = pp.readPolyCVecEta(r)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &elrSignatureMLP{
+		seeds: seeds,
+		z_as:  z_as,
+		z_cs:  z_cs,
+		z_cps: z_cps,
+	}, nil
+}
+
+//	elr Signature	end
 
 // Simple Signature	begin
 
