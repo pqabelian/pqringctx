@@ -99,7 +99,7 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(tx *CoinbaseTxMLP, withWitness
 
 // TxInputMLPSerializeSize returns the serialize size of the input TxInputMLP.
 // added on 2023.12.14
-// todo: review
+// reviewed onn2023.12.19
 func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, error) {
 	if txInput == nil || len(txInput.lgrTxoList) == 0 || len(txInput.serialNumber) == 0 {
 		return 0, fmt.Errorf("TxInputMLPSerializeSize: there is nil pointer in the input TxInputMLP")
@@ -126,7 +126,7 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 // serializeTxInputMLP serializes the input TxInputMLP to []byte.
 // serializeTxInputMLP is called only SerializeTransferTxMLP() to prepare TrTxCon to be authenticated.
 // added on 2023.12.14
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, error) {
 	if txInput == nil || len(txInput.lgrTxoList) == 0 || len(txInput.serialNumber) == 0 {
 		return nil, fmt.Errorf("serializeTxInputMLP: there is nil pointer in the input TxInputMLP")
@@ -165,7 +165,7 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 
 // deserializeTxInputMLP deserializes the input []byte to a TxInputMLP.
 // added on 2023.12.14
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*TxInputMLP, error) {
 
 	r := bytes.NewReader(serializedTxInputMLP)
@@ -254,7 +254,7 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 
 // SerializeTransferTxMLP serialize the input TransferTxMLP to []byte.
 // Note that SerializeTransferTxMLP serializes the details bytes of the input and out Txos.
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
 
 	if trTx == nil || len(trTx.txInputs) == 0 || len(trTx.txos) == 0 {
@@ -327,6 +327,11 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 	}
 
 	return w.Bytes(), nil
+}
+
+// todo:
+func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []byte, withWitness bool) (*TransferTxMLP, error) {
+	return nil, nil
 }
 
 //	Tx Serialization	end

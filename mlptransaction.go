@@ -244,8 +244,8 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 }
 
 // TransferTxMLPGen generates TransferTxMLP.
+// reviewed 2023.12.19
 // todo: review pp.CoinValueKeyVerify
-// todo: review 2023.12.18
 func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -710,7 +710,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	trTx.txWitness = &TxWitnessTrTx{
 		txCase:                     txCase,
 		inForRing:                  uint8(inForRing),
-		inForSingle:                uint8(inForRing),
+		inForSingle:                uint8(inForSingle),
 		inForSingleDistinct:        uint8(inForSingleDistinct),
 		inRingSizes:                inRingSizes,
 		outForRing:                 uint8(outForRing),
@@ -729,6 +729,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 }
 
 // TransferTxMLPVerify verifies TransferTxMLP.
+// reviewed on 2023.12.19
 // todo: multi-round review
 func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error) {
 	if trTx == nil ||
@@ -785,7 +786,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 			if err != nil {
 				return false, err
 			}
-			apkHash, err := Hash(serializedApk) //	This is the same as that in CoinAddressKeyForPKHSingleGen
+			apkHash, err := Hash(serializedApk) //	This computation is the same as that in CoinAddressKeyForPKHSingleGen
 			apkHashString := hex.EncodeToString(apkHash)
 			if _, exists := addressPublicKeyForSingleMap[apkHashString]; exists {
 				return false, fmt.Errorf("TransferTxMLPVerify: there are repated addressPublicKeyForSingles in trTx.txWitness.addressPublicKeyForSingles")
@@ -809,7 +810,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 
 		if j < int(trTx.txWitness.outForRing) {
 			//	outForRing
-			if coinAddressType != CoinAddressTypePublicKeyForRingPre && CoinAddressTypePublicKeyForRingPre != CoinAddressTypePublicKeyForRing {
+			if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
 				return false, fmt.Errorf("TransferTxMLPVerify: the fisrt %d txo should have RingCT-privacy, but %d-th does not", trTx.txWitness.outForRing, j)
 			}
 			switch txoInst := txo.(type) {
@@ -904,7 +905,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 				if index, exists := lgrTxoIdMap[lgrTxoIdString]; exists {
 					return false, fmt.Errorf("TransferTxMLPVerify: %d-th input contain repeated lgrtxo, the %d-th and the %d -th", i, t, index)
 				}
-				spentCoinSerialNumberMap[snString] = t
+				lgrTxoIdMap[lgrTxoIdString] = t
 			}
 
 			//	check ringSizes
@@ -1365,10 +1366,10 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 
 // extendSerializedTransferTxContent extend the serialized TransferTx Content by appending the cmt_ps.
 // added on 2023.12.15
-// todo: review
-func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon []byte, cmt_ps []*ValueCommitment) ([]byte, error) {
+// reviewed on 2023.12.19
+func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon []byte, cmts_in_p []*ValueCommitment) ([]byte, error) {
 
-	length := len(serializedTrTxCon) + len(cmt_ps)*pp.ValueCommitmentSerializeSize()
+	length := len(serializedTrTxCon) + len(cmts_in_p)*pp.ValueCommitmentSerializeSize()
 
 	rst := make([]byte, 0, length)
 
@@ -1376,8 +1377,8 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 	rst = append(rst, serializedTrTxCon...)
 
 	//	cmt_ps []*ValueCommitment
-	for i := 0; i < len(cmt_ps); i++ {
-		serializedCmt, err := pp.SerializeValueCommitment(cmt_ps[i])
+	for i := 0; i < len(cmts_in_p); i++ {
+		serializedCmt, err := pp.SerializeValueCommitment(cmts_in_p[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1389,7 +1390,7 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 
 // genBalanceProofTrTx generates balanceProof for transferTx.
 // reviewed on 2023.12.16
-// todo: multi-round review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	cmtrs_in_p []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
 
@@ -1576,7 +1577,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 }
 
 // verifyBalanceProofTrTx verifies BalanceProofTrTx
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	txCase TxWitnessTrTxCase, balcenProof BalanceProof) (bool, error) {
 

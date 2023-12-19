@@ -633,7 +633,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 }
 
 // elrSignatureMLPSerializeSize returns the serialize size for a ElrSignatureMLP with the input ringSize.
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize uint8) int {
 	length := 1 + //	for the ringSize
 		int(ringSize)*HashOutputBytesLen + //	seeds [][]byte
@@ -643,7 +643,7 @@ func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize uint8) int {
 }
 
 // serializeElrSignatureMLP serializes the input ElrSignatureMLP into []byte.
-// todo: review
+// reviewed on 2023.12.19
 func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byte, error) {
 	if sig == nil || len(sig.seeds) == 0 {
 		return nil, fmt.Errorf("serializeElrSignatureMLP: there is nil pointer in the input ElrSignatureMLP")
@@ -703,6 +703,7 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 }
 
 // deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
+// reviewed on 2023.12.19
 func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*ElrSignatureMLP, error) {
 	if len(serializedSig) == 0 {
 		return nil, fmt.Errorf("deserializeElrSignatureMLP: the input serializedSig is nil/empty")
@@ -711,6 +712,9 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	r := bytes.NewReader(serializedSig)
 
 	ringSize, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
 
 	seeds := make([][]byte, ringSize)      //	seeds [][]byte
 	z_as := make([]*PolyAVec, ringSize)    //	z_as  []*PolyAVec
