@@ -11,7 +11,7 @@ import (
 // CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.
 // reviewed on 2023.12.04
 // reviewed on 2023.12.07
-// todo: refactor to have the same architecture with trTx
+// reviewed on 2023.12.20
 func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withWitness bool) (int, error) {
 	var length int
 
@@ -37,6 +37,9 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 
 	// TxWitness
 	if withWitness {
+		if cbTx.txWitness == nil {
+			return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: withWitness = true while cbTx.txWitness is nil")
+		}
 		witnessLen := pp.TxWitnessCbTxSerializeSize(cbTx.txWitness.outForRing)
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
@@ -90,6 +93,9 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 
 	//	txWitness *TxWitnessCbTx
 	if withWitness {
+		if cbTx.txWitness == nil {
+			return nil, fmt.Errorf("SerializeCoinbaseTxMLP: withWitness = true while cbTx.txWitness is nil")
+		}
 		serializedTxWitness, err := pp.SerializeTxWitnessCbTx(cbTx.txWitness)
 		if err != nil {
 			return nil, err
@@ -105,7 +111,7 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 }
 
 // DeserializeCoinbaseTxMLP deserialize []byte to CoinbaseTxMLP.
-// todo: review
+// reviewed on 2023.12.20
 func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []byte, withWitness bool) (*CoinbaseTxMLP, error) {
 	if len(serializedCoinbaseTxMLP) == 0 {
 		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the input serializedTransferTxMLP is empty")
@@ -425,6 +431,10 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 
 	//	txWitness *TxWitnessTrTx
 	if withWitness {
+		if trTx.txWitness == nil {
+			return nil, fmt.Errorf("SerializeTransferTxMLP: withWitness = true while trTx.txWitness is nil")
+		}
+
 		serializedWitness, err := pp.SerializeTxWitnessTrTx(trTx.txWitness)
 		if err != nil {
 			return nil, err
