@@ -3,7 +3,6 @@ package pqringctx
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 )
 
@@ -270,10 +269,11 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 // SerializeTransferTxMLP serialize the input TransferTxMLP to []byte.
 // Note that SerializeTransferTxMLP serializes the details bytes of the input and out Txos.
 // reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
 
 	if trTx == nil || len(trTx.txInputs) == 0 || len(trTx.txos) == 0 {
-		return nil, errors.New("SerializeTransferTxMLP: there is nil pointer in the input TransferTxMLP")
+		return nil, fmt.Errorf("SerializeTransferTxMLP: there is nil pointer in the input TransferTxMLP")
 	}
 
 	length, err := pp.TransferTxMLPSerializeSize(trTx, withWitness)
@@ -284,7 +284,11 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	txInputs  []*TxInputMLP
-	err = WriteVarInt(w, uint64(len(trTx.txInputs)))
+	inputNum := len(trTx.txInputs)
+	if inputNum > pp.paramI+pp.paramISingle {
+		return nil, fmt.Errorf("SerializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	}
+	err = WriteVarInt(w, uint64(inputNum))
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +304,11 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 	}
 
 	//	txos      []TxoMLP
-	err = WriteVarInt(w, uint64(len(trTx.txos)))
+	outputNum := len(trTx.txos)
+	if outputNum > pp.paramJ+pp.paramJSingle {
+		return nil, fmt.Errorf("SerializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	}
+	err = WriteVarInt(w, uint64(outputNum))
 	if err != nil {
 		return nil, err
 	}
