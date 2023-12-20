@@ -9,6 +9,8 @@ import (
 
 // CoinbaseTxMLPGen generates a coinbase transaction.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
 	V := uint64(1)<<pp.paramN - 1
 
@@ -129,6 +131,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 		txCase:       txCase,
 		vL:           vL,
 		outForRing:   uint8(outForRing),
+		outForSingle: uint8(outForSingle),
 		balanceProof: balanceProof,
 	}
 
@@ -136,7 +139,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 }
 
 // CoinbaseTxMLPVerify verifies the input CoinbaseTxMLP.
-// todo: review
+// reviewed on 2023.12.20
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error) {
 	if cbTx == nil || len(cbTx.txos) == 0 || cbTx.txWitness == nil {
 		return false, nil
@@ -148,81 +151,85 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 		return false, nil
 	}
 
-	// identify the J_ring
-	outForRing := 0
-	outForSingle := 0
-	for i := 0; i < len(cbTx.txos); i++ {
-		coinAddressType := cbTx.txos[i].CoinAddressType()
-		if coinAddressType == CoinAddressTypePublicKeyForRingPre || coinAddressType == CoinAddressTypePublicKeyForRing {
-			if i == outForRing {
-				outForRing += 1
-			} else {
-				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return false, fmt.Errorf("CoinbaseTxMLPVerify: the coinAddresses for RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
-			}
+	//	As the following checks will use cbTx.txWitness,
+	//	here we first conduct checks on cbTx.txWitness.
+	if cbTx.txWitness.vL != cbTx.vin {
+		return false, nil
+	}
 
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
-			outForSingle += 1
+	outputNum := len(cbTx.txos)
+	if int(cbTx.txWitness.outForRing) > pp.paramJ || int(cbTx.txWitness.outForSingle) > pp.paramJSingle {
+		return false, nil
+	}
+
+	if int(cbTx.txWitness.outForRing)+int(cbTx.txWitness.outForSingle) != outputNum {
+		return false, nil
+	}
+
+	if cbTx.txWitness.balanceProof == nil {
+		return false, nil
+	}
+
+	//	txos
+	vOutPublic := uint64(0)
+	cmts_out := make([]*ValueCommitment, cbTx.txWitness.outForRing)
+	for j := 0; j < outputNum; j++ {
+		txo := cbTx.txos[j]
+		coinAddressType := txo.CoinAddressType()
+
+		if j < int(cbTx.txWitness.outForRing) {
+			//	outForRing
+			if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
+				return false, fmt.Errorf("CoinbaseTxMLPVerify: the fisrt %d txo should have RingCT-privacy, but %d-th does not", cbTx.txWitness.outForRing, j)
+			}
+			switch txoInst := txo.(type) {
+			case *TxoRCTPre:
+				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRingPre {
+					return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo is TxoRCTPre, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRingPre", j, coinAddressType)
+				}
+				cmts_out[j] = txoInst.valueCommitment
+
+			case *TxoRCT:
+				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRing {
+					return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo is TxoRCT, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRing", j, coinAddressType)
+				}
+				cmts_out[j] = txoInst.valueCommitment
+
+			default:
+				//	just assert
+				return false, fmt.Errorf("CoinbaseTxMLPVerify: This should not happen, where the %d -th txo is not TxoRCTPre or TxoRCT", j)
+			}
 
 		} else {
-			return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", i, coinAddressType)
+			//	outForSingle
+			if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+				return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d-th txo should have Pseudonym-privacy, but it does not", j)
+			}
+			switch txoInst := txo.(type) {
+			case *TxoSDN:
+				if txoInst.value > V {
+					return false, nil
+				}
+				vOutPublic += txoInst.value
+				if vOutPublic > V {
+					return false, nil
+				}
+
+			default:
+				//	just assert
+				return false, fmt.Errorf("CoinbaseTxMLPVerify: This should not happen, where the %d -th txo is not TxoSDN", j)
+			}
 		}
 	}
 
-	if outForRing > pp.paramJ {
-		return false, fmt.Errorf("CoinbaseTxMLPVerify: the number of RingCT-Privacy coinAddresses in the input cbTx.txos (%d) exceeds the allowd maxumim %d", outForRing, pp.paramJ)
-	}
-
-	if outForSingle > pp.paramJSingle {
-		return false, fmt.Errorf("CoinbaseTxMLPVerify: the number of Pseudonym-Privacy coinAddresses in the input cbTx.txos (%d) exceeds the allowd maxumim %d", outForSingle, pp.paramJSingle)
-	}
-
-	if cbTx.txWitness == nil {
+	if cbTx.vin < vOutPublic {
 		return false, nil
 	}
 
-	cmts := make([]*ValueCommitment, outForRing)
-
-	voutPublic := uint64(0)
-	// generate the output using txoGen
-	for j, txoMLP := range cbTx.txos {
-		switch txoInst := txoMLP.(type) {
-		case *TxoRCTPre:
-			if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRingPre {
-				return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d-th Txo is TxoRCTPre, but its coinAddressType is not CoinAddressTypePublicKeyForRingPre", j)
-			}
-			cmts[j] = txoInst.valueCommitment
-
-		case *TxoRCT:
-			if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyForRing {
-				return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d-th Txo is TxoRCT, but its coinAddressType is not CoinAddressTypePublicKeyForRing", j)
-			}
-			cmts[j] = txoInst.valueCommitment
-
-		case *TxoSDN:
-			if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
-				return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d-th Txo is TxoSDN, but its coinAddressType is not CoinAddressTypePublicKeyHashForSingle", j)
-			}
-			if txoInst.value > V {
-				return false, nil
-			}
-
-			voutPublic = voutPublic + txoInst.value
-
-			if voutPublic > V {
-				return false, nil
-			}
-
-		default:
-			return false, fmt.Errorf("CoinbaseTxMLPVerify: the %d-th Txo is not TxoRCTPre, TxoRCT, or TxoSDN", j)
-		}
-	}
-
-	if cbTx.vin < voutPublic {
+	vL := cbTx.vin - vOutPublic
+	if cbTx.txWitness.vL != vL {
 		return false, nil
 	}
-
-	vL := cbTx.vin - voutPublic
 
 	serializedCbTxCon, err := pp.SerializeCoinbaseTxMLP(cbTx, false)
 	if err != nil {
@@ -230,17 +237,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 	}
 
 	//	verify the witness
-	if cbTx.txWitness.vL != vL {
-		return false, err
-	}
-	if int(cbTx.txWitness.outForRing) != outForRing {
-		return false, err
-	}
-	if cbTx.txWitness.balanceProof == nil {
-		return false, err
-	}
-
-	return pp.verifyBalanceProofCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
+	return pp.verifyBalanceProofCbTx(serializedCbTxCon, cbTx.txWitness.vL, cbTx.txWitness.outForRing, cmts_out, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
 }
 
 // TransferTxMLPGen generates TransferTxMLP.
@@ -752,7 +749,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 	if int(trTx.txWitness.outForRing) > pp.paramJ || int(trTx.txWitness.outForSingle) > pp.paramJSingle {
 		return false, nil
 	}
-	if int(trTx.txWitness.outForRing+trTx.txWitness.outForSingle) != outputNum {
+	if int(trTx.txWitness.outForRing)+int(trTx.txWitness.outForSingle) != outputNum {
 		return false, nil
 	}
 
@@ -762,7 +759,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 	if trTx.txWitness.inForSingleDistinct > trTx.txWitness.inForSingle {
 		return false, nil
 	}
-	if int(trTx.txWitness.inForRing+trTx.txWitness.inForSingle) != inputNum {
+	if int(trTx.txWitness.inForRing)+int(trTx.txWitness.inForSingle) != inputNum {
 		return false, nil
 	}
 
@@ -1024,22 +1021,22 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 			if i == outForRing {
 				outForRing += 1
 			} else {
-				return 0, errors.New("GetCbTxWitnessSerializeSizeApprox: the coinAddresses for RingCT-Privacy should be at the fist successive positions")
+				return 0, errors.New("GetCbTxWitnessSerializeSizeByDesc: the coinAddresses for RingCT-Privacy should be at the fist successive positions")
 			}
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
 			outForSingle += 1
 		} else {
-			return 0, errors.New("GetCbTxWitnessSerializeSizeApprox: unsupported coinAddress type appears in coinAddressList")
+			return 0, errors.New("GetCbTxWitnessSerializeSizeByDesc: unsupported coinAddress type appears in coinAddressList")
 		}
 	}
 
-	if outForRing > pp.GetTxOutputMaxNumForRing() {
-		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeApprox: the number of output coins for RingCT-privacy exceeds the max allowed on: %d vs %d", outForRing, pp.GetTxOutputMaxNumForRing())
+	if outForRing > pp.paramJ {
+		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for RingCT-privacy exceeds the max allowed on: %d vs %d", outForRing, pp.paramJ)
 		return 0, errors.New(errStr)
 	}
 
-	if outForSingle > pp.GetTxOutputMaxNumForSingle() {
-		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeApprox: the number of output coins for Pseudonym-privacy exceeds the max allowed on: %d vs %d", outForSingle, pp.GetTxOutputMaxNumForSingle())
+	if outForSingle > pp.paramISingle {
+		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for Pseudonym-privacy exceeds the max allowed on: %d vs %d", outForSingle, pp.paramISingle)
 		return 0, errors.New(errStr)
 	}
 
@@ -1231,9 +1228,10 @@ func (pp *PublicParameter) SerializeLgrTxoMLP(lgrTxo *LgrTxoMLP) ([]byte, error)
 // Note that for the case of txoRCTPre, this must keep the same as pqringct.DeserializeLgrTxo.
 // added on 2023.12.14
 // reviewed on 2023.12.14
+// reviewed on 2023.12.20
 func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTxoMLP, error) {
-	if len(serializedLgrTxo) < pp.LgrTxoMLPIdSerializeSize() {
-		return nil, fmt.Errorf("DeserializeLgrTxoMLP: the length of the input serializedLgrTxo (%d) is smaller than pp.LgrTxoMLPIdSerializeSize()=%d", len(serializedLgrTxo), pp.LgrTxoMLPIdSerializeSize())
+	if len(serializedLgrTxo) == 0 {
+		return nil, fmt.Errorf("DeserializeLgrTxoMLP: the input serializedLgrTxo is empty")
 	}
 
 	r := bytes.NewReader(serializedLgrTxo)
@@ -1269,6 +1267,7 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 
 // genBalanceProofCbTx generates BalanceProofCbTx.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
 
@@ -1305,7 +1304,9 @@ func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outFor
 
 // verifyBalanceProofCbTx verifies the BalanceProofCbTx.
 // reviewed on 2023.12.18
-func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment, txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
+// reviewed on 2023.12.20
+func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+	txCase TxWitnessCbTxCase, balanceProof BalanceProof) (bool, error) {
 	if len(cbTxCon) == 0 {
 		return false, nil
 	}
@@ -1313,6 +1314,10 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 	V := uint64(1)<<pp.paramN - 1
 
 	if vL > V {
+		return false, nil
+	}
+
+	if int(outForRing) > pp.paramJ {
 		return false, nil
 	}
 
@@ -1362,6 +1367,17 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 	}
 
 	return false, nil
+}
+
+// balanceProofCbTxSerializeSize returns the serialize size for BalanceProofCbTx.
+func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) int {
+	if outForRing == 0 {
+		return pp.balanceProofL0R0SerializeSize()
+	} else if outForRing == 1 {
+		return pp.balanceProofL0R1SerializeSize()
+	} else { //	outForRing >= 2
+		return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
+	}
 }
 
 // extendSerializedTransferTxContent extend the serialized TransferTx Content by appending the cmt_ps.
@@ -1847,6 +1863,123 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 	}
 
 	return false, nil
+}
+
+// balanceProofTrTxSerializeSize returns the serialize for the BalanceProof for TxWitnessTrTx, according to the input (inForRing uint8, outForRing uint8, vPublic int64).
+// reviewed on 2023.12.19
+func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
+
+	if inForRing == 0 {
+		if outForRing == 0 {
+			if vPublic != 0 {
+				//	assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
+			}
+
+			return pp.balanceProofL0R0SerializeSize(), nil
+
+		} else if outForRing == 1 {
+			//	0 = cmt_{out,0} + vPublic
+			if vPublic > 0 {
+				//	assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
+			}
+			//  -vPublic = cmt_{out,0}
+			return pp.balanceProofL0R1SerializeSize(), nil
+
+		} else { //	outForRing >= 2
+			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic > 0 {
+				// assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
+			}
+
+			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+			return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing), nil
+
+		}
+	} else if inForRing == 1 {
+		if outForRing == 0 {
+			//	cmt_{in,0} = vPublic
+			if vPublic < 0 {
+				// assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
+			}
+
+			//	vPublic = cmt_{in,0}
+			return pp.balanceProofL0R1SerializeSize(), nil
+
+		} else if outForRing == 1 {
+			//	cmt_{in,0} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0}
+				return pp.balanceProofL1R1SerializeSize(), nil
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + vPublic
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+			}
+		} else { //	outForRing >= 2
+			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+			} else if vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+			}
+		}
+
+	} else { //	inForRing >= 2
+		if outForRing == 0 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
+			if vPublic < 0 {
+				// assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing >= 2 and outForRing == 0, but vPublic < 0")
+			}
+
+			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+			return pp.balanceProofLmRnSerializeSizeByCommNum(0, inForRing), nil
+
+		} else if outForRing == 1 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+			}
+
+		} else { // outForRing >= 2
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+
+			} else if vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+			}
+		}
+	}
 }
 
 //	helper functions	end
