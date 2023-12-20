@@ -24,6 +24,7 @@ const (
 	MaxAllowedTxoMLPSize        uint32 = 1048576    // 2^20
 	MaxAllowedTxMemoMLPSize     uint32 = 65536      // 2^16
 	MaxAllowedTxWitnessTrTxSize uint32 = 16777216   // 2^24, 16M bytes
+	MaxAllowedTxWitnessCbTxSize uint32 = 8388608    // 2^23, 8M bytes
 )
 
 func AddressKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, []byte, error) {
