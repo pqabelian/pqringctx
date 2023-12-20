@@ -88,7 +88,7 @@ func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey [
 	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, value)
 }
 
-// TransferTxGen generates TransferTx.
+// TransferTxGen generates TransferTxMLP.
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
 // TransferTxGen outputs a pqringctxapidao.TransferTxMLP, rather than a serialized Tx.
@@ -97,8 +97,10 @@ func TransferTxGen(pp *PublicParameter, txInputDescs []*TxInputDescMLP, txOutput
 	return pp.TransferTxMLPGen(txInputDescs, txOutputDescs, fee, txMemo)
 }
 
+// TransferTxVerify verifies TransferTxMLP.
+// todo: review
 func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
-	return false, nil
+	return pp.TransferTxMLPVerify(trTx)
 }
 
 // API for AddressKeys	begin
