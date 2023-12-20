@@ -427,7 +427,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if nL+nR != n { // nL (resp. nR) is the number of commitments on left (resp. right) side
+	if int(nL)+int(nR) != int(n) { // nL (resp. nR) is the number of commitments on left (resp. right) side
 		return false
 	}
 
@@ -757,14 +757,17 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 		if nL != 0 {
 			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL0Rn, but nL(%d) is not 0 as expected", nL)
 		}
-		n := nL + nR // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
+		n := int(nL) + int(nR) // // nL = 0, n = nL+nR = nR, note that the following computation is based on such a setting.
 		n2 := n + 2
+		if n2 > 0xFF {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: n2 := int(nL) + int(nR) + 2 > 0xFF")
+		}
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
 
 			// p[t][0], ..., p[t][n-1]
-			for j := uint8(0); j < n; j++ {
+			for j := 0; j < n; j++ {
 				// p[t][j] = &PolyCNTT{coeffs: gammas[t][0]}
 				coeffs_r := make([]int64, pp.paramDC)
 				for i := 0; i < pp.paramDC; i++ {
@@ -853,8 +856,11 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 		if nL != 1 {
 			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL1Rn, but nL(%d) is not 1 as expected", nL)
 		}
-		n := nL + nR // n = 1+nR, note that the following computation is based on such a setting.
+		n := int(nL) + int(nR) // n = 1+nR, note that the following computation is based on such a setting.
 		n2 := n + 2
+		if n2 > 0xFF {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: n2 := int(nL) + int(nR) + 2 > 0xFF")
+		}
 		// m = 3
 		for t := 0; t < pp.paramK; t++ {
 			p[t] = make([]*PolyCNTT, n2)
@@ -867,7 +873,7 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 			p[t][0] = &PolyCNTT{coeffs: coeffs_l}
 
 			// p[t][1], ..., p[t][n-1]
-			for j := uint8(1); j < n; j++ {
+			for j := 1; j < n; j++ {
 				coeffs_r := make([]int64, pp.paramDC)
 				for i := 0; i < pp.paramDC; i++ {
 					coeffs_r[i] = -gammas[t][0][i]
@@ -955,8 +961,11 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 		if nL < 2 {
 			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: the rpulpType is RpUlpTypeL1Rn, but nL(%d) is not >=2 as expected", nL)
 		}
-		n := nL + nR
+		n := int(nL) + int(nR)
 		n2 := n + 4
+		if n2 > 0xFF {
+			return nil, fmt.Errorf("genUlpPolyCNTTsMLP: n2 := int(nL) + int(nR) + 4 > 0xFF")
+		}
 		//	B : d rows 2d columns
 		//	m = 5
 		for t := 0; t < pp.paramK; t++ {
@@ -1330,12 +1339,12 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
 
-	n := nL + nR
+	n := int(nL) + int(nR)
 	length := 3 + //	rpUlpType, nL, nR
-		int(n)*lengthOfPolyCNTT + // c_waves   []*PolyCNTT, with length n
+		n*lengthOfPolyCNTT + // c_waves   []*PolyCNTT, with length n
 		3*lengthOfPolyCNTT + // c_hat_g,psi,phi  *PolyCNTT
 		HashOutputBytesLen + // chseed    []byte
-		pp.paramK*int(n)*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec: dimension [pp.paramK][n], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
+		pp.paramK*n*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) + // cmt_zs    [][]*PolyCVec: dimension [pp.paramK][n], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
 		pp.paramK*pp.PolyCVecSerializeSizeEtaByVecLen(pp.paramLC) //	zs        []*PolyCVec: dimension [pp.paramK], each is a PolyCVec with vevLen = paramLc, i.e., (S_{eta_c - beta_c})^{L_c}
 
 	return length
@@ -1526,40 +1535,5 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 		zs:        zs,
 	}, nil
 }
-
-//func (pp *PublicParameter) decideRpUlpType(nL uint8, nR uint8, vRPub uint64) (RpUlpTypeMLP, error) {
-//	if int(nL) > pp.paramI || int(nR) > pp.paramJ {
-//		return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the input nL(%d) or nR(%d) exceeds the allowed maximum scope [0, %d] (input-side), [0, %d] (output-side)", nL, nR, pp.paramI, pp.paramJ)
-//	}
-//	if nL == 0 {
-//		if nR == 0 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
-//		} else if nR == 1 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
-//		} else {
-//			// nR >= 2
-//			return RpUlpTypeL0Rn, nil
-//		}
-//	} else if nL == 1 {
-//		if nR == 0 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
-//		} else if nR == 1 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
-//		} else {
-//			// nR >= 2
-//			return RpUlpTypeL1Rn, nil
-//		}
-//	} else {
-//		// nL >= 2
-//		if nR == 0 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) should implemented by (nL=%d, nR=%d)", nL, nR, nR, nL)
-//		} else if nR == 1 {
-//			return RpUlpTypeL0Rn, fmt.Errorf("decideRpUlpType: the case of (nL=%d, nR=%d) does not need RpUlpProve", nL, nR)
-//		} else {
-//			// nR >= 2
-//			return RpUlpTypeLmRn, nil
-//		}
-//	}
-//}
 
 //	BPF		end
