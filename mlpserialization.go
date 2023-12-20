@@ -107,14 +107,14 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 
 	var length = 0
 	//	lgrTxoList   []*LgrTxoMLP
-	lgrTxoNum := len(txInput.lgrTxoList)
+	ringSize := len(txInput.lgrTxoList)
 	// length = VarIntSerializeSize(uint64(lgrTxoNum))
-	if len(txInput.lgrTxoList) > int(pp.paramRingSizeMax) {
+	if ringSize > int(pp.paramRingSizeMax) {
 		// we shall check the ring size, to resist memory exhaustion attack.
-		return 0, fmt.Errorf("TxInputMLPSerializeSize: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", len(txInput.lgrTxoList))
+		return 0, fmt.Errorf("TxInputMLPSerializeSize: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", ringSize, pp.paramRingSizeMax)
 	}
 	length = length + 1
-	for i := 0; i < lgrTxoNum; i++ {
+	for i := 0; i < ringSize; i++ {
 		lgrTxoSerializeSize, err := pp.lgrTxoMLPSerializeSize(txInput.lgrTxoList[i])
 		if err != nil {
 			return 0, nil
@@ -148,15 +148,16 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 
 	//	lgrTxoList   []*LgrTxoMLP
 	// err = WriteVarInt(w, uint64(len(txInput.lgrTxoList)))
-	if len(txInput.lgrTxoList) > int(pp.paramRingSizeMax) {
+	ringSize := len(txInput.lgrTxoList)
+	if ringSize > int(pp.paramRingSizeMax) {
 		// we shall check the ring size, to resist memory exhaustion attack.
-		return nil, fmt.Errorf("serializeTxInputMLP: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", len(txInput.lgrTxoList))
+		return nil, fmt.Errorf("serializeTxInputMLP: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", ringSize, pp.paramRingSizeMax)
 	}
-	err = w.WriteByte(uint8(len(txInput.lgrTxoList)))
+	err = w.WriteByte(uint8(ringSize))
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(txInput.lgrTxoList); i++ {
+	for i := 0; i < ringSize; i++ {
 		serializedLgrTxo, err := pp.SerializeLgrTxoMLP(txInput.lgrTxoList[i])
 		if err != nil {
 			return nil, err
@@ -189,12 +190,12 @@ func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*
 	r := bytes.NewReader(serializedTxInputMLP)
 
 	//	lgrTxoList   []*LgrTxoMLP
-	count, err := r.ReadByte()
+	ringSize, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	lgrTxoList := make([]*LgrTxoMLP, count)
-	for i := uint8(0); i < count; i++ {
+	lgrTxoList := make([]*LgrTxoMLP, ringSize)
+	for i := uint8(0); i < ringSize; i++ {
 		serializedLgrTxo, err := readVarBytes(r, MaxAllowedLgrTxoMLPSize, "TxInputMLP.lgrTxoList[]")
 		if err != nil {
 			return nil, err
@@ -221,7 +222,7 @@ func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*
 }
 
 // TransferTxMLPSerializeSize returns the serialize size for the input TransferTxMLP.
-// todo: review
+// reviewed on 2023.12.20
 func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withWitness bool) (int, error) {
 	var length int
 
@@ -231,7 +232,7 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
 	}
 	length = VarIntSerializeSize(uint64(inputNum))
-	for i := 0; i < len(trTx.txInputs); i++ {
+	for i := 0; i < inputNum; i++ {
 		txInputLen, err := pp.TxInputMLPSerializeSize(trTx.txInputs[i])
 		if err != nil {
 			return 0, err
@@ -244,8 +245,8 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 	if outputNum > pp.paramJ+pp.paramJSingle {
 		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
 	}
-	length += VarIntSerializeSize(uint64(len(trTx.txos)))
-	for i := 0; i < len(trTx.txos); i++ {
+	length += VarIntSerializeSize(uint64(outputNum))
+	for i := 0; i < outputNum; i++ {
 		txoLen, err := pp.TxoMLPSerializeSize(trTx.txos[i])
 		if err != nil {
 			return 0, err
@@ -268,7 +269,8 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 		if err != nil {
 			return 0, err
 		}
-		//	Although the witnessLen can be computed from some description information, note that when deserialization extracting these description may cause inefficiency,
+		//	Although the witnessLen can be computed from some description information,
+		//	note that when deserialization extracting these description may cause inefficiency,
 		//	here we use var bytes
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
@@ -302,7 +304,7 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(trTx.txInputs); i++ {
+	for i := 0; i < inputNum; i++ {
 		serializedTxInput, err := pp.serializeTxInputMLP(trTx.txInputs[i])
 		if err != nil {
 			return nil, err
@@ -322,7 +324,7 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(trTx.txos); i++ {
+	for i := 0; i < outputNum; i++ {
 		serializedTxo, err := pp.SerializeTxoMLP(trTx.txos[i])
 		if err != nil {
 			return nil, err
@@ -362,7 +364,7 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 }
 
 // DeserializeTransferTxMLP deserialize []byte to TransferTxMLP.
-// todo: review
+// reviewed on 2023.12.20
 func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []byte, withWitness bool) (*TransferTxMLP, error) {
 	if len(serializedTransferTxMLP) == 0 {
 		return nil, fmt.Errorf("DeserializeTransferTxMLP: the input serializedTransferTxMLP is empty")
@@ -402,6 +404,9 @@ func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []by
 	txos := make([]TxoMLP, outputNum)
 	for i := 0; i < int(outputNum); i++ {
 		serializedTxo, err := readVarBytes(r, MaxAllowedTxoMLPSize, "TransferTxMLP.txos")
+		if err != nil {
+			return nil, err
+		}
 		txos[i], err = pp.DeserializeTxoMLP(serializedTxo)
 		if err != nil {
 			return nil, err
