@@ -707,7 +707,7 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 	return w.Bytes(), err
 }
 
-// deserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
+// DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
 // reviewed on 2023.12.19
 func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
 
