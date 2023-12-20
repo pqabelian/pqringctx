@@ -107,7 +107,7 @@ func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 // TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
-// todo: to align with that of TrTx
+// reviewed on 2023.12.20
 func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
@@ -115,19 +115,8 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 		1 //	outForSingle uint8
 
 	//	 balanceProof BalanceProof
-	bpfLen := 0
-	if outForRing == 0 {
-		//	TxWitnessCbTxCaseC0 ==> BalanceProofL0R0
-		bpfLen = pp.balanceProofL0R0SerializeSize()
-	} else if outForRing == 1 {
-		//	TxWitnessCbTxCaseC1 ==> BalanceProofL0R1
-		bpfLen = pp.balanceProofL0R1SerializeSize()
-	} else { // outForRing >= 2
-		//	TxWitnessCbTxCaseCn ==> BalanceProofLmRn
-		bpfLen = pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
-	}
-
-	length = length + bpfLen
+	serializedBpfLen := pp.balanceProofCbTxSerializeSize(outForRing)
+	length = length + serializedBpfLen
 
 	return length
 }
@@ -135,7 +124,7 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
 // SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
-// todo: to align with that of TrTx
+// reviewed on 2023.12.20
 func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
 	if txWitness == nil || txWitness.balanceProof == nil {
 		return nil, errors.New("SerializeTxWitnessCbTx: there is nil pointer in the input TxWitnessCbTx")
@@ -167,43 +156,19 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		return nil, err
 	}
 
-	// balanceProof BalanceProof
-	var serializedBpf []byte
-	switch bpfInst := txWitness.balanceProof.(type) {
-	case *BalanceProofL0R0:
-		if txWitness.outForRing != 0 {
-			return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofL0R0, but the outForRing is not 0")
-		}
-		serializedBpf, err = pp.serializeBalanceProofL0R0(bpfInst)
-		if err != nil {
-			return nil, err
-		}
-
-	case *BalanceProofL0R1:
-		if txWitness.outForRing != 1 {
-			return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofL0R1, but the outForRing is not 1")
-		}
-		serializedBpf, err = pp.serializeBalanceProofL0R1(bpfInst)
-		if err != nil {
-			return nil, err
-		}
-
-	case *BalanceProofLmRn:
-		if txWitness.outForRing < 2 {
-			return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is BalanceProofLmRn, but the outForRing is not >= 2")
-		}
-		serializedBpf, err = pp.serializeBalanceProofLmRn(bpfInst)
-		if err != nil {
-			return nil, err
-		}
-
-	default:
-		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx's balanceProof is not in the supported cases")
-	}
-
-	_, err = w.Write(serializedBpf) //	here the length of serializedBpf is not written, since it can be computed from outForRing.
+	//	balanceProof               BalanceProof
+	serializedBpf, err := pp.serializeBalanceProof(txWitness.balanceProof)
 	if err != nil {
 		return nil, err
+	}
+	_, err = w.Write(serializedBpf) //	here we use fixed-length, since in the deserialization, we can call pp.balanceProofCbTxSerializeSize() to get the balance proof size.
+	if err != nil {
+		return nil, err
+	}
+	// an assert, could be removed when test is finished
+	serializedBpfExpectedLen := pp.balanceProofCbTxSerializeSize(txWitness.outForRing)
+	if len(serializedBpf) != serializedBpfExpectedLen {
+		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the length of serializedBpfExpectedLen is not the same as expected")
 	}
 
 	return w.Bytes(), nil
@@ -212,7 +177,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 // DeserializeTxWitnessCbTx deserialize the input []byte to TxWitnessCbTx.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
-// todo: to align with that of TrTx
+// reviewed on 2023.12.30
 func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
@@ -234,13 +199,6 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 		return nil, err
 	}
 
-	// outForSingle uint8
-	var outForSingle uint8
-	outForSingle, err = r.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-
 	// outForRing   uint8
 	var outForRing uint8
 	outForRing, err = r.ReadByte()
@@ -248,57 +206,26 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 		return nil, err
 	}
 
-	// balanceProof BalanceProof
-	var balanceProof BalanceProof
-	if outForRing == 0 {
-		//	BalanceProofL0R0
-		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseC0 {
-			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is 0 but the txCase is not TxWitnessCbTxCaseC0")
-		}
+	// outForSingle uint8
+	var outForSingle uint8
+	outForSingle, err = r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
 
-		serializedBpf := make([]byte, pp.balanceProofL0R0SerializeSize())
-		_, err = r.Read(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
-
-		balanceProof, err = pp.deserializeBalanceProofL0R0(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
-
-	} else if outForRing == 1 {
-		//	BalanceProofL0R1
-		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseC1 {
-			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is 1 but the txCase is not TxWitnessCbTxCaseC1")
-		}
-
-		serializedBpf := make([]byte, pp.balanceProofL0R1SerializeSize())
-		_, err = r.Read(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
-
-		balanceProof, err = pp.deserializeBalanceProofL0R1(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// >= 2, BalanceProofLmRn
-		if TxWitnessCbTxCase(txCase) != TxWitnessCbTxCaseCn {
-			return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized outForRing is >= 2 but the txCase is not TxWitnessCbTxCaseCn")
-		}
-
-		serializedBpf := make([]byte, pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing))
-		_, err = r.Read(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
-
-		balanceProof, err = pp.deserializeBalanceProofLmRn(serializedBpf)
-		if err != nil {
-			return nil, err
-		}
+	//	balanceProof BalanceProof
+	serializedBpfLen := pp.balanceProofCbTxSerializeSize(outForRing)
+	if err != nil {
+		return nil, err
+	}
+	serializedBpf := make([]byte, serializedBpfLen)
+	_, err = r.Read(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
+	balanceProof, err := pp.deserializeBalanceProof(serializedBpf)
+	if err != nil {
+		return nil, err
 	}
 
 	return &TxWitnessCbTx{
@@ -316,8 +243,13 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 
 // TxWitnessTrTxSerializeSize returns the serialize size for TxWitnessTrTx.
 // reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
 	outForRing uint8, ringSizes []uint8, vPublic int64) (int, error) {
+
+	if len(ringSizes) != int(inForRing) {
+		return 0, fmt.Errorf("TxWitnessTrTxSerializeSize: the length of ringSizes[] (%d) is differnet from inForRing (%d)", len(ringSizes), inForRing)
+	}
 
 	length := 1 + //	txCase                     TxWitnessTrTxCase
 		3 + //	inForRing uint8, inForSingle uint8, inForSingleDistinct uint8,
@@ -330,7 +262,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 	//	elrSigs                    []*ElrSignatureMLP
 	for i := 0; i < int(inForRing); i++ {
 		elrSigSize := pp.elrSignatureMLPSerializeSize(ringSizes[i])
-		length = length + VarIntSerializeSize(uint64(elrSigSize)) + elrSigSize
+		length = length + elrSigSize
 	}
 
 	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
@@ -351,6 +283,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 
 // SerializeTxWitnessTrTx serialize TxWitnessTrTx to []byte.
 // reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
 	if txWitness == nil {
@@ -590,6 +523,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	serializedApk := make([]byte, pp.addressPublicKeyForSingleSerializeSize())
 	for i := uint8(0); i < inForSingleDistinct; i++ {
 		_, err = r.Read(serializedApk)
+		if err != nil {
+			return nil, err
+		}
 		addressPublicKeyForSingles[i], err = pp.deserializeAddressPublicKeyForSingle(serializedApk)
 		if err != nil {
 			return nil, err
@@ -601,6 +537,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	serializedSimpleSig := make([]byte, pp.simpleSignatureSerializeSize())
 	for i := uint8(0); i < inForSingleDistinct; i++ {
 		_, err = r.Read(serializedSimpleSig)
+		if err != nil {
+			return nil, err
+		}
 		simpleSigs[i], err = pp.deserializeSimpleSignature(serializedSimpleSig)
 		if err != nil {
 			return nil, err
@@ -614,6 +553,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	}
 	serializedBpf := make([]byte, serializedBpfLen)
 	_, err = r.Read(serializedBpf)
+	if err != nil {
+		return nil, err
+	}
 	balanceProof, err := pp.deserializeBalanceProof(serializedBpf)
 	if err != nil {
 		return nil, err
