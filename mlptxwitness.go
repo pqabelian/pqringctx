@@ -108,17 +108,20 @@ func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
-func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) int {
+func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
 		1 + //	outForRing   uint8
 		1 //	outForSingle uint8
 
 	//	 balanceProof BalanceProof
-	serializedBpfLen := pp.balanceProofCbTxSerializeSize(outForRing)
+	serializedBpfLen, err := pp.balanceProofCbTxSerializeSize(outForRing)
+	if err != nil {
+		return 0, err
+	}
 	length = length + serializedBpfLen
 
-	return length
+	return length, nil
 }
 
 // SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
@@ -130,7 +133,12 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		return nil, errors.New("SerializeTxWitnessCbTx: there is nil pointer in the input TxWitnessCbTx")
 	}
 
-	w := bytes.NewBuffer(make([]byte, 0, pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)))
+	length, err := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
+	if err != nil {
+		return nil, err
+	}
+
+	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	// txCase       TxWitnessCbTxCase
 	err = w.WriteByte(byte(txWitness.txCase))
@@ -166,7 +174,10 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 		return nil, err
 	}
 	// an assert, could be removed when test is finished
-	serializedBpfExpectedLen := pp.balanceProofCbTxSerializeSize(txWitness.outForRing)
+	serializedBpfExpectedLen, err := pp.balanceProofCbTxSerializeSize(txWitness.outForRing)
+	if err != nil {
+		return nil, err
+	}
 	if len(serializedBpf) != serializedBpfExpectedLen {
 		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the length of serializedBpfExpectedLen is not the same as expected")
 	}
@@ -214,7 +225,7 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 	}
 
 	//	balanceProof BalanceProof
-	serializedBpfLen := pp.balanceProofCbTxSerializeSize(outForRing)
+	serializedBpfLen, err := pp.balanceProofCbTxSerializeSize(outForRing)
 	if err != nil {
 		return nil, err
 	}

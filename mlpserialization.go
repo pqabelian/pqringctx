@@ -40,7 +40,10 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 		if cbTx.txWitness == nil {
 			return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: withWitness = true while cbTx.txWitness is nil")
 		}
-		witnessLen := pp.TxWitnessCbTxSerializeSize(cbTx.txWitness.outForRing)
+		witnessLen, err := pp.TxWitnessCbTxSerializeSize(cbTx.txWitness.outForRing)
+		if err != nil {
+			return 0, err
+		}
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
 
@@ -164,7 +167,10 @@ func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []by
 			return nil, err
 		}
 		//	an assert/double-check
-		expectedTxWitnessLen := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
+		expectedTxWitnessLen, err1 := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
+		if err1 != nil {
+			return nil, err
+		}
 		if len(serializedTxWitness) != expectedTxWitnessLen {
 			return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: serializedTxWitness from serializedCoinbaseTxMLP has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
 		}

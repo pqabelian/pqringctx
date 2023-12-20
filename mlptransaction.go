@@ -1040,7 +1040,7 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 		return 0, errors.New(errStr)
 	}
 
-	return pp.TxWitnessCbTxSerializeSize(uint8(outForRing)), nil
+	return pp.TxWitnessCbTxSerializeSize(uint8(outForRing))
 }
 
 //	TxWitness		end
@@ -1370,11 +1370,11 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 }
 
 // balanceProofCbTxSerializeSize returns the serialize size for BalanceProofCbTx.
-func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) int {
+func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int, error) {
 	if outForRing == 0 {
-		return pp.balanceProofL0R0SerializeSize()
+		return pp.balanceProofL0R0SerializeSize(), nil
 	} else if outForRing == 1 {
-		return pp.balanceProofL0R1SerializeSize()
+		return pp.balanceProofL0R1SerializeSize(), nil
 	} else { //	outForRing >= 2
 		return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
 	}
@@ -1895,7 +1895,7 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			}
 
 			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing), nil
+			return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
 
 		}
 	} else if inForRing == 1 {
@@ -1916,24 +1916,24 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 				return pp.balanceProofL1R1SerializeSize(), nil
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		} else { //	outForRing >= 2
 			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		}
 
@@ -1946,37 +1946,37 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			}
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, inForRing), nil
+			return pp.balanceProofLmRnSerializeSizeByCommNum(0, inForRing)
 
 		} else if outForRing == 1 {
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
 			}
 
 		} else { // outForRing >= 2
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
 
 			} else { // vPublic < 0
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing), nil
+				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		}
 	}
