@@ -100,6 +100,7 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(tx *CoinbaseTxMLP, withWitness
 // TxInputMLPSerializeSize returns the serialize size of the input TxInputMLP.
 // added on 2023.12.14
 // reviewed onn2023.12.19
+// reviewed onn2023.12.20
 func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, error) {
 	if txInput == nil || len(txInput.lgrTxoList) == 0 || len(txInput.serialNumber) == 0 {
 		return 0, fmt.Errorf("TxInputMLPSerializeSize: there is nil pointer in the input TxInputMLP")
@@ -108,7 +109,12 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 	var length = 0
 	//	lgrTxoList   []*LgrTxoMLP
 	lgrTxoNum := len(txInput.lgrTxoList)
-	length = VarIntSerializeSize(uint64(lgrTxoNum))
+	// length = VarIntSerializeSize(uint64(lgrTxoNum))
+	if len(txInput.lgrTxoList) > int(pp.paramRingSizeMax) {
+		// we shall check the ring size, to resist memory exhaustion attack.
+		return 0, fmt.Errorf("TxInputMLPSerializeSize: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", len(txInput.lgrTxoList))
+	}
+	length = length + 1
 	for i := 0; i < lgrTxoNum; i++ {
 		lgrTxoSerializeSize, err := pp.lgrTxoMLPSerializeSize(txInput.lgrTxoList[i])
 		if err != nil {
@@ -118,7 +124,9 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 	}
 
 	//	serialNumber []byte
-	length = length + VarIntSerializeSize(uint64(len(txInput.serialNumber))) + len(txInput.serialNumber)
+	//	serialNumber is fixed-length
+	// length = length + VarIntSerializeSize(uint64(len(txInput.serialNumber))) + len(txInput.serialNumber)
+	length = length + pp.ledgerTxoSerialNumberSerializeSizeMLP()
 
 	return length, nil
 }
@@ -127,6 +135,7 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 // serializeTxInputMLP is called only SerializeTransferTxMLP() to prepare TrTxCon to be authenticated.
 // added on 2023.12.14
 // reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, error) {
 	if txInput == nil || len(txInput.lgrTxoList) == 0 || len(txInput.serialNumber) == 0 {
 		return nil, fmt.Errorf("serializeTxInputMLP: there is nil pointer in the input TxInputMLP")
@@ -139,7 +148,12 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	lgrTxoList   []*LgrTxoMLP
-	err = WriteVarInt(w, uint64(len(txInput.lgrTxoList)))
+	// err = WriteVarInt(w, uint64(len(txInput.lgrTxoList)))
+	if len(txInput.lgrTxoList) > int(pp.paramRingSizeMax) {
+		// we shall check the ring size, to resist memory exhaustion attack.
+		return nil, fmt.Errorf("serializeTxInputMLP: txInput.lgrTxoList has a length(%d) exceeds the maximum supported value (%d)", len(txInput.lgrTxoList))
+	}
+	err = w.WriteByte(uint8(len(txInput.lgrTxoList)))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +169,11 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 	}
 
 	//	serialNumber []byte
-	err = writeVarBytes(w, txInput.serialNumber)
+	if len(txInput.serialNumber) != pp.ledgerTxoSerialNumberSerializeSize() {
+		return nil, fmt.Errorf("serializeTxInputMLP: txInput.serialNumber has a length(%d) different from the expected one(%d)", len(txInput.serialNumber), pp.ledgerTxoSerialNumberSerializeSize())
+	}
+	//err = writeVarBytes(w, txInput.serialNumber)
+	_, err = w.Write(txInput.serialNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -166,36 +184,33 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 // deserializeTxInputMLP deserializes the input []byte to a TxInputMLP.
 // added on 2023.12.14
 // reviewed on 2023.12.19
+// reviewed on 2023.12.20
 func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*TxInputMLP, error) {
 
 	r := bytes.NewReader(serializedTxInputMLP)
 
 	//	lgrTxoList   []*LgrTxoMLP
-	var lgrTxoList []*LgrTxoMLP
-	count, err := ReadVarInt(r)
+	count, err := r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	if count != 0 {
-		lgrTxoList = make([]*LgrTxoMLP, count)
-		for i := uint64(0); i < count; i++ {
-			serializedLgrTxo, err := readVarBytes(r, MaxAllowedLgrTxoMLPSize, "TxInputMLP.lgrTxoList[]")
-			if err != nil {
-				return nil, err
-			}
-			lgrTxoMLP, err := pp.DeserializeLgrTxoMLP(serializedLgrTxo)
-			if err != nil {
-				return nil, err
-			}
-			lgrTxoList[i] = lgrTxoMLP
+	lgrTxoList := make([]*LgrTxoMLP, count)
+	for i := uint8(0); i < count; i++ {
+		serializedLgrTxo, err := readVarBytes(r, MaxAllowedLgrTxoMLPSize, "TxInputMLP.lgrTxoList[]")
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		lgrTxoList = nil
+		lgrTxoList[i], err = pp.DeserializeLgrTxoMLP(serializedLgrTxo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	//	serialNumber []byte
-	var serialNumber []byte
-	serialNumber, err = readVarBytes(r, MaxAllowedSerialNumberSize, "TxInputMLP.serialNumber")
+	//var serialNumber []byte
+	//serialNumber, err = readVarBytes(r, MaxAllowedSerialNumberSize, "TxInputMLP.serialNumber")
+	serialNumber := make([]byte, pp.ledgerTxoSerialNumberSerializeSizeMLP())
+	_, err = r.Read(serialNumber)
 	if err != nil {
 		return nil, err
 	}
