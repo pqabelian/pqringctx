@@ -303,6 +303,10 @@ func (pp *PublicParameter) genBalanceProofL0Rn(msg []byte, nR uint8, vL uint64, 
 	n := int(nR)
 	n2 := n + 2
 
+	if n2 > 0xFF {
+		return nil, fmt.Errorf("genBalanceProofL0Rn: n2 = nR + 2 > 0xFF")
+	}
+
 	if n != len(cmtRs) || n != len(cmtrRs) || n != len(vRs) {
 		return nil, fmt.Errorf("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
@@ -555,6 +559,10 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 	}
 
 	n2 := n + 2
+	if n2 > 0xFF {
+		return false, fmt.Errorf("verifyBalanceProofL0Rn: n2 = nR + 2 > 0xFF")
+	}
+
 	if len(balanceProof.c_hats) != n2 {
 		return false, nil
 	}
@@ -917,6 +925,7 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 
 // genBalanceProofL1Rn generates BalanceProofL1Rn.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 // todo: multi-round review
 func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, cmtrL *PolyCNTTVec, vL uint64, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
 
@@ -939,8 +948,11 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs is 1 while vRPub = 0")
 	}
 
-	n := int(nL + nR)
+	n := int(nL) + int(nR)
 	n2 := n + 2
+	if n2 > 0xFF {
+		return nil, fmt.Errorf("genBalanceProofL1Rn: n2 = 1 + nR > 0xFF")
+	}
 
 	msg_hats := make([][]int64, n2)
 	c_hats := make([]*PolyCNTT, n2)
@@ -1057,7 +1069,7 @@ genBalanceProofL1RnRestart:
 	//	As Bf should be bound by betaF, so that |B f + e| < q_c/2, there should not be modular reduction.
 	betaF := (pp.paramN - 1) * int(nR) // for the case of vRPub > 0
 	if vRPub == 0 {
-		betaF = (pp.paramN - 1) * int(nR-1)
+		betaF = (pp.paramN - 1) * (int(nR) - 1)
 	}
 	boundF := pp.paramEtaF - int64(betaF)
 
@@ -1118,6 +1130,7 @@ genBalanceProofL1RnRestart:
 
 // verifyBalanceProofL1Rn verifies BalanceProofL1Rn.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 // todo: multi-round view
 func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
 	if len(msg) == 0 {
@@ -1193,8 +1206,12 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	}
 
 	nL := uint8(1)
-	n := int(nL + nR)
+	n := int(nL) + int(nR)
 	n2 := n + 2
+	if n2 > 0xFF {
+		return false, fmt.Errorf("verifyBalanceProofL1Rn: n2 = 1 + nR > 0xFF")
+	}
+
 	if len(balanceProof.c_hats) != n2 {
 		return false, nil
 	}
@@ -1216,7 +1233,7 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 
 	betaF := (pp.paramN - 1) * int(nR) //	for the case of vRPub > 0
 	if vRPub == 0 {
-		betaF = (pp.paramN - 1) * int(nR-1)
+		betaF = (pp.paramN - 1) * (int(nR) - 1)
 	}
 
 	boundF := pp.paramEtaF - int64(betaF)
@@ -1268,6 +1285,7 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 
 // genBalanceProofLmRn generates BalanceProofLmRn.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 // todo: multi-round review
 func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64,
 	cmtrLs []*PolyCNTTVec, vLs []uint64, cmtrRs []*PolyCNTTVec, vRs []uint64) (*BalanceProofLmRn, error) {
@@ -1296,8 +1314,11 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 		return nil, fmt.Errorf("genBalanceProofLmRn: the number of cmtRs is 1 while vRPub = 0")
 	}
 
-	n := int(nL + nR)
+	n := int(nL) + int(nR)
 	n2 := n + 4
+	if n2 > 0xFF {
+		return nil, fmt.Errorf("genBalanceProofLmRn: n2 = nL + nR > 0xFF")
+	}
 
 	msg_hats := make([][]int64, n2)
 	c_hats := make([]*PolyCNTT, n2)
@@ -1459,9 +1480,9 @@ genBalanceProofLmRnRestart:
 
 	//	u_p = B (fL || fR) + e, where e \in [-eta_f, eta_f], with eta_f < q_c/12.
 	//	As B (fL || fR) should be bound by betaF, so that |B f + e| < q_c/2, there should not be modular reduction.
-	betaF := (pp.paramN - 1) * int(nL-1+nR) // for the case of vRPub > 0
+	betaF := (pp.paramN - 1) * (int(nL) - 1 + int(nR)) // for the case of vRPub > 0
 	if vRPub == 0 {
-		betaF = (pp.paramN - 1) * int(nL-1+nR-1)
+		betaF = (pp.paramN - 1) * (int(nL) - 1 + int(nR) - 1)
 	}
 	boundF := pp.paramEtaF - int64(betaF)
 
@@ -1535,6 +1556,7 @@ genBalanceProofLmRnRestart:
 
 // verifyBalanceProofLmRn verifies BalanceProofLmRn.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 // todo: multi-round review
 func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
 	if len(msg) == 0 {
@@ -1623,8 +1645,12 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		}
 	}
 
-	n := int(nL + nR)
+	n := int(nL) + int(nR)
 	n2 := n + 4
+	if n2 > 0xFF {
+		return false, fmt.Errorf("verifyBalanceProofLmRn: n2 = nL + nR > 0xFF")
+	}
+
 	if len(balanceProof.c_hats) != n2 {
 		return false, nil
 	}
@@ -1638,9 +1664,9 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		return false, nil
 	}
 
-	betaF := (pp.paramN - 1) * int(nL-1+nR) // for the case of vRPub > 0
+	betaF := (pp.paramN - 1) * (int(nL) - 1 + int(nR)) // for the case of vRPub > 0
 	if vRPub == 0 {
-		betaF = (pp.paramN - 1) * int(nL-1+nR-1)
+		betaF = (pp.paramN - 1) * (int(nL) - 1 + int(nR) - 1)
 	}
 	boundF := pp.paramEtaF - int64(betaF)
 	infNorm := int64(0)
@@ -1706,6 +1732,7 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 }
 
 // serializeBalanceProof serialize BalanceProof into []byte.
+// reviewed on 2023.12.20
 // todo: review
 func (pp *PublicParameter) serializeBalanceProof(balanceProof BalanceProof) ([]byte, error) {
 	if balanceProof == nil {
@@ -1722,12 +1749,12 @@ func (pp *PublicParameter) serializeBalanceProof(balanceProof BalanceProof) ([]b
 	case *BalanceProofLmRn:
 		return pp.serializeBalanceProofLmRn(bpfInst)
 	default:
-		return nil, fmt.Errorf("serializeBalanceProofTrTx: the input BalanceProof is not BalanceProofL0R0, BalanceProofL0R1, BalanceProofL1R1, or serializeBalanceProofLmRn")
+		return nil, fmt.Errorf("serializeBalanceProof: the input BalanceProof is not BalanceProofL0R0, BalanceProofL0R1, BalanceProofL1R1, or BalanceProofLmRn")
 	}
 }
 
 // deserializeBalanceProof deserialize []byte to BalanceProof.
-// todo: review
+// reviewed on 2023.12.20
 func (pp *PublicParameter) deserializeBalanceProof(serializedBpf []byte) (BalanceProof, error) {
 	if len(serializedBpf) == 0 {
 		return nil, fmt.Errorf("deserializeBalanceProofTrTx: the input serializedBpf is empty")
@@ -1848,9 +1875,9 @@ func (pp *PublicParameter) serializeBalanceProofL0R1(bpf *BalanceProofL0R1) ([]b
 // deserializeBalanceProofL0R1 deserialize the input []byte to a BalanceProofL0R1.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
-func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) (*BalanceProofL0R1, error) {
+func (pp *PublicParameter) deserializeBalanceProofL0R1(serializedBpfL0R1 []byte) (*BalanceProofL0R1, error) {
 
-	r := bytes.NewReader(serializdBpfL0R1)
+	r := bytes.NewReader(serializedBpfL0R1)
 
 	// balanceProofCase BalanceProofCase
 	balanceProofCase, err := r.ReadByte()
@@ -1886,8 +1913,9 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializdBpfL0R1 []byte) 
 	}, nil
 }
 
-// balanceProofL1R1SerializeSize returns the serialized size for balanceProofL1R1.
+// balanceProofL1R1SerializeSize returns the serialized size for BalanceProofL1R1.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.20
 func (pp *PublicParameter) balanceProofL1R1SerializeSize() int {
 	n := 1 + // balanceProofCase BalanceProofCase
 		pp.PolyCNTTSerializeSize() + //  psi              *PolyCNTT
@@ -1973,9 +2001,9 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 
 	//	z1s               []*PolyCVec
 	//	fixed-length paramK
-	zs1 := make([]*PolyCVec, pp.paramK)
+	z1s := make([]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
-		zs1[i], err = pp.readPolyCVecEta(r)
+		z1s[i], err = pp.readPolyCVecEta(r)
 		if err != nil {
 			return nil, err
 		}
@@ -1983,9 +2011,9 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 
 	//	z2s               []*PolyCVec
 	//	fixed-length paramK
-	zs2 := make([]*PolyCVec, pp.paramK)
+	z2s := make([]*PolyCVec, pp.paramK)
 	for i := 0; i < pp.paramK; i++ {
-		zs2[i], err = pp.readPolyCVecEta(r)
+		z2s[i], err = pp.readPolyCVecEta(r)
 		if err != nil {
 			return nil, err
 		}
@@ -1995,8 +2023,8 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 		balanceProofCase: BalanceProofCaseL1R1,
 		psi:              psi,
 		chseed:           chseed,
-		z1s:              zs1,
-		z2s:              zs2,
+		z1s:              z1s,
+		z2s:              z2s,
 	}, nil
 }
 
@@ -2005,15 +2033,16 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 // The leftCommNum and rightCommNum are also serialized, since the size can be deterministically computed from these two values.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
-func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR uint8) int {
+// reviewed on 2023.12.20
+func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR uint8) (int, error) {
 
 	length := 1 + // balanceProofCase BalanceProofCase
-		1 + // leftCommNum      uint8
-		1 + // rightCommNum     uint8
+		1 + // nL      uint8
+		1 + // nR     uint8
 		pp.PolyCNTTVecSerializeSizeByVecLen(pp.paramKC) // b_hat            *PolyCNTTVec, with length pp.paramKC
 
-	n := nL + nR // the number of commitments to call rpulpProveMLP
-	n2 := n      //	the number of commitments for c_hats
+	n := int(nL) + int(nR) // the number of commitments to call rpulpProveMLP
+	n2 := n                //	the number of commitments for c_hats
 	if nL == 0 {
 		//	A_{L0R2}
 		n2 = n + 2 // f_R, e
@@ -2026,22 +2055,34 @@ func (pp *PublicParameter) balanceProofLmRnSerializeSizeByCommNum(nL uint8, nR u
 		n2 = n + 4 // m_{sum}, f_L, f_R, e
 	}
 
-	length = length + int(n2)*pp.PolyCNTTSerializeSize() + // c_hats           []*PolyCNTT, length n2
+	if n2 > 0xFF {
+		//	when calling rpulpProve, n2 will be converted into uint8.
+		//	we shall always guarantee this point.
+		return 0, fmt.Errorf("balanceProofLmRnSerializeSizeByCommNum: n2 = nL + nR  > 0xFF")
+	}
+
+	length = length + n2*pp.PolyCNTTSerializeSize() + // c_hats           []*PolyCNTT, length n2
 		pp.CarryVectorRProofSerializeSize() //	u_p              []int64	, dimension paramDc, bounded \eta_f
 
 	length = length + pp.rpulpProofMLPSerializeSizeByCommNum(nL, nR) //  rpulpproof       *RpulpProofMLP
 
-	return length
+	return length, nil
 }
 
 // serializeBalanceProofLmRn serialize the input BalanceProofLmRn to []byte.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.20
 func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]byte, error) {
 
-	w := bytes.NewBuffer(make([]byte, 0, pp.balanceProofLmRnSerializeSizeByCommNum(bpf.nL, bpf.nR)))
+	length, err := pp.balanceProofLmRnSerializeSizeByCommNum(bpf.nL, bpf.nR)
+	if err != nil {
+		return nil, err
+	}
+
+	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	balanceProofCase BalanceProofCase
-	err := w.WriteByte(byte(bpf.balanceProofCase))
+	err = w.WriteByte(byte(bpf.balanceProofCase))
 	if err != nil {
 		return nil, err
 	}
@@ -2065,8 +2106,8 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]b
 	}
 
 	// c_hats           []*PolyCNTT
-	n := bpf.nL + bpf.nR // the number of commitments to call rpulpProveMLP
-	n2 := n              //	the number of commitments for c_hats
+	n := int(bpf.nL) + int(bpf.nR) // the number of commitments to call rpulpProveMLP
+	n2 := n                        //	the number of commitments for c_hats
 	if bpf.nL == 0 {
 		//	A_{L0R2}
 		n2 = n + 2 // f_R, e
@@ -2078,7 +2119,12 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]b
 		// A_{L2R2}
 		n2 = n + 4 // m_{sum}, f_L, f_R, e
 	}
-	for i := 0; i < int(n2); i++ {
+	if n2 > 0xFF {
+		//	when calling rpulpProve, n2 will be converted into uint8.
+		//	we shall always guarantee this point.
+		return nil, fmt.Errorf("serializeBalanceProofLmRn: n2 = nL + nR  > 0xFF")
+	}
+	for i := 0; i < n2; i++ {
 		err = pp.writePolyCNTT(w, bpf.c_hats[i])
 		if err != nil {
 			return nil, err
@@ -2092,15 +2138,19 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]b
 	}
 
 	// rpulpproof       *rpulpProofMLP
-	serializeRpulpProofSize := pp.rpulpProofMLPSerializeSizeByCommNum(bpf.nL, bpf.nR)
-	serializedBpf, err := pp.serializeRpulpProofMLP(bpf.rpulpproof)
-	if len(serializedBpf) != serializeRpulpProofSize {
-		//	assert
-		return nil, fmt.Errorf("serializeBalanceProofLmRn: this shoudl not happen, where the size of serializedBalanceProof is not the same as expected")
-	}
-	_, err = w.Write(serializedBpf)
+	serializedRpulpProof, err := pp.serializeRpulpProofMLP(bpf.rpulpproof)
 	if err != nil {
 		return nil, err
+	}
+	_, err = w.Write(serializedRpulpProof)
+	if err != nil {
+		return nil, err
+	}
+	//	an assert, can be removed after test
+	serializedRpulpProofSize := pp.rpulpProofMLPSerializeSizeByCommNum(bpf.nL, bpf.nR)
+	if len(serializedRpulpProof) != serializedRpulpProofSize {
+		//	assert
+		return nil, fmt.Errorf("serializeBalanceProofLmRn: this shoudl not happen, where the size of serializedRpulpProof is not the same as expected")
 	}
 
 	return w.Bytes(), nil
@@ -2109,6 +2159,7 @@ func (pp *PublicParameter) serializeBalanceProofLmRn(bpf *BalanceProofLmRn) ([]b
 // deserializeBalanceProofLmRn deserialize the input []byte to a BalanceProofLmRn.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte) (*BalanceProofLmRn, error) {
 	r := bytes.NewReader(serializedBpfLmRn)
 
@@ -2143,8 +2194,8 @@ func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte)
 	}
 
 	// c_hats           []*PolyCNTT
-	n := nL + nR // the number of commitments to call rpulpProveMLP
-	n2 := n      //	the number of commitments for c_hats
+	n := int(nL) + int(nR) // the number of commitments to call rpulpProveMLP
+	n2 := n                //	the number of commitments for c_hats
 	if nL == 0 {
 		//	A_{L0R2}
 		n2 = n + 2 // f_R, e
@@ -2156,6 +2207,12 @@ func (pp *PublicParameter) deserializeBalanceProofLmRn(serializedBpfLmRn []byte)
 		// A_{L2R2}
 		n2 = n + 4 // m_{sum}, f_L, f_R, e
 	}
+	if n2 > 0xFF {
+		//	when calling rpulpProve, n2 will be converted into uint8.
+		//	we shall always guarantee this point.
+		return nil, fmt.Errorf("deserializeBalanceProofLmRn: n2 = nL + nR  > 0xFF")
+	}
+
 	c_hats := make([]*PolyCNTT, n2)
 	for i := 0; i < int(n2); i++ {
 		c_hats[i], err = pp.readPolyCNTT(r)
@@ -2513,12 +2570,13 @@ func (pp *PublicParameter) collectBytesForBalanceProofL1RnChallenge(msg []byte, 
 
 // collectBytesForBalanceProofLmRnChallenge collects pre-message bytes for the challenge in genBalanceProofLmRn.
 // reviewed on 2023.12.18
+// reviewed on 2023.12.20
 // todo: multi-round review
 func (pp *PublicParameter) collectBytesForBalanceProofLmRnChallenge(msg []byte, nL uint8, nR uint8,
 	cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) ([]byte, error) {
 
 	length := len(msg) + 2 +
-		(int(nL+nR))*pp.ValueCommitmentSerializeSize() + 8 +
+		(int(nL)+int(nR))*pp.ValueCommitmentSerializeSize() + 8 +
 		pp.paramKC*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
 
 	rst := make([]byte, 0, length)
