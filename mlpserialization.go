@@ -226,7 +226,11 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 	var length int
 
 	//	txInputs  []*TxInputMLP
-	length = VarIntSerializeSize(uint64(len(trTx.txInputs)))
+	inputNum := len(trTx.txInputs)
+	if inputNum > pp.paramI+pp.paramISingle {
+		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	}
+	length = VarIntSerializeSize(uint64(inputNum))
 	for i := 0; i < len(trTx.txInputs); i++ {
 		txInputLen, err := pp.TxInputMLPSerializeSize(trTx.txInputs[i])
 		if err != nil {
@@ -236,6 +240,10 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 	}
 
 	//	txos      []TxoMLP
+	outputNum := len(trTx.txos)
+	if outputNum > pp.paramJ+pp.paramJSingle {
+		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	}
 	length += VarIntSerializeSize(uint64(len(trTx.txos)))
 	for i := 0; i < len(trTx.txos); i++ {
 		txoLen, err := pp.TxoMLPSerializeSize(trTx.txos[i])
@@ -260,6 +268,8 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 		if err != nil {
 			return 0, err
 		}
+		//	Although the witnessLen can be computed from some description information, note that when deserialization extracting these description may cause inefficiency,
+		//	here we use var bytes
 		length += VarIntSerializeSize(uint64(witnessLen)) + witnessLen
 	}
 
@@ -346,15 +356,99 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	return w.Bytes(), nil
 }
 
-// todo:
+// DeserializeTransferTxMLP deserialize []byte to TransferTxMLP.
+// todo: review
 func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []byte, withWitness bool) (*TransferTxMLP, error) {
-	return nil, nil
+	if len(serializedTransferTxMLP) == 0 {
+		return nil, fmt.Errorf("DeserializeTransferTxMLP: the input serializedTransferTxMLP is empty")
+	}
+
+	r := bytes.NewReader(serializedTransferTxMLP)
+
+	//	txInputs  []*TxInputMLP
+	inputNum, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+	if int(inputNum) > pp.paramI+pp.paramISingle {
+		return nil, fmt.Errorf("DeserializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	}
+
+	txInputs := make([]*TxInputMLP, inputNum)
+	for i := 0; i < int(inputNum); i++ {
+		serializedTxInput, err := readVarBytes(r, MaxAllowedTxInputMLPSize, "TransferTxMLP.txInputs")
+		if err != nil {
+			return nil, err
+		}
+		txInputs[i], err = pp.deserializeTxInputMLP(serializedTxInput)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//	txos      []TxoMLP
+	outputNum, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+	if int(outputNum) > pp.paramJ+pp.paramJSingle {
+		return nil, fmt.Errorf("DeserializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	}
+	txos := make([]TxoMLP, outputNum)
+	for i := 0; i < int(outputNum); i++ {
+		serializedTxo, err := readVarBytes(r, MaxAllowedTxoMLPSize, "TransferTxMLP.txos")
+		txos[i], err = pp.DeserializeTxoMLP(serializedTxo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//	fee       uint64
+	fee, err := binarySerializer.Uint64(r, littleEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	//	txMemo    []byte
+	txMemo, err := readVarBytes(r, MaxAllowedTxMemoMLPSize, "TransferTxMLP.txMemo")
+	if err != nil {
+		return nil, err
+	}
+
+	//	txWitness *TxWitnessTrTx
+	var txWitness *TxWitnessTrTx
+	if withWitness {
+		serializedWitness, err := readVarBytes(r, MaxAllowedTxWitnessTrTxSize, "")
+		if err != nil {
+			return nil, err
+		}
+
+		txWitness, err = pp.DeserializeTxWitnessTrTx(serializedWitness)
+		if err != nil {
+			return nil, err
+		}
+		//	an assert/double-check
+		expectedWitnessLen, err1 := pp.TxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.inForSingleDistinct, txWitness.outForRing, txWitness.inRingSizes, txWitness.vPublic)
+		if err1 != nil {
+			return nil, err1
+		}
+		if len(serializedWitness) != expectedWitnessLen {
+			return nil, fmt.Errorf("DeserializeTransferTxMLP: readed serializedWitness from serializedTransferTxMLP has length %d, while the obtained txWitness has length %d", len(serializedWitness), expectedWitnessLen)
+		}
+	}
+
+	return &TransferTxMLP{
+		txInputs:  txInputs,
+		txos:      txos,
+		fee:       fee,
+		txMemo:    txMemo,
+		txWitness: txWitness,
+	}, nil
 }
 
 //	Tx Serialization	end
