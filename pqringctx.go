@@ -299,7 +299,7 @@ rpUlpProveRestart:
 	}
 	g := pp.NTTPolyC(tmpg)
 	// c_hat(n2+1)
-	c_hat_g := pp.PolyCNTTAdd(pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], r_hat, pp.paramLC), g)
+	c_hat_g := pp.PolyCNTTAdd(pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], r_hat, pp.paramLC), g)
 
 	cmt_ys := make([][]*PolyCNTTVec, pp.paramK)
 	ys := make([]*PolyCNTTVec, pp.paramK)
@@ -351,8 +351,8 @@ rpUlpProveRestart:
 	}
 
 	//	psi, psi'
-	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], r_hat, pp.paramLC)
-	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], ys[0], pp.paramLC)
+	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], r_hat, pp.paramLC)
+	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], ys[0], pp.paramLC)
 
 	for t := 0; t < pp.paramK; t++ {
 		tmp1 := pp.NewZeroPolyCNTT()
@@ -478,7 +478,7 @@ rpUlpProveRestart:
 
 		phips[xi] = pp.PolyCNTTAdd(
 			phips[xi],
-			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], ys[xi], pp.paramLC))
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], ys[xi], pp.paramLC))
 	}
 	//fmt.Println("phips = ")
 	//for i := 0; i < pp.paramK; i++ {
@@ -547,7 +547,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte, I uint8, J uint8, m uint8, u_hats [][]int64,
 	rpulppi *rpulpProof) (valid bool) {
 
-	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
+	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= int(pp.paramI)+int(pp.paramJ) && int(n2) <= int(pp.paramI)+int(pp.paramJ)+4) {
 		return false
 	}
 
@@ -755,7 +755,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 
 	psip = pp.PolyCNTTSub(psip, pp.PolyCNTTMul(ch, rpulppi.psi))
 	psip = pp.PolyCNTTAdd(psip,
-		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], zs_ntt[0], pp.paramLC))
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], zs_ntt[0], pp.paramLC))
 	//fmt.Printf("Verify\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
@@ -835,7 +835,7 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 
 		phips[xi] = pp.PolyCNTTAdd(
 			phips[xi],
-			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], zs_ntt[xi], pp.paramLC))
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], zs_ntt[xi], pp.paramLC))
 
 		phips[xi] = pp.PolyCNTTSub(
 			phips[xi],
@@ -1396,7 +1396,7 @@ func (pp *PublicParameter) coinbaseTxGen(vin uint64, txOutputDescs []*TxOutputDe
 		return nil, errors.New("coinbaseTxGen: vin is not in [0, V]")
 	}
 
-	if len(txOutputDescs) == 0 || len(txOutputDescs) > pp.paramJ {
+	if len(txOutputDescs) == 0 || len(txOutputDescs) > int(pp.paramJ) {
 		return nil, errors.New("the number of outputs is not in [1, I_max]")
 	}
 
@@ -1683,7 +1683,7 @@ func (pp *PublicParameter) coinbaseTxVerify(cbTx *CoinbaseTx) (bool, error) {
 	}
 
 	J := len(cbTx.OutputTxos)
-	if J > pp.paramJ {
+	if J > int(pp.paramJ) {
 		return false, nil
 	}
 
@@ -1887,10 +1887,10 @@ func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs 
 		return nil, errors.New("some information is empty")
 	}
 
-	if inputNum > pp.paramI {
+	if inputNum > int(pp.paramI) {
 		return nil, fmt.Errorf("%d inputs but max %d ", inputNum, pp.paramI)
 	}
-	if outputNum > pp.paramJ {
+	if outputNum > int(pp.paramJ) {
 		return nil, fmt.Errorf("%d output but max %d ", outputNum, pp.paramJ)
 	}
 
@@ -2386,10 +2386,10 @@ func (pp *PublicParameter) transferTxVerify(trTx *TransferTx) (bool, error) {
 	I := len(trTx.Inputs)
 	J := len(trTx.OutputTxos)
 
-	if I <= 0 || I > pp.paramI {
+	if I <= 0 || I > int(pp.paramI) {
 		return false, nil
 	}
-	if J <= 0 || J > pp.paramJ {
+	if J <= 0 || J > int(pp.paramJ) {
 		return false, nil
 	}
 

@@ -311,9 +311,9 @@ func (pp *PublicParameter) genBalanceProofL0Rn(msg []byte, nR uint8, vL uint64, 
 		return nil, fmt.Errorf("genBalanceProofL0Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
-	if n > pp.paramJ || n < 2 {
+	if nR > pp.paramJ || nR < 2 {
 		// Note that pp.paramI == pp.paramJ
-		return nil, fmt.Errorf("genBalanceProofL0Rn: the number of cmtRs (%d) is not in [2, %d]", n, pp.paramJ)
+		return nil, fmt.Errorf("genBalanceProofL0Rn: the number of cmtRs (%d) is not in [2, %d]", nR, pp.paramJ)
 	}
 
 	c_hats := make([]*PolyCNTT, n2)
@@ -506,7 +506,7 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 		return false, nil
 	}
 
-	if nR < 2 || int(nR) > pp.paramJ {
+	if nR < 2 || nR > pp.paramJ {
 		//	nope that pp.paramI = pp.paramJ
 		return false, fmt.Errorf("verifyBalanceProofL0Rn: the input nR should be in [2, %d]", pp.paramJ)
 	}
@@ -682,8 +682,8 @@ genBalanceProofL1R1Restart:
 	}
 
 	//	psi, psi'
-	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], cmtr1, pp.paramLC)
-	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], y1s[0], pp.paramLC)
+	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], cmtr1, pp.paramLC)
+	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], y1s[0], pp.paramLC)
 
 	msg_value := pp.intToBinary(value)
 	msgNTT, err := pp.NewPolyCNTTFromCoeffs(msg_value)
@@ -907,7 +907,7 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 
 	psip = pp.PolyCNTTSub(psip, pp.PolyCNTTMul(ch, balanceProof.psi))
 	psip = pp.PolyCNTTAdd(psip,
-		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], z1s_ntt[0], pp.paramLC))
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], z1s_ntt[0], pp.paramLC))
 
 	//	seed_ch and ch
 	preMsgAll := pp.collectBytesForBalanceProofL1R1Challenge2(preMsg, balanceProof.psi, psip)
@@ -935,7 +935,7 @@ func (pp *PublicParameter) genBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Value
 		return nil, fmt.Errorf("genBalanceProofL1Rn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
-	if int(nR) > pp.paramJ {
+	if nR > pp.paramJ {
 		// Note that pp.paramI == pp.paramJ
 		return nil, fmt.Errorf("genBalanceProofL1Rn: the number of cmtRs (%d) exceeds the allowed maximum value (%d)", nR, pp.paramJ)
 	}
@@ -1139,7 +1139,7 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 
 	//	Note that BalanceProofL1Rn could be
 	//	(nR == 1 && vRPub > 0) || nR >= 2
-	if int(nR) > pp.paramJ || nR == 0 {
+	if nR > pp.paramJ || nR == 0 {
 		//	Note that pp.paramI = pp.paramJ
 		return false, nil
 	}
@@ -1294,7 +1294,7 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 		return nil, fmt.Errorf("genBalanceProofLmRn: The input cmtLs, cmtrLs, vLs should have the same length")
 	}
 
-	if int(nL) > pp.paramI || nL < 2 {
+	if nL > pp.paramI || nL < 2 {
 		// Note that pp.paramI == pp.paramJ
 		return nil, fmt.Errorf("genBalanceProofLmRn: the number of cmtLs (%d) is not in [2, %d]", nL, pp.paramI)
 	}
@@ -1303,7 +1303,7 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 		return nil, fmt.Errorf("genBalanceProofLmRn: The input cmtRs, cmtrRs, vRs should have the same length")
 	}
 
-	if int(nR) > pp.paramJ {
+	if nR > pp.paramJ {
 		// Note that pp.paramI == pp.paramJ
 		return nil, fmt.Errorf("genBalanceProofLmRn: the number of cmtRs (%d) exceeds the allowed maximum value (%d)", nR, pp.paramJ)
 	}
@@ -1333,7 +1333,7 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 
 	//	msg_hats[0], ..., msg_hats[nL-1]
 	//	vLs[0], ..., vLs[nL-1]
-	for i := uint8(0); i < nL; i++ {
+	for i := 0; i < int(nL); i++ {
 		cmts[i] = cmtLs[i]
 		cmtrs[i] = cmtrLs[i]
 		msg_hats[i] = pp.intToBinary(vLs[i])
@@ -1343,10 +1343,10 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 
 	//	msg_hats[nL], ..., msg_hats[nL+nR-1]
 	//	vRs[0], ..., vRs[nR-1]
-	for j := uint8(0); j < nR; j++ {
-		cmts[nL+j] = cmtRs[j]
-		cmtrs[nL+j] = cmtrRs[j]
-		msg_hats[nL+j] = pp.intToBinary(vRs[j])
+	for j := 0; j < int(nR); j++ {
+		cmts[int(nL)+j] = cmtRs[j]
+		cmtrs[int(nL)+j] = cmtrRs[j]
+		msg_hats[int(nL)+j] = pp.intToBinary(vRs[j])
 	}
 
 	//	msg_hats[n]
@@ -1409,16 +1409,16 @@ func (pp *PublicParameter) genBalanceProofLmRn(msg []byte, nL uint8, nR uint8, c
 
 	// fR[0]
 	tmp = int64(0)
-	for j := uint8(0); j < nR; j++ {
-		tmp = tmp + msg_hats[nL+j][0]
+	for j := 0; j < int(nR); j++ {
+		tmp = tmp + msg_hats[int(nL)+j][0]
 	}
 	fR[0] = (tmp + u[0]) >> 1
 
 	// fR[1], ..., fR[d-2], fR[d-1]
 	for t := 1; t < pp.paramDC; t++ {
 		tmp = int64(0)
-		for j := uint8(0); j < nR; j++ {
-			tmp = tmp + msg_hats[nL+j][t]
+		for j := 0; j < int(nR); j++ {
+			tmp = tmp + msg_hats[int(nL)+j][t]
 		}
 		fR[t] = (tmp + u[t] + fR[t-1]) >> 1
 	}
@@ -1563,14 +1563,14 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		return false, nil
 	}
 
-	if nL < 2 || int(nL) > pp.paramI {
+	if nL < 2 || nL > pp.paramI {
 		//	Note that pp.paramI = pp.paramJ
 		return false, nil
 	}
 
 	//	Note that BalanceProofLmRn could be
 	//	(nR == 1 && vRPub > 0) || nR >= 2
-	if int(nR) > pp.paramJ {
+	if nR > pp.paramJ {
 		//	Note that pp.paramI = pp.paramJ
 		return false, nil
 	}
@@ -1585,7 +1585,7 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		return false, nil
 	}
 
-	for i := uint8(0); i < nL; i++ {
+	for i := 0; i < int(nL); i++ {
 		cmt := cmtLs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
 			return false, nil
@@ -1604,7 +1604,7 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		return false, nil
 	}
 
-	for i := uint8(0); i < nR; i++ {
+	for i := 0; i < int(nR); i++ {
 		cmt := cmtRs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
 			return false, nil

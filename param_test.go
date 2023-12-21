@@ -303,8 +303,8 @@ func TestPublicParameters_MatrixA(t *testing.T) {
 	end = (pp.paramQC - 1) / 2
 	start = -end
 	step = (end - start) / int64(slotNum)
-	for i := 0; i < pp.paramI+pp.paramJ+7; i++ {
-		for j := pp.paramKC + pp.paramI + pp.paramJ + 7; j < pp.paramLC; j++ {
+	for i := 0; i < int(pp.paramI)+int(pp.paramJ)+7; i++ {
+		for j := pp.paramKC + int(pp.paramI) + int(pp.paramJ) + 7; j < pp.paramLC; j++ {
 			for k := 0; k < pp.paramDC; k++ {
 				coeff := pp.paramMatrixH[i].polyCNTTs[j].coeffs[k]
 

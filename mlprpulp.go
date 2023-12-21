@@ -60,7 +60,7 @@ rpUlpProveMLPRestart:
 	}
 	g := pp.NTTPolyC(tmpg)
 	// c_hat(n2+1)
-	c_hat_g := pp.PolyCNTTAdd(pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], r_hat, pp.paramLC), g)
+	c_hat_g := pp.PolyCNTTAdd(pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], r_hat, pp.paramLC), g)
 
 	cmt_ys := make([][]*PolyCNTTVec, pp.paramK)
 	ys := make([]*PolyCNTTVec, pp.paramK)
@@ -112,8 +112,8 @@ rpUlpProveMLPRestart:
 	}
 
 	//	psi, psi'
-	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], r_hat, pp.paramLC)
-	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], ys[0], pp.paramLC)
+	psi := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], r_hat, pp.paramLC)
+	psip := pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], ys[0], pp.paramLC)
 
 	for t := 0; t < pp.paramK; t++ {
 		tmp1 := pp.NewZeroPolyCNTT()
@@ -242,7 +242,7 @@ rpUlpProveMLPRestart:
 
 		phips[xi] = pp.PolyCNTTAdd(
 			phips[xi],
-			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], ys[xi], pp.paramLC))
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], ys[xi], pp.paramLC))
 	}
 	//fmt.Println("phips = ")
 	//for i := 0; i < pp.paramK; i++ {
@@ -361,7 +361,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		}
 	}
 
-	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= pp.paramI+pp.paramJ && int(n2) <= pp.paramI+pp.paramJ+4) {
+	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= int(pp.paramI)+int(pp.paramJ) && int(n2) <= int(pp.paramI)+int(pp.paramJ)+4) {
 		return false
 	}
 
@@ -423,7 +423,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		return false
 	}
 
-	if int(nL) > pp.paramI || int(nR) > pp.paramJ { // Note that pp.paramI == pp.paramJ
+	if nL > pp.paramI || nR > pp.paramJ { // Note that pp.paramI == pp.paramJ
 		return false
 	}
 
@@ -629,7 +629,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 	psip = pp.PolyCNTTSub(psip, pp.PolyCNTTMul(ch, rpulppi.psi))
 	psip = pp.PolyCNTTAdd(psip,
-		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+6], zs_ntt[0], pp.paramLC))
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+6], zs_ntt[0], pp.paramLC))
 	//fmt.Printf("Verify\n")
 	//fmt.Printf("psip = %v\n", psip)
 	//	p^(t)_j:
@@ -712,7 +712,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 		phips[xi] = pp.PolyCNTTAdd(
 			phips[xi],
-			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[pp.paramI+pp.paramJ+5], zs_ntt[xi], pp.paramLC))
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], zs_ntt[xi], pp.paramLC))
 
 		phips[xi] = pp.PolyCNTTSub(
 			phips[xi],

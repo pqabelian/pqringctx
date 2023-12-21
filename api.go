@@ -233,12 +233,12 @@ func GetValuePublicKeySerializeSize(pp *PublicParameter) int {
 	return 1188
 }
 
-func GetTxInputMaxNum(pp *PublicParameter) int {
-	return pp.paramI
-}
-func GetTxOutputMaxNum(pp *PublicParameter) int {
-	return pp.paramJ
-}
+//	func GetTxInputMaxNum(pp *PublicParameter) int {
+//		return pp.paramI
+//	}
+//func GetTxOutputMaxNum(pp *PublicParameter) int {
+//	return pp.paramJ
+//}
 
 func GetSerialNumberSerializeSize(pp *PublicParameter) int {
 	return pp.ledgerTxoSerialNumberSerializeSize()

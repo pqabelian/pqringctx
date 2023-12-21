@@ -29,11 +29,11 @@ func NewPublicParameter(
 		paramGammaA:             paramGammaA,
 		paramEtaA:               paramEtaA,
 		paramBetaA:              paramBetaA,
-		paramI:                  int(paramI),
-		paramJ:                  int(paramJ),
-		paramISingle:            int(paramISingle),
-		paramISingleDistinct:    int(paramISingleDistinct),
-		paramJSingle:            int(paramJSingle),
+		paramI:                  paramI,
+		paramJ:                  paramJ,
+		paramISingle:            paramISingle,
+		paramISingleDistinct:    paramISingleDistinct,
+		paramJSingle:            paramJSingle,
 		paramRingSizeMax:        paramRingSizeMax,
 		paramN:                  paramN,
 		paramDC:                 paramDC,
@@ -205,21 +205,32 @@ type PublicParameter struct {
 
 	// Parameter for Commit
 	// paramI defines the maximum number of consumed RingCT-privacy coins of a transfer transaction
-	// As we need to loop for paramI and paramJ, we define them with 'int' type.
-	paramI int
-	// paramJ defines the maximum number of generated RingCT-privacy coins of a transaction
-	// As we need to loop for paramI and paramJ, we define them with 'int' type.
-	paramJ int
+	// To explicitly limit the paramI and paramJ as a number denoted by 1 byte, we define them with uint8.
+	// Note that there is still an implicit setting, say, paramI + paramJ + 4 should be still a number in the scope of uint8.
+	// Note this is at the system design level, it is fine to have such an implicit setting.
+	// Previously being "paramI int"
+	paramI uint8
+
+	// paramJ defines the maximum number of generated RingCT-privacy coins of a transaction.
+	// To explicitly limit the paramI and paramJ as a number denoted by 1 byte, we define them with uint8.
+	// Note that there is still an implicit setting, say, paramI + paramJ + 4 should be still a number in the scope of uint8.
+	// Note this is at the system design level, it is fine to have such an implicit setting.
+	// Previously being "paramJ int"
+	paramJ uint8
 
 	// paramISingle defines the maximum number of consumed Pseudonym-privacy coins of a transfer transaction
-	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
-	paramISingle int
+	// To explicitly limit the paramISingle, paramISingleDistinct, and paramJSingle as a number denoted by 1 byte, we define them with uint8.
+	// Note that there is still an implicit setting, say, paramI + paramISingle should be still a number in the scope of uint8.
+	paramISingle uint8
+
 	// paramISingleDistinct defines the maximum number of the distinct coin-addresses of the consumed Pseudonym-privacy coins of a transfer transaction
-	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
-	paramISingleDistinct int
+	// To explicitly limit the paramISingle, paramISingleDistinct, and paramJSingle as a number denoted by 1 byte, we define them with uint8.
+	paramISingleDistinct uint8
+
 	// paramJSingle defines the maximum number of generated Pseudonym-privacy coins of a transaction
-	// As we need to loop for paramISingle, paramISingleDistinct, and paramJSingle, we define them with 'int' type.
-	paramJSingle int
+	// To explicitly limit the paramISingle, paramISingleDistinct, and paramJSingle as a number denoted by 1 byte, we define them with uint8.
+	// Note that there is still an implicit setting, say, paramJ + paramJSingle should be still a number in the scope of uint8.
+	paramJSingle uint8
 
 	// paramRingSizeMax defines the maximum allowed ring size. it should be not too big, in particular,
 	// we assume it to be smaller than 255, and use uint8 to restrict it.
@@ -394,7 +405,7 @@ func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec
 	unitNTT := pp.NTTPolyC(unit)
 
 	// generate the right sub-matrix B'
-	matrixBp, err := pp.generatePolyCNTTMatrix(seedUsed, pp.paramKC, pp.paramI+pp.paramJ+7+pp.paramLambdaC)
+	matrixBp, err := pp.generatePolyCNTTMatrix(seedUsed, pp.paramKC, int(pp.paramI)+int(pp.paramJ)+7+pp.paramLambdaC)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +418,7 @@ func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec
 		//}
 		copy(res[i].polyCNTTs[i].coeffs, unitNTT.coeffs)
 
-		for j := 0; j < pp.paramI+pp.paramJ+7+pp.paramLambdaC; j++ {
+		for j := 0; j < int(pp.paramI)+int(pp.paramJ)+7+pp.paramLambdaC; j++ {
 			res[i].polyCNTTs[pp.paramKC+j] = matrixBp[i].polyCNTTs[j]
 		}
 
@@ -422,19 +433,19 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 	}
 	seedUsed := append([]byte("MatrixH"), seed...)
 
-	res := make([]*PolyCNTTVec, pp.paramI+pp.paramJ+7)
+	res := make([]*PolyCNTTVec, int(pp.paramI)+int(pp.paramJ)+7)
 
 	unitPoly := pp.NewZeroPolyC()
 	unitPoly.coeffs[0] = 1
 	unitNTT := pp.NTTPolyC(unitPoly)
 
 	// generate the right sub-matrix H'
-	matrixHp, err := pp.generatePolyCNTTMatrix(seedUsed, pp.paramI+pp.paramJ+7, pp.paramLambdaC)
+	matrixHp, err := pp.generatePolyCNTTMatrix(seedUsed, int(pp.paramI)+int(pp.paramJ)+7, pp.paramLambdaC)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := 0; i < pp.paramI+pp.paramJ+7; i++ {
+	for i := 0; i < int(pp.paramI)+int(pp.paramJ)+7; i++ {
 		res[i] = pp.NewZeroPolyCNTTVec(pp.paramLC) // L_c=K_c+I+J+7+lambda_c
 
 		//for t := 0; t < pp.paramDC; t++ {
@@ -443,7 +454,7 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 		copy(res[i].polyCNTTs[pp.paramKC+i].coeffs, unitNTT.coeffs)
 
 		for j := 0; j < pp.paramLambdaC; j++ {
-			res[i].polyCNTTs[pp.paramKC+pp.paramI+pp.paramJ+7+j] = matrixHp[i].polyCNTTs[j]
+			res[i].polyCNTTs[pp.paramKC+int(pp.paramI)+int(pp.paramJ)+7+j] = matrixHp[i].polyCNTTs[j]
 		}
 	}
 
@@ -547,22 +558,22 @@ func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
 }
 
-func (pp *PublicParameter) GetTxInputMaxNumForRing() int {
+func (pp *PublicParameter) GetTxInputMaxNumForRing() uint8 {
 	return pp.paramI
 }
 
-func (pp *PublicParameter) GetTxOutputMaxNumForRing() int {
-	return pp.paramJ
-}
-
-func (pp *PublicParameter) GetTxInputMaxNumForSingle() int {
+func (pp *PublicParameter) GetTxInputMaxNumForSingle() uint8 {
 	return pp.paramISingle
 }
 
-func (pp *PublicParameter) GetTxInputMaxNumForSingleDistinct() int {
+func (pp *PublicParameter) GetTxInputMaxNumForSingleDistinct() uint8 {
 	return pp.paramISingleDistinct
 }
 
-func (pp *PublicParameter) GetTxOutputMaxNumForSingle() int {
+func (pp *PublicParameter) GetTxOutputMaxNumForRing() uint8 {
+	return pp.paramJ
+}
+
+func (pp *PublicParameter) GetTxOutputMaxNumForSingle() uint8 {
 	return pp.paramJSingle
 }

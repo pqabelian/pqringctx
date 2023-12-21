@@ -20,8 +20,8 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 
 	//txos []*txoMLP
 	outputNum := len(cbTx.txos)
-	if outputNum > pp.paramJ+pp.paramJSingle {
-		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
+		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 	length += VarIntSerializeSize(uint64(outputNum))
 	for i := 0; i < outputNum; i++ {
@@ -70,8 +70,8 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 
 	//	txos []*txo
 	outputNum := len(cbTx.txos)
-	if outputNum > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
+		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 	err = WriteVarInt(w, uint64(outputNum))
 	if err != nil {
@@ -133,8 +133,8 @@ func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []by
 	if err != nil {
 		return nil, err
 	}
-	if int(outputNum) > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > uint64(pp.paramJ)+uint64(pp.paramJSingle) {
+		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
 	}
 	txos := make([]TxoMLP, outputNum)
 	for i := 0; i < int(outputNum); i++ {
@@ -316,8 +316,8 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 
 	//	txInputs  []*TxInputMLP
 	inputNum := len(trTx.txInputs)
-	if inputNum > pp.paramI+pp.paramISingle {
-		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	if inputNum > int(pp.paramI)+int(pp.paramISingle) {
+		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, int(pp.paramI)+int(pp.paramISingle))
 	}
 	length = length + VarIntSerializeSize(uint64(inputNum))
 	for i := 0; i < inputNum; i++ {
@@ -330,8 +330,8 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 
 	//	txos      []TxoMLP
 	outputNum := len(trTx.txos)
-	if outputNum > pp.paramJ+pp.paramJSingle {
-		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
+		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 	length += VarIntSerializeSize(uint64(outputNum))
 	for i := 0; i < outputNum; i++ {
@@ -385,8 +385,8 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 
 	//	txInputs  []*TxInputMLP
 	inputNum := len(trTx.txInputs)
-	if inputNum > pp.paramI+pp.paramISingle {
-		return nil, fmt.Errorf("SerializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	if inputNum > int(pp.paramI)+int(pp.paramISingle) {
+		return nil, fmt.Errorf("SerializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, int(pp.paramI)+int(pp.paramISingle))
 	}
 	err = WriteVarInt(w, uint64(inputNum))
 	if err != nil {
@@ -405,8 +405,8 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 
 	//	txos      []TxoMLP
 	outputNum := len(trTx.txos)
-	if outputNum > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("SerializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
+		return nil, fmt.Errorf("SerializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 	err = WriteVarInt(w, uint64(outputNum))
 	if err != nil {
@@ -469,8 +469,8 @@ func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []by
 	if err != nil {
 		return nil, err
 	}
-	if int(inputNum) > pp.paramI+pp.paramISingle {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, pp.paramI+pp.paramISingle)
+	if inputNum > uint64(pp.paramI)+uint64(pp.paramISingle) {
+		return nil, fmt.Errorf("DeserializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, uint64(pp.paramI)+uint64(pp.paramISingle))
 	}
 
 	txInputs := make([]*TxInputMLP, inputNum)
@@ -490,8 +490,8 @@ func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []by
 	if err != nil {
 		return nil, err
 	}
-	if int(outputNum) > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, pp.paramJ+pp.paramJSingle)
+	if outputNum > uint64(pp.paramJ)+uint64(pp.paramJSingle) {
+		return nil, fmt.Errorf("DeserializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
 	}
 	txos := make([]TxoMLP, outputNum)
 	for i := 0; i < int(outputNum); i++ {

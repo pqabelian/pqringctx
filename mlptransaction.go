@@ -18,8 +18,8 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 		return nil, fmt.Errorf("CoinbaseTxMLPGen: vin (%d) is not in [0, V= %d]", vin, V)
 	}
 
-	if len(txOutputDescMLPs) == 0 || len(txOutputDescMLPs) > pp.paramJ+pp.paramJSingle {
-		return nil, fmt.Errorf("CoinbaseTxMLPGen: the number of outputs (%d) is not in [1, %d]", len(txOutputDescMLPs), pp.paramJ+pp.paramJSingle)
+	if len(txOutputDescMLPs) == 0 || len(txOutputDescMLPs) > int(pp.paramJ)+int(pp.paramJSingle) {
+		return nil, fmt.Errorf("CoinbaseTxMLPGen: the number of outputs (%d) is not in [1, %d]", len(txOutputDescMLPs), int(pp.paramJ)+int(pp.paramJSingle))
 	}
 
 	// identify the J_ring
@@ -43,11 +43,11 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			return nil, fmt.Errorf("CoinbaseTxMLPGen: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", i, coinAddressType)
 		}
 	}
-	if outForRing > pp.paramJ {
+	if outForRing > int(pp.paramJ) {
 		return nil, fmt.Errorf("CoinbaseTxMLPGen: the number of RingCT-Privacy coinAddresses in the input txOutputDescMLPs %d exceeds the allowd maxumim %d", outForRing, pp.paramJ)
 	}
 
-	if outForSingle > pp.paramJSingle {
+	if outForSingle > int(pp.paramJSingle) {
 		return nil, fmt.Errorf("CoinbaseTxMLPGen: the number of Pseudonym-Privacy coinAddresses in the input txOutputDescMLPs %d exceeds the allowd maxumim %d", outForSingle, pp.paramJSingle)
 	}
 
@@ -158,7 +158,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) (bool, error
 	}
 
 	outputNum := len(cbTx.txos)
-	if int(cbTx.txWitness.outForRing) > pp.paramJ || int(cbTx.txWitness.outForSingle) > pp.paramJSingle {
+	if cbTx.txWitness.outForRing > pp.paramJ || cbTx.txWitness.outForSingle > pp.paramJSingle {
 		return false, nil
 	}
 
@@ -302,10 +302,10 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		}
 	}
 
-	if outForRing > pp.paramJ {
+	if outForRing > int(pp.paramJ) {
 		return nil, fmt.Errorf("TransferTxMLPGen: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
-	if outForSingle > pp.paramJSingle {
+	if outForSingle > int(pp.paramJSingle) {
 		return nil, fmt.Errorf("TransferTxMLPGen: outForSingle (%d) exceeds the the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
 	}
 
@@ -494,13 +494,13 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of coinAddressSpendSecretKeyMap (%d) is different from inForSingleDistinct (%d)", len(coinAddressSpendSecretKeyMap), inForSingleDistinct)
 	}
 
-	if inForRing > pp.paramI {
+	if inForRing > int(pp.paramI) {
 		return nil, fmt.Errorf("TransferTxMLPGen: the number of RingCT-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
-	if inForSingle > pp.paramISingle {
+	if inForSingle > int(pp.paramISingle) {
 		return nil, fmt.Errorf("TransferTxMLPGen: the number of Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
 	}
-	if inForSingleDistinct > pp.paramISingleDistinct {
+	if inForSingleDistinct > int(pp.paramISingleDistinct) {
 		return nil, fmt.Errorf("TransferTxMLPGen: the number of distinct coin-addresses for Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingleDistinct, pp.paramISingleDistinct)
 	}
 
@@ -746,14 +746,14 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 
 	//	the following check will make use the txWitness,
 	//	conduct sanity-check on txWitness here
-	if int(trTx.txWitness.outForRing) > pp.paramJ || int(trTx.txWitness.outForSingle) > pp.paramJSingle {
+	if trTx.txWitness.outForRing > pp.paramJ || trTx.txWitness.outForSingle > pp.paramJSingle {
 		return false, nil
 	}
 	if int(trTx.txWitness.outForRing)+int(trTx.txWitness.outForSingle) != outputNum {
 		return false, nil
 	}
 
-	if int(trTx.txWitness.inForRing) > pp.paramI || int(trTx.txWitness.inForSingle) > pp.paramISingle || int(trTx.txWitness.inForSingleDistinct) > pp.paramISingleDistinct {
+	if trTx.txWitness.inForRing > pp.paramI || trTx.txWitness.inForSingle > pp.paramISingle || trTx.txWitness.inForSingleDistinct > pp.paramISingleDistinct {
 		return false, nil
 	}
 	if trTx.txWitness.inForSingleDistinct > trTx.txWitness.inForSingle {
@@ -1030,12 +1030,12 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 		}
 	}
 
-	if outForRing > pp.paramJ {
+	if outForRing > int(pp.paramJ) {
 		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for RingCT-privacy exceeds the max allowed on: %d vs %d", outForRing, pp.paramJ)
 		return 0, errors.New(errStr)
 	}
 
-	if outForSingle > pp.paramISingle {
+	if outForSingle > int(pp.paramISingle) {
 		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for Pseudonym-privacy exceeds the max allowed on: %d vs %d", outForSingle, pp.paramISingle)
 		return 0, errors.New(errStr)
 	}
@@ -1317,7 +1317,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 		return false, nil
 	}
 
-	if int(outForRing) > pp.paramJ {
+	if outForRing > pp.paramJ {
 		return false, nil
 	}
 
@@ -1601,7 +1601,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 		return false, nil
 	}
 
-	if int(inForRing) > pp.paramI || int(outForRing) > pp.paramJ {
+	if inForRing > pp.paramI || outForRing > pp.paramJ {
 		return false, nil
 	}
 
