@@ -485,6 +485,7 @@ func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, err
 }
 
 // deserializeTxoRCTPre deserialize the input []byte to a TxoRCTPre.
+// Note that this is the same as deserializeTxo of pqringct.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*TxoRCTPre, error) {

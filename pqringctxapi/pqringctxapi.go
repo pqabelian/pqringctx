@@ -71,10 +71,10 @@ func CoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*TxOutputDes
 	return pp.CoinbaseTxMLPGen(vin, txOutputDescs, txMemo)
 }
 
-// NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx).
+// NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *TxWitnessCbTx).
 // reviewed on 2023.12.07
-func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) (cbTx *CoinbaseTxMLP) {
-	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitness)
+func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *TxWitnessCbTx) (cbTx *CoinbaseTxMLP) {
+	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitnessCbTx)
 }
 
 // CoinbaseTxVerify verify whether the input CoinbaseTxMLP is valid.
@@ -83,6 +83,8 @@ func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
 	return pp.CoinbaseTxMLPVerify(cbTx)
 }
 
+// NewTxInputDescMLP constructs a TxInputDescMLP, using the same inputs.
+// reviewed on 2023.12.21
 func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
 	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *TxInputDescMLP {
 	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, value)
@@ -92,9 +94,21 @@ func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey [
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
 // TransferTxGen outputs a pqringctxapidao.TransferTxMLP, rather than a serialized Tx.
-// todo: review
+// reviewed on 2023.12.21
 func TransferTxGen(pp *PublicParameter, txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *TransferTxMLP, err error) {
 	return pp.TransferTxMLPGen(txInputDescs, txOutputDescs, fee, txMemo)
+}
+
+// NewTxInputMLP constructs a new TxInputMLP using the input (lgrTxoList []*LgrTxoMLP, serialNumber []byte).
+// reviewed on 2023.12.21
+func NewTxInputMLP(lgrTxoList []*LgrTxoMLP, serialNumber []byte) (txInputMLP *TxInputMLP) {
+	return pqringctx.NewTxInputMLP(lgrTxoList, serialNumber)
+}
+
+// NewTransferTxMLP constructs a new TransferTxMLP using the input (txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitnessTrTx *TxWitnessTrTx).
+// reviewed on 2023.12.21
+func NewTransferTxMLP(txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitnessTrTx *TxWitnessTrTx) (trTx *TransferTxMLP) {
+	return pqringctx.NewTransferTxMLP(txInputs, txos, fee, txMemo, txWitnessTrTx)
 }
 
 // TransferTxVerify verifies TransferTxMLP.
@@ -253,7 +267,8 @@ func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (
 	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
 }
 
-// todo: review
+// SerializeTxWitnessTrTx serializes TxWitnessTrTx to []byte.
+// reviewed on 2023.12.21
 func SerializeTxWitnessTrTx(pp *PublicParameter, txWitness *TxWitnessTrTx) ([]byte, error) {
 	return pp.SerializeTxWitnessTrTx(txWitness)
 }

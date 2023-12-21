@@ -109,19 +109,32 @@ func NewLgrTxoMLP(txo TxoMLP, id []byte) *LgrTxoMLP {
 
 // NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx).
 // reviewed on 2023.12.07
-func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitness *TxWitnessCbTx) *CoinbaseTxMLP {
+func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *TxWitnessCbTx) *CoinbaseTxMLP {
 	return &CoinbaseTxMLP{
 		vin:       vin,
 		txos:      txos,
 		txMemo:    txMemo,
-		txWitness: txWitness,
+		txWitness: txWitnessCbTx,
 	}
 }
 
+// NewTxInputMLP constructs a new TxInputMLP using the input (lgrTxoList []*LgrTxoMLP, serialNumber []byte).
+// reviewed on 2023.12.21
 func NewTxInputMLP(lgrTxoList []*LgrTxoMLP, serialNumber []byte) *TxInputMLP {
 	return &TxInputMLP{
 		lgrTxoList:   lgrTxoList,
 		serialNumber: serialNumber,
+	}
+}
+
+// NewTransferTxMLP constructs a new TransferTxMLP using the input (txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitness *TxWitnessTrTx).
+func NewTransferTxMLP(txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitnessTrTx *TxWitnessTrTx) *TransferTxMLP {
+	return &TransferTxMLP{
+		txInputs:  txInputs,
+		txos:      txos,
+		fee:       fee,
+		txMemo:    txMemo,
+		txWitness: txWitnessTrTx,
 	}
 }
 
@@ -137,21 +150,25 @@ func (cbTx *CoinbaseTxMLP) GetTxWitness() *TxWitnessCbTx {
 	return cbTx.txWitness
 }
 
-// todo: review
+// GetTxos returns the txos of TransferTxMLP.
+// reviewed on 2023.12.21
 func (trTx *TransferTxMLP) GetTxos() []TxoMLP {
 	return trTx.txos
 }
 
-// todo: review
+// GetTxInputs returns the txInputs of TransferTxMLP.
 func (trTx *TransferTxMLP) GetTxInputs() []*TxInputMLP {
 	return trTx.txInputs
 }
 
-// todo: review
+// GetTxWitness returns the txWitness of TransferTxMLP.
+// reviewed on 2023.12.21
 func (trTx *TransferTxMLP) GetTxWitness() *TxWitnessTrTx {
 	return trTx.txWitness
 }
 
+// GetSerialNumber returns the serial number of TxInputMLP.
+// reviewed on 2023.12.21
 func (txInput *TxInputMLP) GetSerialNumber() []byte {
 	return txInput.serialNumber
 }
