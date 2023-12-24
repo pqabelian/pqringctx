@@ -21,6 +21,12 @@ type TxInputMLP = pqringctx.TxInputMLP
 type TxWitnessCbTx = pqringctx.TxWitnessCbTx
 type TxWitnessTrTx = pqringctx.TxWitnessTrTx
 
+const (
+	CoinAddressTypePublicKeyForRingPre    = pqringctx.CoinAddressTypePublicKeyForRingPre
+	CoinAddressTypePublicKeyForRing       = pqringctx.CoinAddressTypePublicKeyForRing
+	CoinAddressTypePublicKeyHashForSingle = pqringctx.CoinAddressTypePublicKeyHashForSingle
+)
+
 // InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
 // After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
 func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
@@ -271,6 +277,12 @@ func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (
 // reviewed on 2023.12.21
 func SerializeTxWitnessTrTx(pp *PublicParameter, txWitness *TxWitnessTrTx) ([]byte, error) {
 	return pp.SerializeTxWitnessTrTx(txWitness)
+}
+
+// DeserializeTxWitnessTrTx deserializes the input []byte to a TxWitnessTrTx.
+// todo: review
+func DeserializeTxWitnessTrTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessTrTx, error) {
+	return pp.DeserializeTxWitnessTrTx(serializedTxWitness)
 }
 
 // APIs for Witness 	end
