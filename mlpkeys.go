@@ -506,8 +506,8 @@ func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
 }
 
 func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
-	// todo(MPL):
-	return 0
+	// todo(MPL): 4 + 2400
+	return 2404
 }
 
 //	CoinAddress and CoinKeys	end
