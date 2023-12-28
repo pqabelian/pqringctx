@@ -92,8 +92,8 @@ func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
 // NewTxInputDescMLP constructs a TxInputDescMLP, using the same inputs.
 // reviewed on 2023.12.21
 func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
-	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *TxInputDescMLP {
-	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, value)
+	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, coinDetectorKey []byte, value uint64) *TxInputDescMLP {
+	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, coinDetectorKey, value)
 }
 
 // TransferTxGen generates TransferTxMLP.
@@ -130,6 +130,10 @@ func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
 // reviewed on 2023.12.12.
 func ExtractCoinAddressTypeFromCoinAddress(pp *PublicParameter, coinAddress []byte) (CoinAddressType, error) {
 	return pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
+}
+
+func ExtractPublicRandFromCoinAddress(pp *PublicParameter, coinAddress []byte) ([]byte, error) {
+	return pp.ExtractPublicRandFromCoinAddress(coinAddress)
 }
 
 // ExtractCoinAddressTypeFromCoinSpendSecretKey extracts the CoinAddressType from the input coinSpendSecretKey.
