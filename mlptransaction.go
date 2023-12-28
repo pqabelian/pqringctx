@@ -1611,7 +1611,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 
 	V := uint64(1)<<pp.paramN - 1
 
-	if vPublic > V || vPublic < -int64(V) {
+	if vPublic > int64(V) || vPublic < -int64(V) {
 		return false, nil
 	}
 
