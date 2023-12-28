@@ -371,7 +371,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			}
 
 			//	check the validity of (coinAddress, coinSpendSecretKey, coinSerialNumberSecretKey)
-			validAddressKey, err := pp.CoinAddressKeyForPKRingVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinSerialNumberSecretKey)
+			validAddressKey, err := pp.CoinAddressKeyForPKRingVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinSerialNumberSecretKey, txInputDescItem.coinDetectorKey)
 			if err != nil {
 				return nil, err
 			}

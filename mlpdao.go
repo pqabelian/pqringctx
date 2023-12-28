@@ -64,6 +64,7 @@ type TxInputDescMLP struct {
 	coinSerialNumberSecretKey []byte //	This is optional, could be nil
 	coinValuePublicKey        []byte //	This is optional, could be nil
 	coinValueSecretKey        []byte //	This is optional, could be nil
+	coinDetectorKey           []byte
 	value                     uint64
 }
 
@@ -79,10 +80,11 @@ func NewTxOutputDescMLP(coinAddress []byte, coinValuePublicKey []byte, value uin
 	}
 }
 
-// NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, coinValuePK, value).
+// NewTxInputDescMLP constructs a new TxOutputDescMLP from the input (coinAddress, coinValuePK, value).
 // reviewed on 2023.12.07
+// todo: review
 func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
-	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *TxInputDescMLP {
+	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, coinDetectorKey []byte, value uint64) *TxInputDescMLP {
 	return &TxInputDescMLP{
 		lgrTxoList:                lgrTxoList,
 		sidx:                      sidx,
@@ -90,6 +92,7 @@ func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey [
 		coinSerialNumberSecretKey: coinSerialNumberSecretKey,
 		coinValuePublicKey:        coinValuePublicKey,
 		coinValueSecretKey:        coinValueSecretKey,
+		coinDetectorKey:           coinDetectorKey,
 		value:                     value,
 	}
 }
