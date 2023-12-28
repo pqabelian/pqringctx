@@ -38,8 +38,8 @@ func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
-	return pp.CoinAddressKeyForPKRingGen(randSeed)
+func CoinAddressKeyForPKRingGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
+	return pp.CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed, coinSerialNumberKeyRandSeed, coinDetectorKey, publicRand)
 }
 
 // CoinAddressKeyForPKHSingleGen generates coinAddress and coinSpendKey
@@ -47,8 +47,8 @@ func CoinAddressKeyForPKRingGen(pp *PublicParameter, randSeed []byte) (coinAddre
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, randSeed []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
-	return pp.CoinAddressKeyForPKHSingleGen(randSeed)
+func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
+	return pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
 	//	return nil, nil, err
 }
 
@@ -201,6 +201,18 @@ func GetCoinValueSecretKeySize(pp *PublicParameter) int {
 // reviewed on 2023.12.07
 func GetParamSeedBytesLen(pp *PublicParameter) int {
 	return pp.GetParamSeedBytesLen()
+}
+
+func GetParamKeyGenPublicRandBytesLen(pp *PublicParameter) int {
+	return pp.GetParamKeyGenPublicRandBytesLen()
+}
+
+func GetParamMACKeyBytesLen(pp *PublicParameter) int {
+	return pp.GetParamMACKeyBytesLen()
+}
+
+func GetParamMACOutputBytesLen(pp *PublicParameter) int {
+	return pp.GetParamMACOutputBytesLen()
 }
 
 // API for CryptoSchemeParams	end

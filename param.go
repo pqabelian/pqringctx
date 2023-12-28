@@ -276,6 +276,8 @@ type PublicParameter struct {
 	// paramKeyGenSeedBytesLen specifies the seed length for KeyGen
 	paramKeyGenSeedBytesLen int
 
+	paramKeyGenPublicRandBytesLen int
+
 	// Some Helpful parameter
 	/*	// paramQCm = (q_c -1)/2, as this value will be often used in computation, we define it as a parameter, rather than compute it each time.
 		paramQCm int64*/
@@ -556,6 +558,22 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 
 func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
+}
+
+// todo: review
+func (pp *PublicParameter) GetParamKeyGenPublicRandBytesLen() int {
+	return pp.paramKeyGenPublicRandBytesLen
+}
+
+// todo: review
+// Shall MACKeyBytesLen be set as a parameter?
+func (pp *PublicParameter) GetParamMACKeyBytesLen() int {
+	return MACKeyBytesLen
+}
+
+// todo: review
+func (pp *PublicParameter) GetParamMACOutputBytesLen() int {
+	return MACOutputBytesLen
 }
 
 func (pp *PublicParameter) GetTxInputMaxNumForRing() uint8 {
