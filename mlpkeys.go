@@ -502,9 +502,9 @@ func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (
 	case CoinAddressTypePublicKeyForRingPre:
 		return pp.addressPublicKeyForRingSerializeSize(), nil
 	case CoinAddressTypePublicKeyForRing:
-		return 1 + pp.addressPublicKeyForRingSerializeSize() + pp.paramKeyGenPublicRandBytesLen + MACOutputBytesLen, nil
+		return 1 + pp.addressPublicKeyForRingSerializeSize() + pp.GetParamKeyGenPublicRandBytesLen() + pp.GetParamMACOutputBytesLen(), nil
 	case CoinAddressTypePublicKeyHashForSingle:
-		return 1 + HashOutputBytesLen + pp.paramKeyGenPublicRandBytesLen + MACOutputBytesLen, nil
+		return 1 + HashOutputBytesLen + pp.GetParamKeyGenPublicRandBytesLen() + pp.GetParamMACOutputBytesLen(), nil
 	default:
 		return 0, errors.New("GetCoinAddressSize: the input coinAddressType is not supported")
 	}

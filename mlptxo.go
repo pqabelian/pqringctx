@@ -45,9 +45,12 @@ func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
 
 // TxoRCT defines the Txo with RingCT-privacy.
 // reviewed on 2023.12.05
+// todo: review
 type TxoRCT struct {
 	coinAddressType         CoinAddressType
 	addressPublicKeyForRing *AddressPublicKeyForRing
+	publicRand              []byte
+	detectorTag             []byte
 	valueCommitment         *ValueCommitment
 	vct                     []byte //	value ciphertext
 	ctKemSerialized         []byte //  ciphertext for kem
@@ -64,6 +67,8 @@ func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 type TxoSDN struct {
 	coinAddressType               CoinAddressType
 	addressPublicKeyForSingleHash []byte
+	publicRand                    []byte
+	detectorTag                   []byte
 	value                         uint64
 }
 
@@ -133,6 +138,7 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, coinValuePublicKey [
 	//	CtKemSerialized,
 	//}
 
+	// Parse coinAddress
 	addressPublicKeyForRing, err := pp.deserializeAddressPublicKeyForRing(coinAddress)
 	if err != nil {
 		return nil, nil, err
@@ -152,6 +158,7 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, coinValuePublicKey [
 // Note that the coinAddress should be 1 byte (CoinAddressType) + serializedAddressPublicKeyForRing.
 // Note that the vpk should be 1 byte (CoinAddressType) + serializedValuePublicKey.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []byte, value uint64) (txo *TxoRCT, cmtr *PolyCNTTVec, err error) {
 
 	//	got (C, kappa) from key encapsulate mechanism
@@ -206,11 +213,36 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []by
 	//	CtKemSerialized,
 	//}
 
-	addressPublicKeyForRing, err := pp.deserializeAddressPublicKeyForRing(coinAddress[1:])
+	// parse coinAddress
+	apkSize := pp.addressPublicKeyForRingSerializeSize()
+	publicRandSize := pp.GetParamKeyGenPublicRandBytesLen()
+	detectorTagSize := pp.GetParamMACOutputBytesLen()
+	if len(coinAddress) != 1+apkSize+publicRandSize+detectorTagSize {
+		return nil, nil, fmt.Errorf("txoRCTGen: the input coinAddress has an invalid length (%d)", len(coinAddress))
+	}
+	coinAddressType := CoinAddressType(coinAddress[0])
+	if coinAddressType != CoinAddressTypePublicKeyForRing {
+		return nil, nil, fmt.Errorf("txoRCTGen: the input coinAddress's coinAddressType (%d) is not CoinAddressTypePublicKeyForRing", coinAddressType)
+	}
+
+	serializedAddressPublicKeyForRing := make([]byte, apkSize)
+	publicRand := make([]byte, publicRandSize)
+	detectorTag := make([]byte, detectorTagSize)
+
+	copy(serializedAddressPublicKeyForRing, coinAddress[1:1+apkSize])
+	copy(publicRand, coinAddress[1+apkSize:1+apkSize+publicRandSize])
+	copy(detectorTag, coinAddress[1+apkSize+publicRandSize:])
+
+	addressPublicKeyForRing, err := pp.deserializeAddressPublicKeyForRing(serializedAddressPublicKeyForRing)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	retTxo := &TxoRCT{
 		CoinAddressTypePublicKeyForRing,
 		addressPublicKeyForRing,
+		publicRand,
+		detectorTag,
 		cmt,
 		vct,
 		CtKemSerialized,
@@ -222,12 +254,34 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []by
 // txoSDNGen() returns a transaction output and the randomness used to generate the commitment.
 // Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
 // reviewed on 2023.12.07
-func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN) {
+func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN, err error) {
+	// parse coinAddress
+	apkHashSize := HashOutputBytesLen
+	publicRandSize := pp.GetParamKeyGenPublicRandBytesLen()
+	detectorTagSize := pp.GetParamMACOutputBytesLen()
+	if len(coinAddress) != 1+apkHashSize+publicRandSize+detectorTagSize {
+		return nil, fmt.Errorf("txoSDNGen: the input coinAddress has an invalid length (%d)", len(coinAddress))
+	}
+	coinAddressType := CoinAddressType(coinAddress[0])
+	if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+		return nil, fmt.Errorf("txoSDNGen: the input coinAddress's coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+	}
+
+	addressPublicKeyForSingleHash := make([]byte, apkHashSize)
+	publicRand := make([]byte, publicRandSize)
+	detectorTag := make([]byte, detectorTagSize)
+
+	copy(addressPublicKeyForSingleHash, coinAddress[1:1+apkHashSize])
+	copy(publicRand, coinAddress[1+apkHashSize:1+apkHashSize+publicRandSize])
+	copy(detectorTag, coinAddress[1+apkHashSize+publicRandSize:])
+
 	return &TxoSDN{
 		CoinAddressTypePublicKeyHashForSingle,
-		coinAddress[1:],
+		addressPublicKeyForSingleHash,
+		publicRand,
+		detectorTag,
 		value,
-	}
+	}, nil
 }
 
 //	TXO	Gen		end
@@ -537,9 +591,12 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) TxoRCTSerializeSize() int {
 	return 1 + // for coinAddressType
 		pp.addressPublicKeyForRingSerializeSize() +
+		pp.GetParamKeyGenPublicRandBytesLen() +
+		pp.GetParamMACOutputBytesLen() +
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
 		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
@@ -548,6 +605,7 @@ func (pp *PublicParameter) TxoRCTSerializeSize() int {
 // serializeTxoRCT serialize the input TxoRCT to []byte.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 	if txoRCT == nil || txoRCT.addressPublicKeyForRing == nil || txoRCT.valueCommitment == nil ||
 		len(txoRCT.vct) == 0 || len(txoRCT.ctKemSerialized) == 0 {
@@ -570,6 +628,18 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 		return nil, err
 	}
 	_, err = w.Write(serializedAddressPublicKeyForRing)
+	if err != nil {
+		return nil, err
+	}
+
+	//	publicRand is fixed length
+	_, err = w.Write(txoRCT.publicRand)
+	if err != nil {
+		return nil, err
+	}
+
+	//	detectorTag is fixed length
+	_, err = w.Write(txoRCT.detectorTag)
 	if err != nil {
 		return nil, err
 	}
@@ -602,6 +672,7 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 // deserializeTxoRCT deserialize the input []byte to a TxoRCT.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCT)
@@ -622,6 +693,18 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 		return nil, err
 	}
 	apk, err = pp.deserializeAddressPublicKeyForRing(tmp)
+	if err != nil {
+		return nil, err
+	}
+
+	publicRand := make([]byte, pp.GetParamKeyGenPublicRandBytesLen())
+	_, err = r.Read(publicRand)
+	if err != nil {
+		return nil, err
+	}
+
+	detectorTag := make([]byte, pp.GetParamMACOutputBytesLen())
+	_, err = r.Read(detectorTag)
 	if err != nil {
 		return nil, err
 	}
@@ -651,6 +734,8 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 	return &TxoRCT{
 		CoinAddressTypePublicKeyForRing,
 		apk,
+		publicRand,
+		detectorTag,
 		cmt,
 		vct,
 		ctKem}, nil
@@ -660,15 +745,19 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
+		pp.GetParamKeyGenPublicRandBytesLen() + //	for publicRand
+		pp.GetParamMACOutputBytesLen() + //	for detectorTag
 		8 // for value
 }
 
 // serializeTxoSDN serialize the input TxoSDN to []byte.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 	if txoSDN == nil || len(txoSDN.addressPublicKeyForSingleHash) == 0 {
 		return nil, fmt.Errorf("serializeTxoSDN: there is nil pointer in the input txoSDN")
@@ -690,6 +779,18 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 		return nil, err
 	}
 
+	//	txoSDN.publicRand is fixed-length
+	_, err = w.Write(txoSDN.publicRand)
+	if err != nil {
+		return nil, err
+	}
+
+	//	txoSDN.detectorTag is fixed-length
+	_, err = w.Write(txoSDN.detectorTag)
+	if err != nil {
+		return nil, err
+	}
+
 	//	txoSDN.value is fixed-length
 	err = binarySerializer.PutUint64(w, binary.LittleEndian, txoSDN.value)
 	if err != nil {
@@ -702,6 +803,7 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 // deserializeTxoSDN deserialize the input []byte to a TxoSDN.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// todo: review
 func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoSDN)
@@ -721,6 +823,18 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 		return nil, err
 	}
 
+	publicRand := make([]byte, pp.GetParamKeyGenPublicRandBytesLen())
+	_, err = r.Read(publicRand)
+	if err != nil {
+		return nil, err
+	}
+
+	detectorTag := make([]byte, pp.GetParamMACOutputBytesLen())
+	_, err = r.Read(detectorTag)
+	if err != nil {
+		return nil, err
+	}
+
 	var value uint64
 	value, err = binarySerializer.Uint64(r, binary.LittleEndian)
 	if err != nil {
@@ -730,6 +844,8 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 	return &TxoSDN{
 		CoinAddressTypePublicKeyHashForSingle,
 		apkHash,
+		publicRand,
+		detectorTag,
 		value}, nil
 }
 
@@ -789,7 +905,7 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 			return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is TxoRCT, but the coinAddressType (%d) is not CoinAddressTypePublicKeyForRing", coinAddressType)
 		}
 
-		//	For TxoRCT, coinAddress = coinAddressType (1 byte) + serializedApk
+		//	For TxoRCT, coinAddress = coinAddressType (1 byte) + serializedApk + publicRand + detectorTag
 		// coinAddressType is fixed-length, say 1 byte
 		err = w.WriteByte(byte(txoInst.coinAddressType))
 		if err != nil {
@@ -806,12 +922,22 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 			return nil, err
 		}
 
+		_, err = w.Write(txoInst.publicRand)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = w.Write(txoInst.detectorTag)
+		if err != nil {
+			return nil, err
+		}
+
 	case *TxoSDN:
 		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
 			return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is TxoSDN, but the coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
 		}
 
-		//	For TxoSDN, coinAddress = coinAddressType (1 byte) + Hash(serializedApk)
+		//	For TxoSDN, coinAddress = coinAddressType (1 byte) + Hash(serializedApk) + publicRand + detectorTag
 
 		// txoInst.coinAddressType is fixed-length, say 1 byte
 		err = w.WriteByte(byte(txoInst.coinAddressType))
@@ -821,6 +947,16 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 
 		//	txoSDN.addressPublicKeyForSingleHash is fixed-length
 		_, err = w.Write(txoInst.addressPublicKeyForSingleHash)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = w.Write(txoInst.publicRand)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = w.Write(txoInst.detectorTag)
 		if err != nil {
 			return nil, err
 		}

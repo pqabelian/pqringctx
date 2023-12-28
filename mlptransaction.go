@@ -98,7 +98,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			vRs[j] = txOutputDescMLP.value
 
 		case CoinAddressTypePublicKeyHashForSingle:
-			txoSDN := pp.txoSDNGen(txOutputDescMLP.coinAddress, txOutputDescMLP.value)
+			txoSDN, err := pp.txoSDNGen(txOutputDescMLP.coinAddress, txOutputDescMLP.value)
 			if err != nil {
 				return nil, err
 			}
