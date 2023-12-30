@@ -564,13 +564,14 @@ func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
 }
 
-// todo: review
+// GetParamKeyGenPublicRandBytesLen returns ParamKeyGenPublicRandBytesLen
+// reviewed on 2023.12.30
 func (pp *PublicParameter) GetParamKeyGenPublicRandBytesLen() int {
 	return pp.paramKeyGenPublicRandBytesLen
 }
 
-// todo: review
-// Shall MACKeyBytesLen be set as a parameter?
+// GetParamMACKeyBytesLen returns ParamMACKeyBytesLen.
+// reviewed on 2023.12.30
 func (pp *PublicParameter) GetParamMACKeyBytesLen() int {
 	return MACKeyBytesLen
 }
