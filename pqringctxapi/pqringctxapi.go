@@ -38,7 +38,10 @@ func InitializePQRingCTX(parameterSeedString []byte) *PublicParameter {
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
-func CoinAddressKeyForPKRingGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
+// reviewed on 2023.12.30
+func CoinAddressKeyForPKRingGen(pp *PublicParameter,
+	coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte,
+	coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
 	return pp.CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed, coinSerialNumberKeyRandSeed, coinDetectorKey, publicRand)
 }
 
@@ -47,6 +50,7 @@ func CoinAddressKeyForPKRingGen(pp *PublicParameter, coinSpendKeyRandSeed []byte
 // Note that keys are purely in cryptography, we export bytes,
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
+// reviewed on 2023.12.30
 func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 	return pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
 	//	return nil, nil, err
@@ -207,10 +211,14 @@ func GetParamSeedBytesLen(pp *PublicParameter) int {
 	return pp.GetParamSeedBytesLen()
 }
 
+// GetParamKeyGenPublicRandBytesLen returns the ParamKeyGenPublicRandBytesLen.
+// reviewed on 2023.12.30
 func GetParamKeyGenPublicRandBytesLen(pp *PublicParameter) int {
 	return pp.GetParamKeyGenPublicRandBytesLen()
 }
 
+// GetParamMACKeyBytesLen returns the ParamMACKeyBytesLen.
+// reviewed on 2023.12.30
 func GetParamMACKeyBytesLen(pp *PublicParameter) int {
 	return pp.GetParamMACKeyBytesLen()
 }
