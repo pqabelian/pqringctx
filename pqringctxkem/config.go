@@ -180,18 +180,69 @@ func Decaps(ppkem *ParamKem, serializedC []byte, sk []byte) ([]byte, error) {
 	return kappa, nil
 }
 
-func GetKemCiphertextBytesLen(ppkem *ParamKem) int {
+func GetKemPublicKeyBytesLen(ppkem *ParamKem) int {
 	switch ppkem.Version {
 	case KEM_KYBER:
-		return 4 + ppkem.Kyber.CryptoCiphertextBytes()
+		return 4 + ppkem.Kyber.CryptoPublicKeyBytes()
 	case KEM_OQS_KYBER:
-		return 4 + 1088 // k*320 + 128 (k==3) = 3 * 320 + 128 = 960 + 128 = 1088
+		length, err := pqringctOQSKem.LengthPublicKey(ppkem.OQSKyber)
+		if err != nil {
+			return -1
+		}
+		return 4 + length
 	default:
 		log.Fatalln("Unsupported KEM version.")
 	}
 	return 0
 }
 
+func GetKemSecretKeyBytesLen(ppkem *ParamKem) int {
+	switch ppkem.Version {
+	case KEM_KYBER:
+		return 4 + ppkem.Kyber.CryptoSecretKeyBytes()
+	case KEM_OQS_KYBER:
+		length, err := pqringctOQSKem.LengthSecretKey(ppkem.OQSKyber)
+		if err != nil {
+			return -1
+		}
+		return 4 + length
+	default:
+		log.Fatalln("Unsupported KEM version.")
+	}
+	return 0
+}
+
+func GetKemCiphertextBytesLen(ppkem *ParamKem) int {
+	switch ppkem.Version {
+	case KEM_KYBER:
+		return 4 + ppkem.Kyber.CryptoCiphertextBytes()
+	case KEM_OQS_KYBER:
+		length, err := pqringctOQSKem.LengthCiphertext(ppkem.OQSKyber)
+		if err != nil {
+			return -1
+		}
+		return 4 + length
+	default:
+		log.Fatalln("Unsupported KEM version.")
+	}
+	return 0
+}
+
+func GetKemSharedSecretBytesLen(ppkem *ParamKem) int {
+	switch ppkem.Version {
+	case KEM_KYBER:
+		return 4 + ppkem.Kyber.CryptoCiphertextBytes()
+	case KEM_OQS_KYBER:
+		length, err := pqringctOQSKem.LengthSharedSecret(ppkem.OQSKyber)
+		if err != nil {
+			return -1
+		}
+		return 4 + length
+	default:
+		log.Fatalln("Unsupported KEM version.")
+	}
+	return 0
+}
 func NewParamKem(version VersionKEM, kyber *kyber.ParameterSet, oqsKEM string) *ParamKem {
 	switch version {
 	case KEM_KYBER:

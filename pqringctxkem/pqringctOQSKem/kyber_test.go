@@ -26,3 +26,27 @@ func TestKeyPair_Encaps_Decaps(t *testing.T) {
 		t.Fatalf("error in matched")
 	}
 }
+
+func TestKeyPair_Size(t *testing.T) {
+	pp := OQSKYBER768
+	lengthPublicKey, err := LengthPublicKey(pp)
+	if err != nil {
+		panic(err)
+	}
+	lengthSecretKey, err := LengthSecretKey(pp)
+	if err != nil {
+		panic(err)
+	}
+	lengthCiphertext, err := LengthCiphertext(pp)
+	if err != nil {
+		panic(err)
+	}
+	lengthSharedSecret, err := LengthSharedSecret(pp)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("LengthPublicKey = ", lengthPublicKey)
+	fmt.Println("LengthSecretKey = ", lengthSecretKey)
+	fmt.Println("LengthCiphertext = ", lengthCiphertext)
+	fmt.Println("LengthSharedSecret = ", lengthSharedSecret)
+}
