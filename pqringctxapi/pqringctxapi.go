@@ -136,6 +136,8 @@ func ExtractCoinAddressTypeFromCoinAddress(pp *PublicParameter, coinAddress []by
 	return pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 }
 
+// ExtractPublicRandFromCoinAddress extracts PublicRand from the input coinAddress.
+// reviewed on 2023.12.30
 func ExtractPublicRandFromCoinAddress(pp *PublicParameter, coinAddress []byte) ([]byte, error) {
 	return pp.ExtractPublicRandFromCoinAddress(coinAddress)
 }
