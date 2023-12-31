@@ -7,25 +7,46 @@ import (
 // PublicParameter is defined the alias of pqringctx.PublicParameter,
 // to enable the caller only need to import pqringctxapi and pqringctxapidao.
 type PublicParameter = pqringctx.PublicParameter
+
+// CoinAddressType is defined to explicit distinguish different type
+// To support Multi-Level Privacy (MLP) and compatible with previous addresses
 type CoinAddressType = pqringctx.CoinAddressType
-
-type TxOutputDescMLP = pqringctx.TxOutputDescMLP
-type TxInputDescMLP = pqringctx.TxInputDescMLP
-type LgrTxoMLP = pqringctx.LgrTxoMLP
-
-type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
-type TransferTxMLP = pqringctx.TransferTxMLP
-
-type TxoMLP = pqringctx.TxoMLP
-type TxInputMLP = pqringctx.TxInputMLP
-type TxWitnessCbTx = pqringctx.TxWitnessCbTx
-type TxWitnessTrTx = pqringctx.TxWitnessTrTx
 
 const (
 	CoinAddressTypePublicKeyForRingPre    = pqringctx.CoinAddressTypePublicKeyForRingPre
 	CoinAddressTypePublicKeyForRing       = pqringctx.CoinAddressTypePublicKeyForRing
 	CoinAddressTypePublicKeyHashForSingle = pqringctx.CoinAddressTypePublicKeyHashForSingle
 )
+
+// TxOutputDescMLP is used to collect output information
+// To support Multi-Level Privacy (MLP), the value public key field can be nil
+type TxOutputDescMLP = pqringctx.TxOutputDescMLP
+
+// TxInputDescMLP is used to collect input information which include:
+// - reference data which used to protect privacy
+// - information which would be transferred
+type TxInputDescMLP = pqringctx.TxInputDescMLP
+
+// TxInputMLP is used to reference a TXO defined by pqringctx
+type TxInputMLP = pqringctx.TxInputMLP
+
+// TxoMLP is exported to represent a TXO defined by pqringctx
+type TxoMLP = pqringctx.TxoMLP
+
+// CoinbaseTxMLP defined the coinbase transaction
+type CoinbaseTxMLP = pqringctx.CoinbaseTxMLP
+
+// TransferTxMLP defined the transfer transaction
+type TransferTxMLP = pqringctx.TransferTxMLP
+
+// auxiliary struct
+
+// LgrTxoMLP is exported to auxiliary TxInputDescMLP
+type LgrTxoMLP = pqringctx.LgrTxoMLP
+
+// TxWitnessCbTx / TxWitnessTrTx is witness for difference type of transaction
+type TxWitnessCbTx = pqringctx.TxWitnessCbTx
+type TxWitnessTrTx = pqringctx.TxWitnessTrTx
 
 // InitializePQRingCTX is the init function, it must be called explicitly when using this PQRingCTX.
 // After calling this initialization, the caller can use the returned PublicParameter to call PQRingCTX's API.
@@ -60,13 +81,14 @@ func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []b
 // which will be used to transmit the (value, randomness) pair of the value-commitment to the coin owner.
 // Note that by default, pqringctx transmits the (value, randomness) pair by on-chain data,
 // i.e., the ciphertexts are included in Txo.
-// As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
+// As the encryption/transmit of (value, randomness) pair is independent of the coinAddress part,
 // we use a standalone ValueKeyGen algorithm to generate these keys.
 func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (coinValuePublicKey []byte, coinValueSecretKey []byte, err error) {
 	return pp.CoinValueKeyGen(randSeed)
 }
 
 // NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
+// To support Multi-Level Privacy (MLP), the value public key field can be nil
 // reviewed on 2023.12.07
 func NewTxOutputDescMLP(coinAddress []byte, coinValuePublicKey []byte, value uint64) *TxOutputDescMLP {
 	return pqringctx.NewTxOutputDescMLP(coinAddress, coinValuePublicKey, value)
@@ -95,8 +117,8 @@ func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
 
 // NewTxInputDescMLP constructs a TxInputDescMLP, using the same inputs.
 // reviewed on 2023.12.21
-func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte,
-	coinSerialNumberSecretKey []byte, coinValuePublicKey []byte, coinValueSecretKey []byte, coinDetectorKey []byte, value uint64) *TxInputDescMLP {
+func NewTxInputDescMLP(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte,
+	coinValuePublicKey []byte, coinValueSecretKey []byte, coinDetectorKey []byte, value uint64) *TxInputDescMLP {
 	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, coinDetectorKey, value)
 }
 

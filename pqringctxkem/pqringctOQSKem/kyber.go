@@ -51,3 +51,45 @@ func Decaps(kemName string, cipher []byte, sk []byte) ([]byte, error) {
 	}
 	return instance.DecapSecret(cipher)
 }
+
+func LengthPublicKey(kemName string) (int, error) {
+	var instance oqs.KeyEncapsulation
+	defer instance.Clean()
+	var err error
+	err = instance.Init(kemName, nil)
+	if err != nil {
+		return 0, err
+	}
+	return instance.Details().LengthPublicKey, nil
+}
+func LengthSecretKey(kemName string) (int, error) {
+	var instance oqs.KeyEncapsulation
+	defer instance.Clean()
+	var err error
+	err = instance.Init(kemName, nil)
+	if err != nil {
+		return 0, err
+	}
+	return instance.Details().LengthSecretKey, nil
+}
+func LengthCiphertext(kemName string) (int, error) {
+	var instance oqs.KeyEncapsulation
+	defer instance.Clean()
+	var err error
+	err = instance.Init(kemName, nil)
+	if err != nil {
+		return 0, err
+	}
+	return instance.Details().LengthCiphertext, nil
+}
+
+func LengthSharedSecret(kemName string) (int, error) {
+	var instance oqs.KeyEncapsulation
+	defer instance.Clean()
+	var err error
+	err = instance.Init(kemName, nil)
+	if err != nil {
+		return 0, err
+	}
+	return instance.Details().LengthSharedSecret, nil
+}

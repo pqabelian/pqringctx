@@ -7,15 +7,19 @@ import (
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
+// AddressSecretKeySp namely SpendKey
 type AddressSecretKeySp struct {
 	//	s \in (S_{\gamma_a})^{L_a}, where \gamma_a is small, say 5 at this moment.
 	//	As s' infinity normal lies in [-5, 5], here we define s as PolyAVec, rather than PolyANTTVec.
 	s *PolyAVec
 }
+
+// AddressSecretKeySn namely SerialNumberKey
 type AddressSecretKeySn struct {
 	ma *PolyANTT
 }
 
+// AddressPublicKeyForRing is the struct for full-privacy Address which is used in pair with AddressSecretKeyForRing
 type AddressPublicKeyForRing struct {
 	t *PolyANTTVec // directly in NTT form
 	e *PolyANTT
@@ -25,9 +29,12 @@ type AddressSecretKeyForRing struct {
 	*AddressSecretKeySn
 }
 
+// AddressPublicKeyForSingle is the struct for pseudonym-privacy Address which is used in pair with AddressSecretKeyForSingle
+// Comparing with AddressPublicKeyForRing, this address does not include parts related to protecting privacy
 type AddressPublicKeyForSingle struct {
 	t *PolyANTTVec // directly in NTT form
 }
+
 type AddressSecretKeyForSingle struct {
 	*AddressSecretKeySp
 }
@@ -38,8 +45,10 @@ type AddressSecretKeyForSingle struct {
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.05
 // reviewed on 2023.12.30
+// REVIEWED ON 2023/12/31
 func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte,
-	coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, err error) {
+	coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte,
+	coinSerialNumberSecretKey []byte, err error) {
 
 	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
 		return nil, nil, nil, fmt.Errorf("CoinAddressKeyForPKRingGen: the input coinDetectorKey's length (%d) is incorrect", len(coinDetectorKey))
@@ -95,6 +104,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byt
 // added on 2023.12.13
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
+// REVIERED ON 2023/12/31
 func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -245,6 +255,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coi
 // reviewed on 2023.12.05
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// REVIEWED ON 2023/12/31
 func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 
 	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
@@ -609,13 +620,13 @@ func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType Coin
 // GetCoinValuePublicKeySize returns the CoinValuePublicKey size
 // todo: to review
 func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
-	// todo(MPL):
-	return 1188
+	// todo(MPL): 4 + 1184
+	return pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem)
 }
 
 func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
 	// todo(MPL): 4 + 2400
-	return 2404
+	return pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem)
 }
 
 //	CoinAddress and CoinKeys	end
