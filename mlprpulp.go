@@ -2,7 +2,6 @@ package pqringctx
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/big"
 )
@@ -1336,6 +1335,7 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
 // reviewed on 2023.12.18
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint8) int {
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
 
@@ -1354,12 +1354,13 @@ func (pp *PublicParameter) rpulpProofMLPSerializeSizeByCommNum(nL uint8, nR uint
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
 // reviewed on 2023.12.18
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, error) {
 	if prf == nil || prf.c_waves == nil ||
 		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
 		len(prf.chseed) == 0 ||
 		prf.cmt_zs == nil || prf.zs == nil {
-		return nil, errors.New("SerializeRpulpProofMLP: there is nil pointer in the input rpulpProofMLP")
+		return nil, fmt.Errorf("SerializeRpulpProofMLP: there is nil pointer in the input rpulpProofMLP")
 	}
 
 	var err error
@@ -1373,18 +1374,18 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, e
 	}
 
 	// nL        uint8
-	err = w.WriteByte(byte(prf.nL))
+	err = w.WriteByte(prf.nL)
 	if err != nil {
 		return nil, err
 	}
 
 	// nR        uint8
-	err = w.WriteByte(byte(prf.nR))
+	err = w.WriteByte(prf.nR)
 	if err != nil {
 		return nil, err
 	}
 
-	n := int(prf.nL + prf.nR)
+	n := int(prf.nL) + int(prf.nR)
 
 	// c_waves []*PolyCNTT; length n
 	for i := 0; i < n; i++ {
@@ -1443,6 +1444,7 @@ func (pp *PublicParameter) serializeRpulpProofMLP(prf *RpulpProofMLP) ([]byte, e
 // finished and review on 2023.12.04
 // reviewed on 2023.12.05
 // reviewed on 2023.12.18
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []byte) (*RpulpProofMLP, error) {
 
 	r := bytes.NewReader(serializedRpulpProofMLP)
@@ -1465,7 +1467,7 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 		return nil, err
 	}
 
-	n := int(nL + nR)
+	n := int(nL) + int(nR)
 
 	// c_waves []*PolyCNTT; length n
 	c_waves := make([]*PolyCNTT, n)

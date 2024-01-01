@@ -1003,10 +1003,11 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) (bool, error
 
 //	TxWitness		begin
 
-func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
+// GetTxWitnessCbTxSerializeSizeByDesc returns the serialize size for TxWitnessCbTx according to the input coinAddressList.
+// reviewed on 2024.01.01, by Alice
+func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
 	if len(coinAddressList) == 0 {
-		return 0, errors.New("GetCbTxWitnessSerializeSizeApprox: the input coinAddressList is empty")
-
+		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the input coinAddressList is empty")
 	}
 
 	outForRing := 0
@@ -1021,23 +1022,21 @@ func (pp *PublicParameter) GetCbTxWitnessSerializeSizeByDesc(coinAddressList [][
 			if i == outForRing {
 				outForRing += 1
 			} else {
-				return 0, errors.New("GetCbTxWitnessSerializeSizeByDesc: the coinAddresses for RingCT-Privacy should be at the fist successive positions")
+				return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the coinAddresses for RingCT-Privacy should be at the fist successive positions")
 			}
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
 			outForSingle += 1
 		} else {
-			return 0, errors.New("GetCbTxWitnessSerializeSizeByDesc: unsupported coinAddress type appears in coinAddressList")
+			return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: unsupported coinAddress type appears in coinAddressList")
 		}
 	}
 
 	if outForRing > int(pp.paramJ) {
-		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for RingCT-privacy exceeds the max allowed on: %d vs %d", outForRing, pp.paramJ)
-		return 0, errors.New(errStr)
+		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the number of output coins for RingCT-privacy exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
 	}
 
-	if outForSingle > int(pp.paramISingle) {
-		errStr := fmt.Sprintf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for Pseudonym-privacy exceeds the max allowed on: %d vs %d", outForSingle, pp.paramISingle)
-		return 0, errors.New(errStr)
+	if outForSingle > int(pp.paramJSingle) {
+		return 0, fmt.Errorf("GetCbTxWitnessSerializeSizeByDesc: the number of output coins for Pseudonym-privacy exceeds the max allowed value: %d vs %d", outForSingle, pp.paramJSingle)
 	}
 
 	return pp.TxWitnessCbTxSerializeSize(uint8(outForRing))
