@@ -253,6 +253,22 @@ func GetParamMACOutputBytesLen(pp *PublicParameter) int {
 
 // API for CryptoSchemeParams	end
 
+// APIs	for Tx-Params	begin
+
+// GetTxInputMaxNum returns the allowed maximum number of TxInputs.
+// reviewed on 2024.01.01
+func GetTxInputMaxNum(pp *PublicParameter) int {
+	return int(pp.GetTxInputMaxNumForRing()) + int(pp.GetTxInputMaxNumForSingle())
+}
+
+// GetTxOutputMaxNum returns the allowed maximum number of TxOutputs.
+// reviewed on 2024.01.01
+func GetTxOutputMaxNum(pp *PublicParameter) int {
+	return int(pp.GetTxOutputMaxNumForRing()) + int(pp.GetTxOutputMaxNumForSingle())
+}
+
+// APIs	for Tx-Params	end
+
 // APIs	for TxIn	begin
 
 // GetNullSerialNumber returns the null-serial-number.
@@ -304,9 +320,10 @@ func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
 
 // APIs for Witness 	begin
 
-// GetCbTxWitnessSerializeSizeByDesc return the accurate size of the TxWitness for a coinbaseTx, according to the coinAddressListPayTo.
-func GetCbTxWitnessSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
-	return pp.GetCbTxWitnessSerializeSizeByDesc(coinAddressListPayTo)
+// GetTxWitnessCbTxSerializeSizeByDesc return the accurate size of the TxWitness for a coinbaseTx, according to the coinAddressListPayTo.
+// reviewed on 2024.01.01, by Alice
+func GetTxWitnessCbTxSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
+	return pp.GetTxWitnessCbTxSerializeSizeByDesc(coinAddressListPayTo)
 }
 
 // SerializeTxWitnessCbTx serializes the input TxWitnessCbTx into []byte.

@@ -581,22 +581,32 @@ func (pp *PublicParameter) GetParamMACOutputBytesLen() int {
 	return MACOutputBytesLen
 }
 
+// GetTxInputMaxNumForRing returns the allowed maximum number of Inputs for Ring.
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) GetTxInputMaxNumForRing() uint8 {
 	return pp.paramI
 }
 
+// GetTxInputMaxNumForSingle returns the allowed maximum number of Inputs for Single.
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) GetTxInputMaxNumForSingle() uint8 {
 	return pp.paramISingle
 }
 
+// GetTxInputMaxNumForSingleDistinct returns the allowed maximum number of Inputs for Single with different coinAddresses.
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) GetTxInputMaxNumForSingleDistinct() uint8 {
 	return pp.paramISingleDistinct
 }
 
+// GetTxOutputMaxNumForRing returns the allowed maximum number of Outputs for Ring.
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) GetTxOutputMaxNumForRing() uint8 {
 	return pp.paramJ
 }
 
+// GetTxOutputMaxNumForSingle returns the allowed maximum number of Outputs for Single.
+// reviewed on 2024.01.01, by Alice
 func (pp *PublicParameter) GetTxOutputMaxNumForSingle() uint8 {
 	return pp.paramJSingle
 }
