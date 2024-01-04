@@ -277,6 +277,10 @@ func GetNullSerialNumber(pp *PublicParameter) []byte {
 	return pp.GetNullSerialNumberMLP()
 }
 
+func GetSerialNumberSize(pp *PublicParameter) int {
+	return pp.GetSerialNumberSize()
+}
+
 // APIs	for TxIn	end
 
 // APIs	for Txo	begin

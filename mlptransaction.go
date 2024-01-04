@@ -442,7 +442,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			if len(txInputDescItem.coinSpendSecretKey) == 0 {
 				return nil, fmt.Errorf("TransferTxMLPGen: for % -th the coin to spend, say txInputDescs[%d].lgrTxoList[%d], the corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, is nil", i, txInputDescItem.sidx, i)
 			}
-			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey)
+			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinDetectorKey)
 			if err != nil {
 				return nil, err
 			}
@@ -555,7 +555,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			values_out[j] = txOutputDescItem.value
 
 		case CoinAddressTypePublicKeyHashForSingle:
-			txoSDN := pp.txoSDNGen(txOutputDescItem.coinAddress, txOutputDescItem.value)
+			txoSDN, err := pp.txoSDNGen(txOutputDescItem.coinAddress, txOutputDescItem.value)
 			if err != nil {
 				return nil, err
 			}
@@ -1059,6 +1059,11 @@ func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
 		nullSn[i] = 0
 	}
 	return nullSn
+}
+
+// todo: review
+func (pp *PublicParameter) GetSerialNumberSize() int {
+	return pp.ledgerTxoSerialNumberSerializeSizeMLP()
 }
 
 // ledgerTxoSerialNumberSerializeSizeMLP returns serial size of null-serial-number.
@@ -1861,7 +1866,6 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 		}
 	}
 
-	return false, nil
 }
 
 // balanceProofTrTxSerializeSize returns the serialize for the BalanceProof for TxWitnessTrTx, according to the input (inForRing uint8, outForRing uint8, vPublic int64).
