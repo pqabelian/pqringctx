@@ -111,7 +111,7 @@ func NewCoinbaseTxMLP(vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *T
 
 // CoinbaseTxVerify verify whether the input CoinbaseTxMLP is valid.
 // todo: review
-func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) (bool, error) {
+func CoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) error {
 	return pp.CoinbaseTxMLPVerify(cbTx)
 }
 
@@ -145,7 +145,7 @@ func NewTransferTxMLP(txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo 
 
 // TransferTxVerify verifies TransferTxMLP.
 // todo: review
-func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) (bool, error) {
+func TransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) error {
 	return pp.TransferTxMLPVerify(trTx)
 }
 
