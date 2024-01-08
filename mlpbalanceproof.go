@@ -115,16 +115,18 @@ func (pp *PublicParameter) genBalanceProofL0R0() (*BalanceProofL0R0, error) {
 
 // verifyBalanceProofL0R0 verifies the input BalanceProofL0R0.
 // reviewed on 2023.12.16
-func (pp *PublicParameter) verifyBalanceProofL0R0(balanceProof *BalanceProofL0R0) (bool, error) {
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofL0R0(balanceProof *BalanceProofL0R0) error {
 	if balanceProof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R0: the input BalanceProofL0R0 is nil")
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL0R0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R0:  balanceProof.balanceProofCase (%d) != BalanceProofCaseL0R0", balanceProof.balanceProofCase)
 	}
 
-	return true, nil
+	return nil
 }
 
 // genBalanceProofL0R1 generates BalanceProofL0R1, proving vL = cmt.
@@ -198,51 +200,52 @@ genBalanceProofL0R1Restart:
 // verifyBalanceProofL0R1 verifies BalanceProofL0R1.
 // reviewed on 2023.12.16
 // reviewed on 2023.12.17
-func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *ValueCommitment, balanceProof *BalanceProofL0R1) (bool, error) {
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
+func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *ValueCommitment, balanceProof *BalanceProofL0R1) error {
 	if len(msg) == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: the input msg is nil/empty")
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 	if vL > V {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: the input vL(%v) exceeds the allowed maximum value (%v)", vL, V)
 	}
 
 	if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: the input cmt is not well-from")
 	}
 	for i := 0; i < len(cmt.b.polyCNTTs); i++ {
 		if len(cmt.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0R1: cmt.b.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 	if len(cmt.c.coeffs) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: cmt.c is not well-form")
 	}
 
 	if balanceProof == nil || len(balanceProof.chseed) != HashOutputBytesLen || len(balanceProof.zs) != pp.paramK {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: at least one of (balanceProof, balanceProof.chseed, balanceProof.zs) is not well-form")
 	}
 	for t := 0; t < pp.paramK; t++ {
 		if len(balanceProof.zs[t].polyCs) != pp.paramLC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0R1: balanceProof.zs[%d] is not well-form", t)
 		}
 		for i := 0; i < pp.paramLC; i++ {
 			if len(balanceProof.zs[t].polyCs[i].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofL0R1: balanceProof.zs[%d].polyCs[%d] is not well-form", t, i)
 			}
 		}
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL0R1 {
-		return false, fmt.Errorf("verifyBalanceProofL0R1: balanceProof.balanceProofCase is not BalanceProofCaseL0R1")
+		return fmt.Errorf("verifyBalanceProofL0R1: balanceProof.balanceProofCase is not BalanceProofCaseL0R1")
 	}
 
 	// infNorm of z^t
 	bound := pp.paramEtaC - int64(pp.paramBetaC)
 	for t := 0; t < pp.paramK; t++ {
 		if balanceProof.zs[t].infNorm() > bound {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0R1: balanceProof.zs[%d].infNorm() (%v) is not in the expected range", t, balanceProof.zs[t].infNorm())
 		}
 	}
 
@@ -251,7 +254,7 @@ func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *Va
 
 	ch_poly, err := pp.expandChallengeC(balanceProof.chseed)
 	if err != nil {
-		return false, err
+		return err
 	}
 	ch := pp.NTTPolyC(ch_poly)
 	mtmp := pp.intToBinary(vL)
@@ -278,18 +281,18 @@ func (pp *PublicParameter) verifyBalanceProofL0R1(msg []byte, vL uint64, cmt *Va
 
 	seedMsg, err := pp.collectBytesForBalanceProofL0R1Challenge(msg, vL, cmt, ws, deltas)
 	if err != nil {
-		return false, err
+		return err
 	}
 	seed_ch, err := Hash(seedMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if bytes.Compare(seed_ch, balanceProof.chseed) != 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0R1: the computed seed_ch is different from balanceProof.chseed")
 	}
 
-	return true, nil
+	return nil
 
 }
 
@@ -501,83 +504,85 @@ genBalanceProofL0RnRestart:
 // verifyBalanceProofL0Rn verifies BalanceProofL0Rn.
 // reviewed on 2023.12.16
 // reviewed on 2023.12.17
-func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint64, cmtRs []*ValueCommitment, balanceProof *BalanceProofLmRn) (bool, error) {
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
+// todo: review
+func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint64, cmtRs []*ValueCommitment, balanceProof *BalanceProofLmRn) error {
 	if len(msg) == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: the input msg is nil/empty")
 	}
 
 	if nR < 2 || nR > pp.paramJ {
 		//	nope that pp.paramI = pp.paramJ
-		return false, fmt.Errorf("verifyBalanceProofL0Rn: the input nR should be in [2, %d]", pp.paramJ)
+		return fmt.Errorf("verifyBalanceProofL0Rn: the input nR should be in [2, %d]", pp.paramJ)
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 	if vL > V {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: the input vL (%v) exceeds the allowed maximum value (%v)", vL, V)
 	}
 
 	n := int(nR)
 	if len(cmtRs) != n {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: len(cmtRs) (%d) != nR (%d)", len(cmtRs), nR)
 	}
 
 	for i := 0; i < n; i++ {
 		cmt := cmtRs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0Rn: cmtRs[%d] is not well-form", i)
 		}
 		for j := 0; j < pp.paramKC; j++ {
 			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofL0Rn: cmtRs[%d].b.polyCNTTs[%d] is not well-form", i, j)
 			}
 		}
 		if len(cmt.c.coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0Rn: cmtRs[%d].c is not well-form", i)
 		}
 	}
 
 	if balanceProof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: the input balanceProof is nil")
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL0Rn {
-		return false, fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.balanceProofCase is not BalanceProofCaseL0Rn")
+		return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.balanceProofCase is not BalanceProofCaseL0Rn")
 	}
 
 	if balanceProof.nL != 0 || balanceProof.nR != nR {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.nL (%d) != 0 || balanceProof.nR (%d) != nR (%d)", balanceProof.nL, balanceProof.nR, nR)
 	}
 
 	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.b_hat is not well-form")
 	}
 
 	for i := 0; i < pp.paramKC; i++ {
 		if len(balanceProof.b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.b_hat.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 
 	n2 := n + 2
 	if n2 > 0xFF {
-		return false, fmt.Errorf("verifyBalanceProofL0Rn: n2 = nR + 2 > 0xFF")
+		return fmt.Errorf("verifyBalanceProofL0Rn: n2 (%d) = nR (%d) + 2 > 0xFF", n2, nR)
 	}
 
 	if len(balanceProof.c_hats) != n2 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: len(balanceProof.c_hats) (%d) != n2 (%d)", len(balanceProof.c_hats), n2)
 	}
 	for i := 0; i < n2; i++ {
 		if len(balanceProof.c_hats[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.c_hats[%d] is not well-from", i)
 		}
 	}
 
 	if len(balanceProof.u_p) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: len(balanceProof.u_p) (%d) != pp.paramDC (%d)", len(balanceProof.u_p), pp.paramDC)
 	}
 
 	if balanceProof.rpulpproof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.rpulpproof is nil")
 	}
 	//	here we do not conduct sanity-check on balanceProof.rpulpproof,
 	//	since that will be conducted by rpulpVerify.
@@ -595,21 +600,21 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 		}
 
 		if infNorm > boundF {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL0Rn: balanceProof.u_p[%d] (%v) is not in the expected range", i, balanceProof.u_p[i])
 		}
 	}
 
 	seedMsg, err := pp.collectBytesForBalanceProofL0RnChallenge(msg, nR, vL, cmtRs, balanceProof.b_hat, balanceProof.c_hats)
 	if err != nil {
-		return false, err
+		return err
 	}
 	seed_binM, err := Hash(seedMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
 	if err != nil {
-		return false, err
+		return err
 	}
 	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	u_hats := make([][]int64, 3)
@@ -622,9 +627,12 @@ func (pp *PublicParameter) verifyBalanceProofL0Rn(msg []byte, nR uint8, vL uint6
 	u_hats[2] = balanceProof.u_p
 
 	n1 := n
-	flag := pp.rpulpVerifyMLP(msg, cmtRs, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL0Rn, binM, 0, nR, 3, u_hats, balanceProof.rpulpproof)
+	err = pp.rpulpVerifyMLP(msg, cmtRs, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL0Rn, binM, 0, nR, 3, u_hats, balanceProof.rpulpproof)
+	if err != nil {
+		return err
+	}
 
-	return flag, nil
+	return nil
 }
 
 // genBalanceProofL1R1 generates BalanceProofL1R1.
@@ -761,57 +769,58 @@ genBalanceProofL1R1Restart:
 
 // verifyBalanceProofL1R1 verifies BalanceProofL1R1.
 // reviewed on 2023.12.18
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // todo: multi-round review
-func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, balanceProof *BalanceProofL1R1) (bool, error) {
+func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitment, cmt2 *ValueCommitment, balanceProof *BalanceProofL1R1) error {
 
 	if len(msg) == 0 || cmt1 == nil || cmt2 == nil || balanceProof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: at least one of (msg, cmt1, cmt2, balanceProof) is nil/empty")
 	}
 
 	if cmt1.b == nil || len(cmt1.b.polyCNTTs) != pp.paramKC || cmt1.c == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: cmt1 is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(cmt1.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1R1: cmt1.b.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 	if len(cmt1.c.coeffs) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: cmt1.c is not well-form")
 	}
 
 	if cmt2.b == nil || len(cmt2.b.polyCNTTs) != pp.paramKC || cmt2.c == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: cmt2 is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(cmt2.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1R1: cmt2.b.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 	if len(cmt2.c.coeffs) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: cmt2.c is not well-form")
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL1R1 {
-		return false, fmt.Errorf("verifyBalanceProofL1R1: the input balanceProof's balanceProofCase is not BalanceProofCaseL1R1")
+		return fmt.Errorf("verifyBalanceProofL1R1: the input balanceProof's balanceProofCase is not BalanceProofCaseL1R1")
 	}
 
 	if balanceProof.psi == nil || len(balanceProof.chseed) != HashOutputBytesLen ||
 		len(balanceProof.z1s) != pp.paramK || len(balanceProof.z2s) != pp.paramK {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: at least one of (balanceProof.psi, balanceProof.chseed, balanceProof.z1s, balanceProof.z2s) is not well-form")
 	}
 
 	if len(balanceProof.psi.coeffs) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: balanceProof.psi is not well-form")
 	}
 
 	for t := 0; t < pp.paramK; t++ {
 		if len(balanceProof.z1s[t].polyCs) != pp.paramLC || len(balanceProof.z2s[t].polyCs) != pp.paramLC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1R1: balanceProof.z1s[%d] or balanceProof.z2s[%d] is not well-form", t, t)
 		}
 		for i := 0; i < pp.paramLC; i++ {
 			if len(balanceProof.z1s[t].polyCs[i].coeffs) != pp.paramDC || len(balanceProof.z2s[t].polyCs[i].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofL1R1: balanceProof.z1s[%d].polyCs[%d] or balanceProof.z2s[%d].polyCs[%d] is not well-form", t, i, t, i)
 			}
 		}
 	}
@@ -819,13 +828,14 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 	bound := pp.paramEtaC - int64(pp.paramBetaC)
 	for t := 0; t < pp.paramK; t++ {
 		if balanceProof.z1s[t].infNorm() > bound || balanceProof.z2s[t].infNorm() > bound {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1R1: balanceProof.z1s[%d].infNorm() (%v) or balanceProof.z2s[%d].infNorm() (%v) is not in the expected range",
+				t, balanceProof.z1s[t].infNorm(), t, balanceProof.z2s[t].infNorm())
 		}
 	}
 
 	ch_poly, err := pp.expandChallengeC(balanceProof.chseed)
 	if err != nil {
-		return false, nil
+		return err
 	}
 	ch := pp.NTTPolyC(ch_poly)
 
@@ -866,18 +876,18 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 	// splicing the data to be processed
 	preMsg, err := pp.collectBytesForBalanceProofL1R1Challenge1(msg, cmt1, cmt2, w1s, w2s, deltas)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	seed_rand, err := Hash(preMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	//fmt.Println("prove seed_rand=", seed_rand)
 	betas, err := pp.expandCombChallengeInBalanceProofL1R1(seed_rand)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// psi'
@@ -913,14 +923,14 @@ func (pp *PublicParameter) verifyBalanceProofL1R1(msg []byte, cmt1 *ValueCommitm
 	preMsgAll := pp.collectBytesForBalanceProofL1R1Challenge2(preMsg, balanceProof.psi, psip)
 	chseed, err := Hash(preMsgAll)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if bytes.Compare(chseed, balanceProof.chseed) != 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1R1: the computed chseed is different from balanceProof.chseed")
 	}
 
-	return true, nil
+	return nil
 }
 
 // genBalanceProofL1Rn generates BalanceProofL1Rn.
@@ -1131,77 +1141,78 @@ genBalanceProofL1RnRestart:
 // verifyBalanceProofL1Rn verifies BalanceProofL1Rn.
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // todo: multi-round view
-func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
+func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) error {
 	if len(msg) == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: the input msg is nil/empty")
 	}
 
 	//	Note that BalanceProofL1Rn could be
 	//	(nR == 1 && vRPub > 0) || nR >= 2
 	if nR > pp.paramJ || nR == 0 {
 		//	Note that pp.paramI = pp.paramJ
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: nR (%d) is not in the allowed range", nR)
 	}
 
 	if nR == 1 && vRPub == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: the case of (nR == 1 && vRPub == 0) is not in the allowed cases")
 	}
 
 	if cmtL == nil || cmtL.b == nil || len(cmtL.b.polyCNTTs) != pp.paramKC || cmtL.c == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: cmtL is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(cmtL.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: cmtL.b.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 	if len(cmtL.c.coeffs) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: cmtL.c is not well-form")
 	}
 
 	if len(cmtRs) != int(nR) {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: len(cmtRs) (%d) != nR (%d)", len(cmtRs), nR)
 	}
 
 	for i := uint8(0); i < nR; i++ {
 		cmt := cmtRs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: cmtRs[%d] is not well-form", i)
 		}
 		for j := 0; j < pp.paramKC; j++ {
 			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofL1Rn: cmtRs[%d].b.polyCNTTs[%d] is not well-form", i, j)
 			}
 		}
 		if len(cmt.c.coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: cmtRs[%d].c is not well-form", i)
 		}
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 	if vRPub > V {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: vRPub (%v) exceeds the allowed maximum value (%v)", vRPub, V)
 	}
 
 	if balanceProof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof is nil")
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseL1Rn {
-		return false, fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.balanceProofCase is not BalanceProofCaseL1Rn")
+		return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.balanceProofCase is not BalanceProofCaseL1Rn")
 	}
 
 	if balanceProof.nL != 1 || balanceProof.nR != nR {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.nL (%d) != 1 || balanceProof.nR (%d) != nR (%d)", balanceProof.nL, balanceProof.nR, nR)
 	}
 
 	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.b_hat is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(balanceProof.b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.b_hat.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 
@@ -1209,24 +1220,24 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	n := int(nL) + int(nR)
 	n2 := n + 2
 	if n2 > 0xFF {
-		return false, fmt.Errorf("verifyBalanceProofL1Rn: n2 = 1 + nR > 0xFF")
+		return fmt.Errorf("verifyBalanceProofL1Rn: n2 = 1 + nR (%d) + 2 = %d  > 0xFF", nR, n2)
 	}
 
 	if len(balanceProof.c_hats) != n2 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: len(balanceProof.c_hats) (%d) != n2 (%d)", len(balanceProof.c_hats), n2)
 	}
 	for i := 0; i < n2; i++ {
 		if len(balanceProof.c_hats[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.c_hats[%d] is not well-form", i)
 		}
 	}
 
 	if len(balanceProof.u_p) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: len(balanceProof.u_p) (%d) != pp.paramDC", len(balanceProof.u_p))
 	}
 
 	if balanceProof.rpulpproof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.rpulpproof is nil")
 	}
 	//	here we do not conduct the sanity-check on balanceProof.rpulpproof,
 	//	since that will be guaranteed by the call on rpulpVerify
@@ -1245,21 +1256,21 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 		}
 
 		if infNorm > boundF {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofL1Rn: balanceProof.u_p[%d] (%v) is not in the expected range", i, balanceProof.u_p[i])
 		}
 	}
 
 	seedMsg, err := pp.collectBytesForBalanceProofL1RnChallenge(msg, nR, cmtL, cmtRs, vRPub, balanceProof.b_hat, balanceProof.c_hats)
 	if err != nil {
-		return false, err
+		return err
 	}
 	seed_binM, err := Hash(seedMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, pp.paramDC)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	u_hats := make([][]int64, 3)
@@ -1278,9 +1289,12 @@ func (pp *PublicParameter) verifyBalanceProofL1Rn(msg []byte, nR uint8, cmtL *Va
 	}
 
 	n1 := n
-	flag := pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL1Rn, binM, 1, nR, 3, u_hats, balanceProof.rpulpproof)
+	err = pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeL1Rn, binM, 1, nR, 3, u_hats, balanceProof.rpulpproof)
+	if err != nil {
+		return err
+	}
 
-	return flag, nil
+	return nil
 }
 
 // genBalanceProofLmRn generates BalanceProofLmRn.
@@ -1557,111 +1571,113 @@ genBalanceProofLmRnRestart:
 // verifyBalanceProofLmRn verifies BalanceProofLmRn.
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // todo: multi-round review
-func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) (bool, error) {
+func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8, cmtLs []*ValueCommitment, cmtRs []*ValueCommitment, vRPub uint64, balanceProof *BalanceProofLmRn) error {
 	if len(msg) == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: the input msg is nil")
 	}
 
 	if nL < 2 || nL > pp.paramI {
 		//	Note that pp.paramI = pp.paramJ
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: nL = %d is not in the allowed range", nL)
 	}
 
 	//	Note that BalanceProofLmRn could be
 	//	(nR == 1 && vRPub > 0) || nR >= 2
 	if nR > pp.paramJ {
 		//	Note that pp.paramI = pp.paramJ
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: nR = %d exceeds the allowed maximum value (%d)", nR, pp.paramJ)
 	}
 	if nR == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: nR = 0 is not in the allowed range")
 	}
 	if nR == 1 && vRPub == 0 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: nR == 1 && vRPub == 0 is not in the allowed cases")
 	}
 
 	if len(cmtLs) != int(nL) {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: len(cmtLs) (%d) != nL (%d)", len(cmtLs), nL)
 	}
 
 	for i := 0; i < int(nL); i++ {
 		cmt := cmtLs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: cmtLs[%d] is not well-form", i)
 		}
 		for j := 0; j < pp.paramKC; j++ {
 			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofLmRn: cmtLs[%d].b.polyCNTTs[%d] is not well-form", i, j)
 			}
 		}
 		if len(cmt.c.coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: cmtLs[%d].c is not well-form", i)
 		}
 	}
 
 	if len(cmtRs) != int(nR) {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: len(cmtRs) (%d) != nR (%d)", len(cmtRs), nR)
 	}
 
 	for i := 0; i < int(nR); i++ {
 		cmt := cmtRs[i]
 		if cmt == nil || cmt.b == nil || len(cmt.b.polyCNTTs) != pp.paramKC || cmt.c == nil {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: cmtRs[%d] is not well-form", i)
 		}
 		for j := 0; j < pp.paramKC; j++ {
 			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
-				return false, nil
+				return fmt.Errorf("verifyBalanceProofLmRn: cmtRs[%d].b.polyCNTTs[%d] is not well-form", i, j)
 			}
 		}
 		if len(cmt.c.coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: cmtRs[%d].c is not well-form", i)
 		}
 	}
 
 	V := uint64(1)<<pp.paramN - 1
 	if vRPub > V {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: vRPub (%v) exceeds the allowed maximum value (%v)", vRPub, V)
 	}
 
 	if balanceProof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: balanceProof is nil")
 	}
 
 	if balanceProof.balanceProofCase != BalanceProofCaseLmRn {
-		return false, fmt.Errorf("verifyBalanceProofLmRn: balanceProof.balanceProofCase is not BalanceProofCaseLmRn")
+		return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.balanceProofCase is not BalanceProofCaseLmRn")
 	}
 
 	if balanceProof.nL != nL || balanceProof.nR != nR {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.nL (%d) != nL (%d) || balanceProof.nR (%d) != nR (%d)",
+			balanceProof.nL, nL, balanceProof.nR, nR)
 	}
 
 	if balanceProof.b_hat == nil || len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.b_hat is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(balanceProof.b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.b_hat.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 
 	n := int(nL) + int(nR)
 	n2 := n + 4
 	if n2 > 0xFF {
-		return false, fmt.Errorf("verifyBalanceProofLmRn: n2 = nL + nR > 0xFF")
+		return fmt.Errorf("verifyBalanceProofLmRn: n2 (%d) = nL (%d) + nR (%d) + 4 > 0xFF", n2, nL, nR)
 	}
 
 	if len(balanceProof.c_hats) != n2 {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: len(balanceProof.c_hats) (%d) != n2 (%d)", len(balanceProof.c_hats), n2)
 	}
 	for i := 0; i < n2; i++ {
 		if len(balanceProof.c_hats[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.c_hats[%d] is not well-form", i)
 		}
 	}
 
 	if len(balanceProof.u_p) != pp.paramDC {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: len(balanceProof.u_p) (%d) != pp.paramDC", len(balanceProof.u_p))
 	}
 
 	betaF := (pp.paramN - 1) * (int(nL) - 1 + int(nR)) // for the case of vRPub > 0
@@ -1677,27 +1693,27 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 		}
 
 		if infNorm > boundF {
-			return false, nil
+			return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.u_p[%d] (%v) is not in the expected range", i, balanceProof.u_p[i])
 		}
 	}
 
 	if balanceProof.rpulpproof == nil {
-		return false, nil
+		return fmt.Errorf("verifyBalanceProofLmRn: balanceProof.rpulpproof is nil")
 	}
 	//	here we do not conduct sanity-check on balanceProof.rpulpproof,
 	//	since that will be guaranteed by the call on rpulpVerify
 
 	seedMsg, err := pp.collectBytesForBalanceProofLmRnChallenge(msg, nL, nR, cmtLs, cmtRs, vRPub, balanceProof.b_hat, balanceProof.c_hats)
 	if err != nil {
-		return false, err
+		return err
 	}
 	seed_binM, err := Hash(seedMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 	binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, 2*pp.paramDC)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	u_hats := make([][]int64, 5) //	for LmRn, the rpulp matrix will have m=5
@@ -1726,9 +1742,12 @@ func (pp *PublicParameter) verifyBalanceProofLmRn(msg []byte, nL uint8, nR uint8
 	}
 
 	n1 := n + 1
-	flag := pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeLmRn, binM, nL, nR, 5, u_hats, balanceProof.rpulpproof)
+	err = pp.rpulpVerifyMLP(msg, cmts, uint8(n), balanceProof.b_hat, balanceProof.c_hats, uint8(n2), uint8(n1), RpUlpTypeLmRn, binM, nL, nR, 5, u_hats, balanceProof.rpulpproof)
+	if err != nil {
+		return err
+	}
 
-	return flag, nil
+	return nil
 }
 
 // serializeBalanceProof serialize BalanceProof into []byte.
