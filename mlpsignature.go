@@ -425,61 +425,62 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 
 // elrSignatureMLPVerify() verify the validity of a given (message, signature) pair.
 // todo: review
-func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *ElrSignatureMLP) (bool, error) {
+func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *ElrSignatureMLP) error {
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
-		return false, nil
+		return fmt.Errorf("elrSignatureMLPVerify: the input lgrTxoList is nil/empty")
 	}
 
 	if ma_p == nil || cmt_p == nil || len(extTrTxCon) == 0 || sig == nil {
-		return false, nil
+		return fmt.Errorf("elrSignatureMLPVerify: at least one of the input (ma_p, cmt_p, extTrTxCon, sig) is there is nil/empty")
 	}
 
 	if len(ma_p.coeffs) != pp.paramDA {
-		return false, nil
+		return fmt.Errorf("elrSignatureMLPVerify: the input ma_p is not well-from")
 	}
 
 	if cmt_p.b == nil || len(cmt_p.b.polyCNTTs) != pp.paramKC || cmt_p.c == nil {
-		return false, nil
+		return fmt.Errorf("elrSignatureMLPVerify: the input cmt_p is not well-from")
 	}
 	for i := 0; i < len(cmt_p.b.polyCNTTs); i++ {
 		if len(cmt_p.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: the input cmt_p.b.polyCNTTs[%d] is not well-from", i)
 		}
 	}
 
 	if len(sig.seeds) != ringLen || len(sig.z_as) != ringLen || len(sig.z_cs) != ringLen || len(sig.z_cps) != ringLen {
-		return false, nil
+		return fmt.Errorf("elrSignatureMLPVerify: len(lgrTxoList) is %d, while len(sig.seeds) = %d, len(sig.z_as) = %d, len(sig.z_cs) = %d, len(sig.z_cps) = %d",
+			ringLen, len(sig.seeds), len(sig.z_as), len(sig.z_cs), len(sig.z_cps))
 	}
 
 	for j := 0; j < ringLen; j++ {
 		if len(sig.seeds[j]) != HashOutputBytesLen {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: sig.seeds[%d] is not well-from", j)
 		}
 	}
 
 	for j := 0; j < ringLen; j++ {
 		if len(sig.z_as[j].polyAs) != pp.paramLA {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d] is not well-from", j)
 		}
 		for i := 0; i < len(sig.z_as[j].polyAs); i++ {
 			if len(sig.z_as[j].polyAs[i].coeffs) != pp.paramDA {
-				return false, nil
+				return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d].polyAs[%d] is not well-from", j, i)
 			}
 		}
 	}
 
 	for j := 0; j < ringLen; j++ {
 		if len(sig.z_cs[j]) != pp.paramK || len(sig.z_cps[j]) != pp.paramK {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d] or sig.z_cs[%d] is not well-from", j, j)
 		}
 		for tao := 0; tao < len(sig.z_cs[j]); tao++ {
 			if len(sig.z_cs[j][tao].polyCs) != pp.paramLC || len(sig.z_cps[j][tao].polyCs) != pp.paramLC {
-				return false, nil
+				return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d] or sig.z_cps[%d][%d] is not well-from", j, tao, j, tao)
 			}
 			for i := 0; i < pp.paramLC; i++ {
 				if len(sig.z_cs[j][tao].polyCs[i].coeffs) != pp.paramDC || len(sig.z_cps[j][tao].polyCs[i].coeffs) != pp.paramDC {
-					return false, nil
+					return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d].polyCs[%d] or sig.z_cps[%d][%d].polyCs[%d] is not well-from", j, tao, i, j, tao, i)
 				}
 			}
 		}
@@ -489,11 +490,12 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	boundC := pp.paramEtaC - int64(pp.paramBetaC)
 	for j := 0; j < ringLen; j++ {
 		if sig.z_as[j].infNorm() > boundA {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d].infNorm() (%v) is not in the expected range", j, sig.z_as[j].infNorm())
 		}
 		for tao := 0; tao < pp.paramK; tao++ {
 			if (sig.z_cs[j][tao].infNorm() > boundC) || (sig.z_cps[j][tao].infNorm() > boundC) {
-				return false, nil
+				return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d].infNorm() (%v) or sig.z_cps[%d][%d].infNorm() (%v) is not in the expected range",
+					j, tao, sig.z_cs[j][tao].infNorm(), j, tao, sig.z_cps[j][tao].infNorm())
 			}
 			//if sig.z_cps[j][tao].infNorm() > boundC {
 			//	return false, nil
@@ -510,13 +512,13 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	for j := 0; j < ringLen; j++ {
 		tmpDA, err := pp.expandChallengeA(sig.seeds[j])
 		if err != nil {
-			return false, err
+			return err
 		}
 		da := pp.NTTPolyA(tmpDA)
 
 		tmpDC, err := pp.expandChallengeC(sig.seeds[j])
 		if err != nil {
-			return false, err
+			return err
 		}
 		dc := pp.NTTPolyC(tmpDC)
 
@@ -538,9 +540,9 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 			b_j = txoInst.valueCommitment.b
 			c_j = txoInst.valueCommitment.c
 		case *TxoSDN:
-			return false, fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is a TxoSDN", j)
+			return fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is a TxoSDN", j)
 		default:
-			return false, fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is not TxoRCTPre, TxoRCT, or TxoSDN", j)
+			return fmt.Errorf("elrSignatureMLPVerify: lgrTxoList[%d].txo is not TxoRCTPre, TxoRCT, or TxoSDN", j)
 		}
 
 		z_a_ntt := pp.NTTPolyAVec(sig.z_as[j])
@@ -553,7 +555,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 		// theta_a_j = <a,z_a_j> - d_a_j * (e_j + expandKIDR(txo[j]) - m_a_p)
 		lgrTxoH, err := pp.expandKIDRMLP(lgrTxoList[j])
 		if err != nil {
-			return false, err
+			return err
 		}
 		delta_as[j] = pp.PolyANTTSub(
 			pp.PolyANTTVecInnerProduct(pp.paramVectorA, z_a_ntt, pp.paramLA),
@@ -611,11 +613,11 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 
 	preMsg, err := pp.collectBytesForElrSignatureMLPChallenge(lgrTxoList, ma_p, cmt_p, extTrTxCon, w_as, delta_as, w_cs, w_cps, delta_cs)
 	if err != nil {
-		return false, err
+		return err
 	}
 	seed_ch, err := Hash(preMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	seedByteLen := len(seed_ch)
@@ -626,10 +628,11 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	}
 	for i := 0; i < seedByteLen; i++ {
 		if seed_ch[i] != 0 {
-			return false, nil
+			return fmt.Errorf("elrSignatureMLPVerify: the computed final seed_ch's %d position is not as expected", i)
 		}
 	}
-	return true, nil
+
+	return nil
 }
 
 // elrSignatureMLPSerializeSize returns the serialize size for a ElrSignatureMLP with the input ringSize.
@@ -823,41 +826,42 @@ simpleSignatureSignRestart:
 
 // simpleSignatureVerify verifies SimpleSignatureMLP.
 // reviewed on 2023.12.18
+// refactored on 2024.01.07, using err == nil or not to denote valid or invalid
 // todo: multi-round review
-func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *SimpleSignatureMLP) (bool, error) {
+func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *SimpleSignatureMLP) error {
 
 	if t == nil || len(extTrTxCon) == 0 || sig == nil {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: at least one of the input (t, extTrTxCon, sig) is nil/empty")
 	}
 
 	if len(t.polyANTTs) != pp.paramKA {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: the input t is not well-from")
 	}
 	for i := 0; i < pp.paramKA; i++ {
 		if len(t.polyANTTs[i].coeffs) != pp.paramDA {
-			return false, nil
+			return fmt.Errorf("simpleSignatureVerify: t.polyANTTs[%d] is not well-from", i)
 		}
 	}
 
 	if len(sig.seed_ch) != HashOutputBytesLen || sig.z == nil {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: sig.seed_ch or sig.z is not well-from")
 	}
 	if len(sig.z.polyAs) != pp.paramLA {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: sig.z is not well-form")
 	}
 	for i := 0; i < pp.paramLA; i++ {
 		if len(sig.z.polyAs[i].coeffs) != pp.paramDA {
-			return false, nil
+			return fmt.Errorf("simpleSignatureVerify: sig.z.polyAs[%d] is not well-form", i)
 		}
 	}
 
 	if sig.z.infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: sig.z.infNorm() (%v) is not in the ecpected range", sig.z.infNorm())
 	}
 
 	ch_poly, err := pp.expandChallengeA(sig.seed_ch)
 	if err != nil {
-		return false, err
+		return err
 	}
 	ch := pp.NTTPolyA(ch_poly)
 
@@ -870,19 +874,19 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 
 	preMsg, err := pp.collectBytesForSimpleSignatureChallenge(t, extTrTxCon, w)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	seed_ch, err := Hash(preMsg)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if bytes.Compare(seed_ch, sig.seed_ch) != 0 {
-		return false, nil
+		return fmt.Errorf("simpleSignatureVerify: the computed seed_ch is different from sig.seed_ch")
 	}
 
-	return true, nil
+	return nil
 }
 
 // simpleSignatureSerializeSize returns the serialize size for SimpleSignatureMLP.
