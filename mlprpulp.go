@@ -311,70 +311,72 @@ rpUlpProveMLPRestart:
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.16
 // reviewed on 2023.12.17
+// refactored on 2024.01.08, using err == nil or not to denote valid or invalid
+// todo: review
 func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
 	n1 uint8, rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
-	rpulppi *RpulpProofMLP) (valid bool) {
+	rpulppi *RpulpProofMLP) error {
 
 	if len(message) == 0 {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: the input message is nil/empty")
 	}
 
 	if len(cmts) != int(n) {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: len(cmts) (%d) != n (%d)", len(cmts), n)
 	}
 	for i := 0; i < int(n); i++ {
 		cmt := cmts[i]
 		if cmt.b == nil || cmt.c == nil {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: cmts[%d] is not well-form", i)
 		}
 		if len(cmt.b.polyCNTTs) != pp.paramKC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: cmts[%d].b is not well-form", i)
 		}
 		for j := 0; j < pp.paramKC; j++ {
 			if len(cmt.b.polyCNTTs[j].coeffs) != pp.paramDC {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: cmts[%d].b.polyCNTTs[%d] is not well-form", i, j)
 			}
 		}
 		if len(cmt.c.coeffs) != pp.paramDC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: cmts[%d].c is not well-form", i)
 		}
 	}
 
 	if b_hat == nil || len(b_hat.polyCNTTs) != pp.paramKC {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: b_hat is not well-form")
 	}
 	for i := 0; i < pp.paramKC; i++ {
 		if len(b_hat.polyCNTTs[i].coeffs) != pp.paramDC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: b_hat.polyCNTTs[%d] is not well-form", i)
 		}
 	}
 
 	if len(c_hats) != int(n2) {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: len(c_hats) (%d) != n2 (%d)", len(c_hats), n2)
 	}
 	for i := 0; i < int(n2); i++ {
 		if len(c_hats[i].coeffs) != pp.paramDC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: c_hats[%d] is not well-form", i)
 		}
 	}
 
 	if !(n >= 2 && n <= n1 && n1 <= n2 && int(n) <= int(pp.paramI)+int(pp.paramJ) && int(n2) <= int(pp.paramI)+int(pp.paramJ)+4) {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: (n=%d, n1=%d, n2=%d) is not in the expecated cases", n, n1, n2)
 	}
 
 	// check the matrix and m, u_hats
 	if len(binMatrixB) != pp.paramDC {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: len(binMatrixB) (%d) != pp.paramDC", len(binMatrixB))
 	}
 
 	if len(u_hats) != int(m) {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: len(u_hats) (%d) != m (%d)", len(u_hats), m)
 	}
 	for i := 0; i < len(u_hats); i++ {
 		if len(u_hats[i]) != pp.paramDC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: len(u_hats[%d]) (%d) != pp.paramDC", i, len(u_hats[i]))
 		}
 	}
 
@@ -382,60 +384,61 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	case RpUlpTypeL0Rn:
 		for i := 0; i < len(binMatrixB); i++ {
 			if len(binMatrixB[i]) != pp.paramDC/8 {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL0Rn, but len(binMatrixB[%d]) (%d) != pp.paramDC/8", i, len(binMatrixB[i]))
 			}
 		}
 		if nL != 0 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL0Rn, but  nL (%d) != 0", nL)
 		}
 		if m != 3 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL0Rn, but  m (%d) != 3", m)
 		}
 
 	case RpUlpTypeL1Rn:
 		for i := 0; i < len(binMatrixB); i++ {
 			if len(binMatrixB[i]) != pp.paramDC/8 {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL1Rn, but len(binMatrixB[%d]) (%d) != pp.paramDC/8", i, len(binMatrixB[i]))
 			}
 		}
 		if nL != 1 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL1Rn, but  nL (%d) != 1", nL)
 		}
 		if m != 3 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeL1Rn, but  m (%d) != 3", m)
 		}
 
 	case RpUlpTypeLmRn:
 		for i := 0; i < len(binMatrixB); i++ {
 			if len(binMatrixB[i]) != 2*pp.paramDC/8 {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeLmRn, but len(binMatrixB[%d]) (%d) != 2*pp.paramDC/8", i, len(binMatrixB[i]))
 			}
 		}
 		if nL < 2 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeLmRn, but  nL (%d) < 2", nL)
 		}
 		if m != 5 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: the input rpulpType is RpUlpTypeLmRn, but  m (%d) != 5", m)
 		}
 
 	default:
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: the input rpulpType (%d) is not in (RpUlpTypeL0Rn, RpUlpTypeL1Rn, RpUlpTypeLmRn)", rpulpType)
 	}
 
 	if nL > pp.paramI || nR > pp.paramJ { // Note that pp.paramI == pp.paramJ
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: (nL=%d, nR=%d) is not in the allowed cases", nL, nR)
 	}
 
 	if int(nL)+int(nR) != int(n) { // nL (resp. nR) is the number of commitments on left (resp. right) side
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: nL (%d) + nR (%d) != n (%d)", nL, nR, n)
 	}
 
 	if rpulppi == nil {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: rpulppi is nil")
 	}
 
 	if rpulppi.rpUlpType != rpulpType || rpulppi.nL != nL || rpulppi.nR != nR {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: (rpulppi.rpUlpType (%d), rpulppi.nL (%d), rpulppi.nR (%d)) != (rpulpType (%d), nL (%d), nR (%d))",
+			rpulppi.rpUlpType, rpulppi.nL, rpulppi.nR, rpulpType, nL, nR)
 	}
 
 	// check the well-formness of the \pi
@@ -444,47 +447,47 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//}
 
 	if len(rpulppi.c_waves) != int(n) {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: len(rpulppi.c_waves) (%d) != n (%d)", len(rpulppi.c_waves), n)
 	}
 
 	for i := 0; i < int(n); i++ {
 		if len(rpulppi.c_waves[i].coeffs) != pp.paramDC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: rpulppi.c_waves[%d] is not well-from", i)
 		}
 	}
 
 	if rpulppi.c_hat_g == nil || rpulppi.psi == nil || rpulppi.phi == nil || len(rpulppi.chseed) != HashOutputBytesLen {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: at least one of (rpulppi.c_hat_g, rpulppi.psi, rpulppi.phi, rpulppi.chseed) is not well-from")
 	}
 	if len(rpulppi.c_hat_g.coeffs) != pp.paramDC || len(rpulppi.psi.coeffs) != pp.paramDC || len(rpulppi.phi.coeffs) != pp.paramDC {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: rpulppi.c_hat_g.coeffs, rpulppi.psi.coeffs, and rpulppi.phi.coeffss should have length pp.paramDC")
 	}
 
 	if len(rpulppi.cmt_zs) != pp.paramK || len(rpulppi.zs) != pp.paramK {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: rpulppi.cmt_zs and rpulppi.zs should have length pp.paramK")
 	}
 
 	for t := 0; t < pp.paramK; t++ {
 		if len(rpulppi.cmt_zs[t]) != int(n) {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: len(rpulppi.cmt_zs[%d]) (%d) != n (%d)", t, len(rpulppi.cmt_zs[t]), n)
 		}
 		for i := 0; i < int(n); i++ {
 			if len(rpulppi.cmt_zs[t][i].polyCs) != pp.paramLC {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: rpulppi.cmt_zs[%d][%d] is not well-form", t, i)
 			}
 			for j := 0; j < pp.paramLC; j++ {
 				if len(rpulppi.cmt_zs[t][i].polyCs[j].coeffs) != pp.paramDC {
-					return false
+					return fmt.Errorf("rpulpVerifyMLP: rpulppi.cmt_zs[%d][%d].polyCs[%d] is not well-form", t, i, j)
 				}
 			}
 		}
 
 		if len(rpulppi.zs[t].polyCs) != pp.paramLC {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: rpulppi.zs[%d] is not well-form", t)
 		}
 		for j := 0; j < pp.paramLC; j++ {
 			if len(rpulppi.zs[t].polyCs[j].coeffs) != pp.paramDC {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: rpulppi.zs[%d].polyCs[%d] is not well-form", t, j)
 			}
 		}
 	}
@@ -494,7 +497,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//fmt.Println("phiPoly", phiPoly.coeffs1)
 	for t := 0; t < pp.paramK; t++ {
 		if phiPoly.coeffs[t] != 0 {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: phiPoly.coeffs[%d] != 0", t)
 		}
 	}
 
@@ -503,17 +506,17 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	for t := 0; t < pp.paramK; t++ {
 		for i := uint8(0); i < n; i++ {
 			if rpulppi.cmt_zs[t][i].infNorm() > bound {
-				return false
+				return fmt.Errorf("rpulpVerifyMLP: rpulppi.cmt_zs[%d][%d].infNorm() (%v) is not in the allowed range", t, i, rpulppi.cmt_zs[t][i].infNorm())
 			}
 		}
 		if rpulppi.zs[t].infNorm() > bound {
-			return false
+			return fmt.Errorf("rpulpVerifyMLP: rpulppi.zs[%d].infNorm() (%v) is not in the allowed range", t, rpulppi.zs[t].infNorm())
 		}
 	}
 
 	ch_poly, err := pp.expandChallengeC(rpulppi.chseed)
 	if err != nil {
-		return false
+		return err
 	}
 	ch := pp.NTTPolyC(ch_poly)
 
@@ -580,12 +583,12 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		rpulppi.c_waves, rpulppi.c_hat_g, cmt_ws, delta_waves, delta_hats, ws)
 	seed_rand, err := Hash(preMsg)
 	if err != nil {
-		return false
+		return err
 	}
 	//fmt.Println("verify seed_rand=", seed_rand)
 	alphas, betas, gammas, err := pp.expandCombChallengeInRpulp(seed_rand, n1, m)
 	if err != nil {
-		return false
+		return err
 	}
 
 	// psi'
@@ -634,7 +637,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	//	p^(t)_j:
 	p, err := pp.genUlpPolyCNTTsMLP(rpulpType, binMatrixB, nL, nR, gammas)
 	if err != nil {
-		return false
+		return err
 	}
 
 	//	phip
@@ -734,13 +737,13 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	preMsgAll := pp.collectBytesForRPULPChallenge2MLP(preMsg, rpulppi.psi, psip, rpulppi.phi, phips)
 	seed_ch, err := Hash(preMsgAll)
 	if err != nil {
-		return false
+		return err
 	}
 	if bytes.Compare(seed_ch, rpulppi.chseed) != 0 {
-		return false
+		return fmt.Errorf("rpulpVerifyMLP: the computed seed_ch is different from rpulppi.chseed")
 	}
 
-	return true
+	return nil
 }
 
 // genUlpPolyCNTTsMLP is a helper function for rpulpProveMLP and rpulpVerifyMLP.
