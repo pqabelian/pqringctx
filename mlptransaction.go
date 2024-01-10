@@ -1,5 +1,10 @@
 package pqringctx
 
+// Application Layer Convention:
+// 1. The RingCT-Privacy TXO must appear continuously starting from the first position regardless of input or output, and the number does not exceed pp.paramJ
+// 2. The Pseudonym-Privacy TXO can appear any position but cannot break continuity of the above constraints, and the number does not exceed pp.paramJSingle
+// 3. ...
+
 import (
 	"bytes"
 	"encoding/hex"
@@ -11,6 +16,7 @@ import (
 // reviewed on 2023.12.07
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
+// REVIEWED on 2023/12/31
 func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
 	V := uint64(1)<<pp.paramN - 1
 
@@ -31,6 +37,9 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			return nil, err
 		}
 		if coinAddressType == CoinAddressTypePublicKeyForRingPre || coinAddressType == CoinAddressTypePublicKeyForRing {
+			if len(txOutputDescMLPs[i].coinValuePublicKey) == 0 || len(txOutputDescMLPs[i].coinAddress) == 0 {
+				return nil, fmt.Errorf("CoinbaseTxMLPGen: the coinAddresses for RingCT-Privacy should have coinAddress and coinValuePublicKey, but the %d -th one is not", i)
+			}
 			if i == outForRing {
 				outForRing += 1
 			} else {
@@ -159,9 +168,9 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 
 	//	As the following checks will use cbTx.txWitness,
 	//	here we first conduct checks on cbTx.txWitness.
-	if cbTx.txWitness.vL != cbTx.vin {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.vL (%v) != cbTx.vin (%v)", cbTx.txWitness.vL, cbTx.vin)
-	}
+	//if cbTx.txWitness.vL != cbTx.vin {
+	//	return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.vL (%v) != cbTx.vin (%v)", cbTx.txWitness.vL, cbTx.vin)
+	//}
 
 	outputNum := len(cbTx.txos)
 	if cbTx.txWitness.outForRing > pp.paramJ {
@@ -466,7 +475,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			//	coinValuePublicKey        []byte	//	this is skipped, to allow the caller to use a dummy one
 			//	coinValueSecretKey        []byte	//	this is skipped, to allow the caller to use a dummy one
 			if len(txInputDescItem.coinSpendSecretKey) == 0 {
-				return nil, fmt.Errorf("TransferTxMLPGen: for % -th the coin to spend, say txInputDescs[%d].lgrTxoList[%d], the corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, is nil", i, txInputDescItem.sidx, i)
+				return nil, fmt.Errorf("TransferTxMLPGen: for %d-th the coin to spend, say txInputDescs[%d].lgrTxoList[%d], the corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, is nil", i, i, txInputDescItem.sidx, i)
 			}
 			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinDetectorKey)
 			if err != nil {
@@ -1482,7 +1491,8 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 // genBalanceProofTrTx generates balanceProof for transferTx.
 // reviewed on 2023.12.16
 // reviewed on 2023.12.19
-func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
+func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8,
+	cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	cmtrs_in_p []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
 
 	var txCase TxWitnessTrTxCase

@@ -21,6 +21,7 @@ func NewPublicParameter(
 	paramZetaA int64, paramZetaAOrder int,
 	paramZetaC int64, paramZetaCOrder int, paramSigmaPermutations [][]int, paramParameterSeedString []byte, paramKem *pqringctxkem.ParamKem) (*PublicParameter, error) {
 
+	// TODO add constrain for parameter, such as paramN can not exceed 63
 	res := &PublicParameter{
 		paramDA:                       paramDA,
 		paramQA:                       paramQA,

@@ -658,15 +658,15 @@ func TestSerializeAddressSecretKeySp(t *testing.T) {
 		s: s,
 	}
 
-	serializedAskSp, err := pp.SerializeAddressSecretKeySp(asksp)
+	serializedAskSp, err := pp.serializeAddressSecretKeySp(asksp)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(serializedAskSp) != pp.AddressSecretKeySpSerializeSize() {
+	if len(serializedAskSp) != pp.addressSecretKeySpSerializeSize() {
 		log.Fatal("the size does not match design")
 	}
 
-	recovered, err := pp.DeserializeAddressSecretKeySp(serializedAskSp)
+	recovered, err := pp.deserializeAddressSecretKeySp(serializedAskSp)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -687,7 +687,7 @@ func TestSerializeAddressSecretKeySp(t *testing.T) {
 	if testAbnormal {
 		ask := &AddressSecretKeySp{}
 
-		_, err = pp.SerializeAddressSecretKeySp(ask)
+		_, err = pp.serializeAddressSecretKeySp(ask)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -706,15 +706,15 @@ func TestSerializeAddressSecretKeySn(t *testing.T) {
 
 	asksn := &AddressSecretKeySn{m_a}
 
-	serilaized, err := pp.SerializeAddressSecretKeySn(asksn)
+	serilaized, err := pp.serializeAddressSecretKeySn(asksn)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if len(serilaized) != pp.AddressSecretKeySnSerializeSize() {
+	if len(serilaized) != pp.addressSecretKeySnSerializeSize() {
 		log.Fatal("the size does not match design")
 	}
-	recovered, err := pp.DeserializeAddressSecretKeySn(serilaized)
+	recovered, err := pp.deserializeAddressSecretKeySn(serilaized)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1394,8 +1394,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed1 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk1, ask1, _ := pp.addressKeyGen(seed1)
-	serializedASkSp1, _ := pp.SerializeAddressSecretKeySp(ask1.AddressSecretKeySp)
-	serializedASkSn1, _ := pp.SerializeAddressSecretKeySn(ask1.AddressSecretKeySn)
+	serializedASkSp1, _ := pp.serializeAddressSecretKeySp(ask1.AddressSecretKeySp)
+	serializedASkSn1, _ := pp.serializeAddressSecretKeySn(ask1.AddressSecretKeySn)
 	serializedVPk1, serializedVSk1, _ := pp.valueKeyGen(seed1)
 	serializedAPk1, _ := pp.SerializeAddressPublicKey(apk1)
 
@@ -1407,8 +1407,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed2 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk2, ask2, _ := pp.addressKeyGen(seed2)
-	serializedASkSp2, _ := pp.SerializeAddressSecretKeySp(ask2.AddressSecretKeySp)
-	serializedASkSn2, _ := pp.SerializeAddressSecretKeySn(ask2.AddressSecretKeySn)
+	serializedASkSp2, _ := pp.serializeAddressSecretKeySp(ask2.AddressSecretKeySp)
+	serializedASkSn2, _ := pp.serializeAddressSecretKeySn(ask2.AddressSecretKeySn)
 	serializedVPk2, serializedVSk2, _ := pp.valueKeyGen(seed2)
 	serializedAPk2, _ := pp.SerializeAddressPublicKey(apk2)
 
@@ -1420,8 +1420,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed3 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk3, ask3, _ := pp.addressKeyGen(seed3)
-	serializedASkSp3, _ := pp.SerializeAddressSecretKeySp(ask3.AddressSecretKeySp)
-	serializedASkSn3, _ := pp.SerializeAddressSecretKeySn(ask3.AddressSecretKeySn)
+	serializedASkSp3, _ := pp.serializeAddressSecretKeySp(ask3.AddressSecretKeySp)
+	serializedASkSn3, _ := pp.serializeAddressSecretKeySn(ask3.AddressSecretKeySn)
 
 	serializedVPk3, serializedVSk3, _ := pp.valueKeyGen(seed3)
 	serializedAPk3, _ := pp.SerializeAddressPublicKey(apk3)
@@ -1434,8 +1434,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed4 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk4, ask4, _ := pp.addressKeyGen(seed4)
-	serializedASkSp4, _ := pp.SerializeAddressSecretKeySp(ask4.AddressSecretKeySp)
-	serializedASkSn4, _ := pp.SerializeAddressSecretKeySn(ask4.AddressSecretKeySn)
+	serializedASkSp4, _ := pp.serializeAddressSecretKeySp(ask4.AddressSecretKeySp)
+	serializedASkSn4, _ := pp.serializeAddressSecretKeySn(ask4.AddressSecretKeySn)
 	serializedVPk4, serializedVSk4, _ := pp.valueKeyGen(seed4)
 	serializedAPk4, _ := pp.SerializeAddressPublicKey(apk4)
 
@@ -1447,8 +1447,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed5 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk5, ask5, _ := pp.addressKeyGen(seed5)
-	serializedASkSp5, _ := pp.SerializeAddressSecretKeySp(ask5.AddressSecretKeySp)
-	serializedASkSn5, _ := pp.SerializeAddressSecretKeySn(ask5.AddressSecretKeySn)
+	serializedASkSp5, _ := pp.serializeAddressSecretKeySp(ask5.AddressSecretKeySp)
+	serializedASkSn5, _ := pp.serializeAddressSecretKeySn(ask5.AddressSecretKeySn)
 	serializedVPk5, serializedVSk5, _ := pp.valueKeyGen(seed5)
 	serializedAPk5, _ := pp.SerializeAddressPublicKey(apk5)
 
@@ -1460,8 +1460,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed6 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk6, ask6, _ := pp.addressKeyGen(seed6)
-	serializedASkSp6, _ := pp.SerializeAddressSecretKeySp(ask6.AddressSecretKeySp)
-	serializedASkSn6, _ := pp.SerializeAddressSecretKeySn(ask6.AddressSecretKeySn)
+	serializedASkSp6, _ := pp.serializeAddressSecretKeySp(ask6.AddressSecretKeySp)
+	serializedASkSn6, _ := pp.serializeAddressSecretKeySn(ask6.AddressSecretKeySn)
 	serializedVPk6, serializedVSk6, _ := pp.valueKeyGen(seed6)
 	serializedAPk6, _ := pp.SerializeAddressPublicKey(apk6)
 
@@ -1475,8 +1475,8 @@ func TestSerializeTransferTx(t *testing.T) {
 
 	seed7 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk7, ask7, _ := pp.addressKeyGen(seed7)
-	serializedASkSp7, _ := pp.SerializeAddressSecretKeySp(ask7.AddressSecretKeySp)
-	serializedASkSn7, _ := pp.SerializeAddressSecretKeySn(ask7.AddressSecretKeySn)
+	serializedASkSp7, _ := pp.serializeAddressSecretKeySp(ask7.AddressSecretKeySp)
+	serializedASkSn7, _ := pp.serializeAddressSecretKeySn(ask7.AddressSecretKeySn)
 	serializedVPk7, serializedVSk7, _ := pp.valueKeyGen(seed7)
 	serializedAPk7, _ := pp.SerializeAddressPublicKey(apk7)
 
@@ -2377,11 +2377,11 @@ func TestPublicParameter_SerializeAddressSecretSpAndSnKey_DeserializeAddressSecr
 	asksp := &AddressSecretKeySp{ts}
 	asksn := &AddressSecretKeySn{e}
 
-	serializedAskSp, err := pp.SerializeAddressSecretKeySp(asksp)
+	serializedAskSp, err := pp.serializeAddressSecretKeySp(asksp)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	got, err := pp.DeserializeAddressSecretKeySp(serializedAskSp)
+	got, err := pp.deserializeAddressSecretKeySp(serializedAskSp)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -2393,11 +2393,11 @@ func TestPublicParameter_SerializeAddressSecretSpAndSnKey_DeserializeAddressSecr
 		}
 	}
 
-	serializedAskSn, err := pp.SerializeAddressSecretKeySn(asksn)
+	serializedAskSn, err := pp.serializeAddressSecretKeySn(asksn)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	gotsn, err := pp.DeserializeAddressSecretKeySn(serializedAskSn)
+	gotsn, err := pp.deserializeAddressSecretKeySn(serializedAskSn)
 	if err != nil {
 		log.Fatalln(err)
 	}

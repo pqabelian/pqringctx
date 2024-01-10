@@ -51,8 +51,8 @@ func TestPublicParameter_TransferTxGen_TransferTxVerify(t *testing.T) {
 			copy(serializedVSksCopy[i][j], serializedVSks[i])
 		}
 		serializedAPks[i], _ = pp.SerializeAddressPublicKey(apks[i])
-		serializedASksps[i], _ = pp.SerializeAddressSecretKeySp(asks[i].AddressSecretKeySp)
-		serializedASksns[i], _ = pp.SerializeAddressSecretKeySn(asks[i].AddressSecretKeySn)
+		serializedASksps[i], _ = pp.serializeAddressSecretKeySp(asks[i].AddressSecretKeySp)
+		serializedASksns[i], _ = pp.serializeAddressSecretKeySn(asks[i].AddressSecretKeySn)
 	}
 	cbTxNum, outputNum := 3, 2
 	cbTxs := make([]*CoinbaseTx, cbTxNum)

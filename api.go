@@ -27,6 +27,9 @@ const (
 	MaxAllowedTxWitnessCbTxSize uint32 = 8388608    // 2^23, 8M bytes
 )
 
+// AddressKeyGen
+//
+// Deprecated: Use CoinAddressKeyForPKRingGen / CoinAddressKeyForPKHSingleGen instead.
 func AddressKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, []byte, error) {
 	apk, ask, err := pp.addressKeyGen(seed)
 	if err != nil {
@@ -49,6 +52,9 @@ func AddressKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, []byte, er
 	return serializedAPk, serializedASksp, serializedASksn, nil
 }
 
+// AddressKeyVerify
+//
+// Deprecated: Use CoinAddressKeyForPKRingVerify / CoinAddressKeyForPKHSingleVerify instead.
 func AddressKeyVerify(pp *PublicParameter, serialzedAPk []byte, serializedASksp []byte, serializedASksn []byte) (valid bool, hints string) {
 	apk, err := pp.DeserializeAddressPublicKey(serialzedAPk)
 	if err != nil {
@@ -73,7 +79,10 @@ func AddressKeyVerify(pp *PublicParameter, serialzedAPk []byte, serializedASksp 
 	return pp.addressKeyVerify(apk, ask)
 }
 
+// ValueKeyGen
 // ask = (s, m_a), apk = (t = As, e = <a,s>+m_a). s is asksp, m_a is asksn
+//
+// Deprecated: Use CoinValueKeyGen instead.
 func ValueKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, error) {
 	vpk, vsk, err := pp.valueKeyGen(seed)
 	if err != nil {
@@ -82,6 +91,9 @@ func ValueKeyGen(pp *PublicParameter, seed []byte) ([]byte, []byte, error) {
 	return vpk, vsk, nil
 }
 
+// ValueKeyVerify
+//
+// CoinValueKeyVerify
 func ValueKeyVerify(pp *PublicParameter, serialzedVPk []byte, serializedVsp []byte) (valid bool, hints string) {
 	//	From the caller, (serialzedVPk, serializedVsp) was obtained by call ValueKeyGen(pp *PublicParameter, seed []byte).
 	return pp.valueKeyVerify(serialzedVPk, serializedVsp)

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestPublicParameterv2_CoinbaseTxGenAndCoinbaseTxVerify(t *testing.T) {
+func TestPublicParameterv2_CoinbaseTxGen_CoinbaseTxVerify(t *testing.T) {
 	// generate key pair
 	//seed1 := []byte{
 	//	2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 1,
@@ -156,8 +156,8 @@ func TestPublicParameterV2_TransferTxGen(t *testing.T) {
 	serializedVSk1C2 := make([]byte, len(serializedVSk1))
 	copy(serializedVSk1C2, serializedVSk1)
 	serializedAPk1, _ := pp.SerializeAddressPublicKey(apk1)
-	serializedASksp1, _ := pp.SerializeAddressSecretKeySp(ask1.AddressSecretKeySp)
-	serializedASksn1, _ := pp.SerializeAddressSecretKeySn(ask1.AddressSecretKeySn)
+	serializedASksp1, _ := pp.serializeAddressSecretKeySp(ask1.AddressSecretKeySp)
+	serializedASksn1, _ := pp.serializeAddressSecretKeySn(ask1.AddressSecretKeySn)
 	seed2 := RandomBytes(pp.paramKeyGenSeedBytesLen)
 	apk2, _, _ := pp.addressKeyGen(seed2)
 	serializedVPk2, _, _ := pp.valueKeyGen(seed2)
