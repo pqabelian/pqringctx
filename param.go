@@ -482,7 +482,7 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 		5,
 		5,
 		100, // todo(MLP): todo
-		20,  // todo(MLP): todo
+		50,  // todo(MLP): todo
 		100, // todo(MLP): todo
 		128, // todo(MLP): todo
 		51,
