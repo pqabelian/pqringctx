@@ -291,7 +291,7 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 // todo: review
 // todo: confirm the kem call
 func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
-	if txoMLP == nil || len(coinValuePublicKey) == 0 || len(coinValueSecretKey) == 0 {
+	if txoMLP == nil {
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: none of the input (txoMLP, coinValuePublicKey, coinValueSecretKey) could be nil/empty")
 	}
 
@@ -305,6 +305,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 		valueCommitment = txoInst.valueCommitment
 
 	case *TxoRCT:
+
 		ctKemSerialized = txoInst.ctKemSerialized
 		vct = txoInst.vct
 		valueCommitment = txoInst.valueCommitment
@@ -316,6 +317,9 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP is not TxoRCTPre, TxoRCT, or TxoSDN")
 	}
 
+	if len(coinValuePublicKey) == 0 || len(coinValueSecretKey) == 0 {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: none of the input (txoMLP, coinValuePublicKey, coinValueSecretKey) could be nil/empty")
+	}
 	if len(ctKemSerialized) == 0 {
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.ctKemSerialized is nil/empty")
 	}
@@ -371,7 +375,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 	)
 
 	if !pp.PolyCNTTVecEqualCheck(b, valueCommitment.b) || !pp.PolyCNTTEqualCheck(c, valueCommitment.c) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: reject when using the recoverd (valeu, randomness) to open the commitment")
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: reject when using the recoverd (value, randomness) to open the commitment")
 	}
 
 	return value, cmtr, nil

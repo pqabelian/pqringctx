@@ -225,6 +225,8 @@ func (pp *PublicParameter) valueKeyVerify(vpk []byte, vsk []byte) (valid bool, h
 }
 
 // txoGen() returns a transaction output and the randomness used to generate the commitment.
+//
+// Deprecated: Use txoRCTPreGen / txoRCTGen / txoSDNGen instead.
 func (pp *PublicParameter) txoGen(apk *AddressPublicKey, vpk []byte, vin uint64) (txo *Txo, cmtr *PolyCNTTVec, err error) {
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version

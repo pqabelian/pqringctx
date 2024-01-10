@@ -415,13 +415,16 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			}
 
 			//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
-			validValueKey, hints := pp.CoinValueKeyVerify(txInputDescItem.coinValuePublicKey, txInputDescItem.coinValueSecretKey)
+			copiedCoinValueSecretKey := make([]byte, len(txInputDescItem.coinValueSecretKey))
+			copy(copiedCoinValueSecretKey, txInputDescItem.coinValueSecretKey)
+			validValueKey, hints := pp.CoinValueKeyVerify(txInputDescItem.coinValuePublicKey, copiedCoinValueSecretKey)
 			if !validValueKey {
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin value key pair for %d -th coin to spend, say txInputDescs[%d].coinValuePublicKey and txInputDescs[%d].coinValueSecretKey, does not match. Hints = "+hints, i, i)
+				return nil, fmt.Errorf("TransferTxMLPGen: the coin value key pair for %d-th coin to spend, say txInputDescs[%d].coinValuePublicKey and txInputDescs[%d].coinValueSecretKey, does not match. Hints = %s", i, i, i, hints)
 			}
 
 			//	Check the value-commitment and value-ciphertext
-			valueInCmt, cmtr, err := pp.ExtractValueAndRandFromTxoMLP(lgrTxoToSpend.txo, txInputDescItem.coinValuePublicKey, txInputDescItem.coinValueSecretKey)
+			copy(copiedCoinValueSecretKey, txInputDescItem.coinValueSecretKey)
+			valueInCmt, cmtr, err := pp.ExtractValueAndRandFromTxoMLP(lgrTxoToSpend.txo, txInputDescItem.coinValuePublicKey, copiedCoinValueSecretKey)
 			if err != nil {
 				return nil, err
 			}
