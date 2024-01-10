@@ -98,6 +98,10 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			vRs[j] = txOutputDescMLP.value
 
 		case CoinAddressTypePublicKeyHashForSingle:
+			if txOutputDescMLP.value == 0 {
+				return nil, fmt.Errorf("CoinbaseTxMLPGen: txOutputDescMLPs[%d] has coinAddressType=CoinAddressTypePublicKeyHashForSingle, but the value is 0", j)
+			}
+
 			txoSDN, err := pp.txoSDNGen(txOutputDescMLP.coinAddress, txOutputDescMLP.value)
 			if err != nil {
 				return nil, err
@@ -215,6 +219,9 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 			}
 			switch txoInst := txo.(type) {
 			case *TxoSDN:
+				if txoInst.value == 0 {
+					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo's public value is 0", j)
+				}
 				if txoInst.value > V {
 					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo's public value (%v) exceeds the allowed maximum value (%v)",
 						j, txoInst.value, V)
@@ -307,6 +314,10 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			}
 
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+			if txOutputDescItem.value == 0 {
+				return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress has coinAddressType=%d, but txOutputDescs[%d].value is 0", j, coinAddressType, j)
+			}
+
 			outForSingle += 1
 			vOutPublic += txOutputDescItem.value
 
@@ -880,6 +891,10 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 					return fmt.Errorf("TransferTxMLPVerify: the %d-th output txo has value %d, which exceeds the allowed maximum value %v",
 						j, txoInst.value, V)
 				}
+				if txoInst.value == 0 {
+					return fmt.Errorf("TransferTxMLPVerify: the %d-th output txo has coinAddressType == CoinAddressTypePublicKeyHashForSingle, but the value is 0", j)
+				}
+
 				vOutPublic += txoInst.value
 				if vOutPublic > V {
 					return fmt.Errorf("TransferTxMLPVerify: with the first %d output txo, the sum of public ouput value (%v) exceeds the allowe maximum value (%v)",
