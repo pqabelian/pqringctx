@@ -292,7 +292,7 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 // todo: confirm the kem call
 func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
 	if txoMLP == nil {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: none of the input (txoMLP, coinValuePublicKey, coinValueSecretKey) could be nil/empty")
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP could not be nil/empty")
 	}
 
 	var ctKemSerialized []byte
