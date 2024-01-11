@@ -37,17 +37,22 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			return nil, err
 		}
 		if coinAddressType == CoinAddressTypePublicKeyForRingPre || coinAddressType == CoinAddressTypePublicKeyForRing {
-			if len(txOutputDescMLPs[i].coinValuePublicKey) == 0 || len(txOutputDescMLPs[i].coinAddress) == 0 {
-				return nil, fmt.Errorf("CoinbaseTxMLPGen: the coinAddresses for RingCT-Privacy should have coinAddress and coinValuePublicKey, but the %d -th one is not", i)
-			}
 			if i == outForRing {
 				outForRing += 1
 			} else {
 				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
 				return nil, fmt.Errorf("CoinbaseTxMLPGen: the coinAddresses for RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
 			}
+
+			if len(txOutputDescMLPs[i].coinValuePublicKey) == 0 {
+				return nil, fmt.Errorf("CoinbaseTxMLPGen: the coinAddresses for RingCT-Privacy should have coinValuePublicKey, but the %d -th one does not", i)
+			}
+
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
 			outForSingle += 1
+
+			// skip the nil-check on coinValuePublicKey, to allow the caller to use a dummy coinValuePublicKey
+
 		} else {
 			return nil, fmt.Errorf("CoinbaseTxMLPGen: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", i, coinAddressType)
 		}
@@ -323,14 +328,14 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			}
 
 		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
-			if txOutputDescItem.value == 0 {
-				return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress has coinAddressType=%d, but txOutputDescs[%d].value is 0", j, coinAddressType, j)
-			}
-
 			outForSingle += 1
 			vOutPublic += txOutputDescItem.value
 
 			// skip the check on coinValuePublicKey, to allow the caller uses dummy one for some reason, e.g., safety.
+
+			if txOutputDescItem.value == 0 {
+				return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress has coinAddressType=%d, but txOutputDescs[%d].value is 0", j, coinAddressType, j)
+			}
 
 		} else {
 			return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress's coinAddressType(%d) is not supported", j, coinAddressType)
