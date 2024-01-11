@@ -110,6 +110,7 @@ func VerifyKeyPair(ppkem *ParamKem, serializedPK []byte, serializedSK []byte) (v
 	return true, ""
 }
 
+// todo(MLP): add the sanity-check on the input pk
 func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	var serializedC, kappa []byte
 	var err error
