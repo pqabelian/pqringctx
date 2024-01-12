@@ -1,6 +1,7 @@
 package pqringctx
 
 import (
+	"fmt"
 	"github.com/cryptosuite/pqringct"
 	"math/rand"
 	"testing"
@@ -9,11 +10,19 @@ import (
 var pp = Initialize(nil)
 var ppOld = pqringct.Initialize(nil)
 
+var coinAddressMapping map[CoinAddressType][][]byte
+var coinSpendSecretKeyMapping map[CoinAddressType][][]byte
+var coinSerialNumberSecretKeyMap map[CoinAddressType][][]byte
+var coinValuePublicKeyMap map[CoinAddressType][][]byte
+var coinValueSecretKeyMap map[CoinAddressType][][]byte
+var coinDetectorKeyMap map[CoinAddressType][][]byte
+
 var numPre = 10
 var seedPres = make([][]byte, 0, numPre)
+var detectorKeyPres = make([][]byte, numPre)
 var coinAddressPres = make([][]byte, 0, numPre)
-var coinAddressSpendKeyPres = make([][]byte, 0, numPre)
-var coinSerialNumberSKPres = make([][]byte, 0, numPre)
+var coinSpendSecretKeyPres = make([][]byte, 0, numPre)
+var coinSerialNumberSecretKeyPres = make([][]byte, 0, numPre)
 var valueKeyPreSeeds = make([][]byte, 0, numPre)
 var valuePublicKeyPres = make([][]byte, 0, numPre)
 var valueSecretKeyPres = make([][]byte, 0, numPre)
@@ -34,6 +43,9 @@ var coinSpendKeyRandSeedForSingles = make([][]byte, 0, numSingle)
 var detectorKeyForSingles = make([][]byte, 0, numSingle)
 var coinAddressForSingles = make([][]byte, 0, numSingle)
 var coinSpendSecretKeyForSingles = make([][]byte, 0, numSingle)
+var coinSerialNumberSecretKeySingles = make([][]byte, numSingle)
+var valuePublicKeyForSingles = make([][]byte, numSingle)
+var valueSecretKeyForSingles = make([][]byte, numSingle)
 
 func InitialAddress() {
 	coinAddressKeyForPKRingPreGen := func() (seed []byte,
@@ -104,8 +116,8 @@ func InitialAddress() {
 		seedPre, coinAddressPre, coinAddressSpendKeyPre, coinSerialNumberSKPre := coinAddressKeyForPKRingPreGen()
 		seedPres = append(seedPres, seedPre)
 		coinAddressPres = append(coinAddressPres, coinAddressPre)
-		coinAddressSpendKeyPres = append(coinAddressSpendKeyPres, coinAddressSpendKeyPre)
-		coinSerialNumberSKPres = append(coinSerialNumberSKPres, coinSerialNumberSKPre)
+		coinSpendSecretKeyPres = append(coinSpendSecretKeyPres, coinAddressSpendKeyPre)
+		coinSerialNumberSecretKeyPres = append(coinSerialNumberSecretKeyPres, coinSerialNumberSKPre)
 
 		valueKeyPreSeed, valuePublicKeyPre, valueSecretKeyPre := coinValueKeyPreGen()
 		valueKeyPreSeeds = append(valueKeyPreSeeds, valueKeyPreSeed)
@@ -134,6 +146,37 @@ func InitialAddress() {
 		detectorKeyForSingles = append(detectorKeyForSingles, detectorKeyForSingle)
 		coinAddressForSingles = append(coinAddressForSingles, coinAddressForSingle)
 		coinSpendSecretKeyForSingles = append(coinSpendSecretKeyForSingles, coinSpendSecretKeyForSingle)
+	}
+
+	coinAddressMapping = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    coinAddressPres,
+		CoinAddressTypePublicKeyForRing:       coinAddresss,
+		CoinAddressTypePublicKeyHashForSingle: coinAddressForSingles,
+	}
+	coinSpendSecretKeyMapping = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    coinSpendSecretKeyPres,
+		CoinAddressTypePublicKeyForRing:       coinSpendSecretKeys,
+		CoinAddressTypePublicKeyHashForSingle: coinSpendSecretKeyForSingles,
+	}
+	coinSerialNumberSecretKeyMap = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    coinSerialNumberSecretKeyPres,
+		CoinAddressTypePublicKeyForRing:       coinSerialNumberSecretKeys,
+		CoinAddressTypePublicKeyHashForSingle: coinSerialNumberSecretKeySingles,
+	}
+	coinDetectorKeyMap = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    detectorKeyPres,
+		CoinAddressTypePublicKeyForRing:       detectorKeys,
+		CoinAddressTypePublicKeyHashForSingle: detectorKeyForSingles,
+	}
+	coinValuePublicKeyMap = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    valuePublicKeyPres,
+		CoinAddressTypePublicKeyForRing:       valuePublicKeys,
+		CoinAddressTypePublicKeyHashForSingle: valuePublicKeyForSingles,
+	}
+	coinValueSecretKeyMap = map[CoinAddressType][][]byte{
+		CoinAddressTypePublicKeyForRingPre:    valueSecretKeyPres,
+		CoinAddressTypePublicKeyForRing:       valueSecretKeys,
+		CoinAddressTypePublicKeyHashForSingle: valueSecretKeyForSingles,
 	}
 }
 
@@ -1313,36 +1356,42 @@ func TestPublicParameter_CoinbaseTxMLPGen_CoinbaseTxMLPVerify_Other(t *testing.T
 	}
 }
 
-var txoPres = map[int][]*TxoMLP{}
-var nPre = rand.Intn(numPre)
-
-var txos = map[int][]*TxoMLP{}
-var nRand = rand.Intn(numRand)
-
-var txoSingles = map[int][]*TxoMLP{}
-var nSingle = rand.Intn(numSingle)
-
-func InitialTxoPre() {
-	//n2 := rand.Intn(numPre)
-	//n3 := rand.Intn(numPre)
-	txOutputDescMLPs := []*TxOutputDescMLP{
-		{
-			coinAddress:        coinAddressPres[nPre],
-			coinValuePublicKey: valuePublicKeyPres[nPre],
-			value:              512,
-		},
-		//{
-		//	coinAddress:        coinAddressPres[n2],
-		//	coinValuePublicKey: valuePublicKeyPres[n2],
-		//	value:              254,
-		//},
-		//{
-		//	coinAddress:        coinAddressPres[n3],
-		//	coinValuePublicKey: valuePublicKeyPres[n3],
-		//	value:              256,
-		//},
+func InitialTxo(addressType CoinAddressType, addrIdxs []int, vin uint64, values []uint64) []TxoMLP {
+	if len(values) != len(addrIdxs) {
+		panic("wrong request")
 	}
-	cbTx, err := pp.CoinbaseTxMLPGen(512, txOutputDescMLPs, RandomBytes(10))
+	for i := 0; i < len(values); i++ {
+		vin -= values[i]
+	}
+	if vin != 0 {
+		panic("wrong request")
+	}
+	txOutputDescMLPs := make([]*TxOutputDescMLP, 0, len(values))
+	for i := 0; i < len(values); i++ {
+		index := addrIdxs[i]
+		value := values[i]
+		vin += value
+		switch addressType {
+		case CoinAddressTypePublicKeyForRingPre:
+			txOutputDescMLPs = append(txOutputDescMLPs, &TxOutputDescMLP{
+				coinAddress:        coinAddressPres[index],
+				coinValuePublicKey: valuePublicKeyPres[index],
+				value:              value,
+			})
+		case CoinAddressTypePublicKeyForRing:
+			txOutputDescMLPs = append(txOutputDescMLPs, &TxOutputDescMLP{
+				coinAddress:        coinAddresss[index],
+				coinValuePublicKey: valuePublicKeys[index],
+				value:              value,
+			})
+		case CoinAddressTypePublicKeyHashForSingle:
+			txOutputDescMLPs = append(txOutputDescMLPs, &TxOutputDescMLP{
+				coinAddress: coinAddressForSingles[index],
+				value:       value,
+			})
+		}
+	}
+	cbTx, err := pp.CoinbaseTxMLPGen(vin, txOutputDescMLPs, RandomBytes(10))
 	if err != nil {
 		panic(err)
 	}
@@ -1351,458 +1400,149 @@ func InitialTxoPre() {
 	if err != nil {
 		panic(err)
 	}
-	txoPres[nPre] = append(txoPres[nPre], &cbTx.txos[0])
-	//txoPres[n2] = append(txoPres[n2], &cbTx.txos[1])
-	//txoPres[n3] = append(txoPres[n3], &cbTx.txos[2])
+	return cbTx.txos
 }
-func InitialTxo() {
-	//n2 := rand.Intn(numRand)
-	//n3 := rand.Intn(numRand)
-	txOutputDescMLPs := []*TxOutputDescMLP{
-		{
-			coinAddress:        coinAddresss[nRand],
-			coinValuePublicKey: valuePublicKeys[nRand],
-			value:              512,
-		},
-		//{
-		//	coinAddress:        coinAddresss[n2],
-		//	coinValuePublicKey: valuePublicKeys[n2],
-		//	value:              254,
-		//},
-		//{
-		//	coinAddress:        coinAddresss[n3],
-		//	coinValuePublicKey: valuePublicKeys[n3],
-		//	value:              256,
-		//},
-	}
-	cbTx, err := pp.CoinbaseTxMLPGen(512, txOutputDescMLPs, RandomBytes(10))
-	if err != nil {
-		panic(err)
+
+func GenerateInputDescMLPs(ringSize int, coinAddressType CoinAddressType, vin uint64) (txInputDescMLPs []*TxInputDescMLP) {
+	inputValues := make([]uint64, ringSize)
+	addrIndexes := make([]int, ringSize)
+	remainVin := vin
+	for i := 0; i < ringSize; i++ {
+		addrIndexes[i] = rand.Intn(numPre)
+		if i == ringSize-1 {
+			inputValues[ringSize-1] = remainVin
+		} else {
+			inputValues[i] = uint64(rand.Intn(int(remainVin)))
+		}
+		remainVin -= inputValues[i]
 	}
 
-	err = pp.CoinbaseTxMLPVerify(cbTx)
-	if err != nil {
-		panic(err)
-	}
-	txos[nRand] = append(txos[nRand], &cbTx.txos[0])
-	//txos[n2] = append(txos[n2], &cbTx.txos[1])
-	//txos[n3] = append(txos[n3], &cbTx.txos[2])
-}
-func InitialTxoSingle() {
-	//n2 := rand.Intn(numSingle)
-	//n3 := rand.Intn(numSingle)
-	txOutputDescMLPs := []*TxOutputDescMLP{
-		{
-			coinAddress: coinAddressForSingles[nSingle],
-			value:       512,
-		},
-		//{
-		//	coinAddress: coinAddressForSingles[n2],
-		//	value:       254,
-		//},
-		//{
-		//	coinAddress: coinAddressForSingles[n3],
-		//	value:       256,
-		//},
-	}
-	cbTx, err := pp.CoinbaseTxMLPGen(512, txOutputDescMLPs, RandomBytes(10))
-	if err != nil {
-		panic(err)
+	txos := InitialTxo(coinAddressType, addrIndexes, vin, inputValues)
+
+	txInputDescMLPs = make([]*TxInputDescMLP, 0, ringSize)
+	lgrTxoList := make([]*LgrTxoMLP, 0, ringSize)
+	for i := 0; i < ringSize; i++ {
+		lgrTxoList = append(lgrTxoList, &LgrTxoMLP{
+			txo: txos[i],
+			id:  RandomBytes(HashOutputBytesLen),
+		})
 	}
 
-	err = pp.CoinbaseTxMLPVerify(cbTx)
-	if err != nil {
-		panic(err)
+	inputCoinSpendSecretKeys := coinSpendSecretKeyMapping[coinAddressType]
+	inputCoinSerialNumberSecretKeys := coinSerialNumberSecretKeyMap[coinAddressType]
+	inputCoinValuePublicKeys := coinValuePublicKeyMap[coinAddressType]
+	inputCoinValueSecretKeys := coinValueSecretKeyMap[coinAddressType]
+	inputCoinDetectorKeys := coinDetectorKeyMap[coinAddressType]
+
+	for i := 0; i < ringSize; i++ {
+		txInputDescMLPs = append(txInputDescMLPs, &TxInputDescMLP{
+			lgrTxoList:                lgrTxoList,
+			sidx:                      uint8(i),
+			coinSpendSecretKey:        inputCoinSpendSecretKeys[addrIndexes[i]],
+			coinSerialNumberSecretKey: inputCoinSerialNumberSecretKeys[addrIndexes[i]],
+			coinValuePublicKey:        inputCoinValuePublicKeys[addrIndexes[i]],
+			coinValueSecretKey:        inputCoinValueSecretKeys[addrIndexes[i]],
+			coinDetectorKey:           inputCoinDetectorKeys[addrIndexes[i]],
+			value:                     inputValues[i],
+		})
 	}
-	txoSingles[nSingle] = append(txoSingles[nSingle], &cbTx.txos[0])
-	//txoSingles[n2] = append(txoSingles[n2], &cbTx.txos[1])
-	//txoSingles[n3] = append(txoSingles[n3], &cbTx.txos[2])
+
+	return
 }
 
 func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
 	InitialAddress()
-	InitialTxoPre()
-	InitialTxo()
-	InitialTxoSingle()
-	type trTxGenArgs struct {
-		txInputDescs  []*TxInputDescMLP
-		txOutputDescs []*TxOutputDescMLP
-		fee           uint64
-		txMemo        []byte
-	}
 
-	tests := []struct {
-		name       string
-		args       trTxGenArgs
-		wantErr    bool
-		want       bool
-		wantVerify bool
-	}{
-		{
-			name: "RingPre -> RingPre",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoPres[nPre][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinAddressSpendKeyPres[nPre],
-						coinSerialNumberSecretKey: coinSerialNumberSKPres[nPre],
-						coinValuePublicKey:        valuePublicKeyPres[nPre],
-						coinValueSecretKey:        valueSecretKeyPres[nPre],
-						coinDetectorKey:           nil,
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "RingPre -> Ring",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoPres[nPre][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinAddressSpendKeyPres[nPre],
-						coinSerialNumberSecretKey: coinSerialNumberSKPres[nPre],
-						coinValuePublicKey:        valuePublicKeyPres[nPre],
-						coinValueSecretKey:        valueSecretKeyPres[nPre],
-						coinDetectorKey:           nil,
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "RingPre -> Single",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoPres[nPre][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinAddressSpendKeyPres[nPre],
-						coinSerialNumberSecretKey: coinSerialNumberSKPres[nPre],
-						coinValuePublicKey:        valuePublicKeyPres[nPre],
-						coinValueSecretKey:        valueSecretKeyPres[nPre],
-						coinDetectorKey:           nil,
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       400,
-					},
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-
-		{
-			name: "Ring -> RingPre",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txos[nRand][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeys[nRand],
-						coinSerialNumberSecretKey: coinSerialNumberSecretKeys[nRand],
-						coinValuePublicKey:        valuePublicKeys[nRand],
-						coinValueSecretKey:        valueSecretKeys[nRand],
-						coinDetectorKey:           detectorKeys[nRand],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "Ring -> Ring",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txos[nRand][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeys[nRand],
-						coinSerialNumberSecretKey: coinSerialNumberSecretKeys[nRand],
-						coinValuePublicKey:        valuePublicKeys[nRand],
-						coinValueSecretKey:        valueSecretKeys[nRand],
-						coinDetectorKey:           detectorKeys[nRand],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "Ring -> Single",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txos[nRand][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeys[nRand],
-						coinSerialNumberSecretKey: coinSerialNumberSecretKeys[nRand],
-						coinValuePublicKey:        valuePublicKeys[nRand],
-						coinValueSecretKey:        valueSecretKeys[nRand],
-						coinDetectorKey:           detectorKeys[nRand],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       400,
-					},
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-
-		{
-			name: "Single -> RingPre",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoSingles[nSingle][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeyForSingles[nSingle],
-						coinSerialNumberSecretKey: nil,
-						coinValuePublicKey:        nil,
-						coinValueSecretKey:        nil,
-						coinDetectorKey:           detectorKeyForSingles[nSingle],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddressPres[rand.Intn(numPre)],
-						coinValuePublicKey: valuePublicKeyPres[rand.Intn(numPre)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "Single -> Ring",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoSingles[nSingle][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeyForSingles[nSingle],
-						coinSerialNumberSecretKey: nil,
-						coinValuePublicKey:        nil,
-						coinValueSecretKey:        nil,
-						coinDetectorKey:           detectorKeyForSingles[nSingle],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              400,
-					},
-					{
-						coinAddress:        coinAddresss[rand.Intn(numRand)],
-						coinValuePublicKey: valuePublicKeys[rand.Intn(numRand)],
-						value:              111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-		{
-			name: "Single -> Single",
-			args: trTxGenArgs{
-				txInputDescs: []*TxInputDescMLP{
-					{
-						lgrTxoList: []*LgrTxoMLP{
-							{
-								txo: *txoSingles[nSingle][0],
-								id:  RandomBytes(HashOutputBytesLen),
-							},
-						},
-						sidx:                      0,
-						coinSpendSecretKey:        coinSpendSecretKeyForSingles[nSingle],
-						coinSerialNumberSecretKey: nil,
-						coinValuePublicKey:        nil,
-						coinValueSecretKey:        nil,
-						coinDetectorKey:           detectorKeyForSingles[nSingle],
-						value:                     512,
-					},
-				},
-				txOutputDescs: []*TxOutputDescMLP{
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       400,
-					},
-					{
-						coinAddress: coinAddressForSingles[rand.Intn(numSingle)],
-						value:       111,
-					},
-				},
-				fee:    1,
-				txMemo: RandomBytes(10),
-			},
-			wantErr:    false,
-			want:       true,
-			wantVerify: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			trTx, err := pp.TransferTxMLPGen(tt.args.txInputDescs, tt.args.txOutputDescs, tt.args.fee, tt.args.txMemo)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("TransferTxMLPGen() error = %v, wantErr %v", err, tt.wantErr)
-				return
+	//vin := uint64(512)
+	vin := uint64(1)<<pp.paramN - 1
+	for _, inputCoinAddressType := range []CoinAddressType{ /*CoinAddressTypePublicKeyForRingPre,*/ CoinAddressTypePublicKeyForRing, CoinAddressTypePublicKeyHashForSingle} {
+		for _, outputCoinAddressType := range []CoinAddressType{CoinAddressTypePublicKeyForRingPre, CoinAddressTypePublicKeyForRing, CoinAddressTypePublicKeyHashForSingle} {
+			ringSizeMax := 6
+			if inputCoinAddressType == CoinAddressTypePublicKeyHashForSingle {
+				ringSizeMax = 1
 			}
-			if (trTx != nil) != tt.want {
-				t.Errorf("TransferTxMLPGen() error = %v, want %v", err, tt.wantErr)
-				return
+			for ringSize := 1; ringSize < ringSizeMax; ringSize++ {
+				txInputRingDescMLPs := GenerateInputDescMLPs(ringSize, inputCoinAddressType, vin)
+				var txInputDescMLPs []*TxInputDescMLP
+				inputSize := 1
+
+				totalInputValue := uint64(0)
+				inputValues := make([]uint64, inputSize)
+				choosed := map[int]struct{}{}
+				for inputIdx := 0; inputIdx < inputSize; inputIdx++ {
+					txInputDescMLPs = make([]*TxInputDescMLP, inputSize)
+					currentChoose := rand.Intn(ringSize)
+					_, ok := choosed[currentChoose]
+					for ok {
+						currentChoose = rand.Intn(ringSize)
+						_, ok = choosed[currentChoose]
+					}
+					txInputDescMLPs[inputIdx] = txInputRingDescMLPs[currentChoose]
+
+					totalInputValue += txInputRingDescMLPs[currentChoose].value
+					inputValues[inputIdx] = txInputRingDescMLPs[currentChoose].value
+				}
+				fee := uint64(rand.Intn(int(totalInputValue)))
+
+				outputCoinAddressMap := coinAddressMapping[outputCoinAddressType]
+				outputCoinValuePublicKeyMap := coinValuePublicKeyMap[outputCoinAddressType]
+
+				for outputSize := 1; outputSize < 6; outputSize++ {
+					remainVin := totalInputValue - fee
+					nOutPres := make([]int, outputSize)
+					outputValues := make([]uint64, outputSize)
+					for i := 0; i < outputSize; i++ {
+						nOutPres[i] = rand.Intn(numPre)
+						if i == outputSize-1 {
+							outputValues[outputSize-1] = remainVin
+						} else {
+							outputValues[i] = uint64(rand.Intn(int(remainVin)))
+						}
+
+						remainVin -= outputValues[i]
+					}
+
+					addressTypeNameMapping := map[CoinAddressType]string{
+						CoinAddressTypePublicKeyForRingPre:    "RingPre",
+						CoinAddressTypePublicKeyForRing:       "RingRand",
+						CoinAddressTypePublicKeyHashForSingle: "Single",
+					}
+					testCaseName := fmt.Sprintf("%s(%d, RingSize %d) -> %s(%d)", addressTypeNameMapping[inputCoinAddressType], inputSize, ringSize, addressTypeNameMapping[outputCoinAddressType], outputSize)
+					t.Run(testCaseName, func(t *testing.T) {
+						t.Logf("TestCase:%s", testCaseName)
+						t.Logf("inputValues = %v", inputValues)
+						t.Logf("outputValues = %v", outputValues)
+						t.Logf("fee = %v", fee)
+						txOutputDescMLPs := make([]*TxOutputDescMLP, 0, outputSize)
+						for i := 0; i < outputSize; i++ {
+							txOutputDescMLPs = append(txOutputDescMLPs, &TxOutputDescMLP{
+								coinAddress:        outputCoinAddressMap[nOutPres[i]],
+								coinValuePublicKey: outputCoinValuePublicKeyMap[nOutPres[i]],
+								value:              outputValues[i],
+							})
+						}
+
+						trTx, err := pp.TransferTxMLPGen(
+							txInputDescMLPs,
+							txOutputDescMLPs,
+							fee,
+							RandomBytes(10))
+						if (err != nil) != false {
+							t.Errorf("TransferTxMLPGen() error = %v, wantErr %v", err, false)
+							return
+						}
+						if (trTx != nil) != true {
+							t.Errorf("TransferTxMLPGen() error = %v, want %v", err, true)
+							return
+						}
+						err = pp.TransferTxMLPVerify(trTx)
+						if (err == nil) != true {
+							t.Errorf("TransferTxMLPVerify() error = %v, wantVerifyErr %v", err, true)
+							return
+						}
+					})
+				}
 			}
-			err = pp.TransferTxMLPVerify(trTx)
-			if (err == nil) != tt.wantVerify {
-				t.Errorf("TransferTxMLPVerify() error = %v, wantVerifyErr %v", err, tt.wantErr)
-				return
-			}
-		})
+		}
 	}
 }
