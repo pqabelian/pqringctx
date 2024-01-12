@@ -5,6 +5,7 @@ import (
 	"github.com/cryptosuite/pqringct"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 var pp = Initialize(nil)
@@ -46,6 +47,32 @@ var coinSpendSecretKeyForSingles = make([][]byte, 0, numSingle)
 var coinSerialNumberSecretKeySingles = make([][]byte, numSingle)
 var valuePublicKeyForSingles = make([][]byte, numSingle)
 var valueSecretKeyForSingles = make([][]byte, numSingle)
+
+var addressTypeNameMapping map[CoinAddressType]string
+var txWitnessCbTxCaseMapping = map[TxWitnessCbTxCase]string{
+	TxWitnessCbTxCaseC0: "TxWitnessCbTxCaseC0",
+	TxWitnessCbTxCaseC1: "TxWitnessCbTxCaseC1",
+	TxWitnessCbTxCaseCn: "TxWitnessCbTxCaseCn",
+}
+var txWitnessTrTxCaseMapping = map[TxWitnessTrTxCase]string{
+	TxWitnessTrTxCaseI0C0:      "TxWitnessTrTxCaseI0C0",
+	TxWitnessTrTxCaseI0C1:      "TxWitnessTrTxCaseI0C1",
+	TxWitnessTrTxCaseI0Cn:      "TxWitnessTrTxCaseI0Cn",
+	TxWitnessTrTxCaseI1C0:      "TxWitnessTrTxCaseI1C0",
+	TxWitnessTrTxCaseI1C1Exact: "TxWitnessTrTxCaseI1C1Exact",
+	TxWitnessTrTxCaseI1C1CAdd:  "TxWitnessTrTxCaseI1C1CAdd",
+	TxWitnessTrTxCaseI1C1IAdd:  "TxWitnessTrTxCaseI1C1IAdd",
+	TxWitnessTrTxCaseI1CnExact: "TxWitnessTrTxCaseI1CnExact",
+	TxWitnessTrTxCaseI1CnCAdd:  "TxWitnessTrTxCaseI1CnCAdd",
+	TxWitnessTrTxCaseI1CnIAdd:  "TxWitnessTrTxCaseI1CnIAdd",
+	TxWitnessTrTxCaseImC0:      "TxWitnessTrTxCaseImC0",
+	TxWitnessTrTxCaseImC1Exact: "TxWitnessTrTxCaseImC1Exact",
+	TxWitnessTrTxCaseImC1CAdd:  "TxWitnessTrTxCaseImC1CAdd",
+	TxWitnessTrTxCaseImC1IAdd:  "TxWitnessTrTxCaseImC1IAdd",
+	TxWitnessTrTxCaseImCnExact: "TxWitnessTrTxCaseImCnExact",
+	TxWitnessTrTxCaseImCnCAdd:  "TxWitnessTrTxCaseImCnCAdd",
+	TxWitnessTrTxCaseImCnIAdd:  "TxWitnessTrTxCaseImCnIAdd",
+}
 
 func InitialAddress() {
 	coinAddressKeyForPKRingPreGen := func() (seed []byte,
@@ -177,6 +204,12 @@ func InitialAddress() {
 		CoinAddressTypePublicKeyForRingPre:    valueSecretKeyPres,
 		CoinAddressTypePublicKeyForRing:       valueSecretKeys,
 		CoinAddressTypePublicKeyHashForSingle: valueSecretKeyForSingles,
+	}
+
+	addressTypeNameMapping = map[CoinAddressType]string{
+		CoinAddressTypePublicKeyForRingPre:    "RingPre",
+		CoinAddressTypePublicKeyForRing:       "RingRand",
+		CoinAddressTypePublicKeyHashForSingle: "Single",
 	}
 }
 
@@ -1450,99 +1483,197 @@ func GenerateInputDescMLPs(ringSize int, coinAddressType CoinAddressType, vin ui
 	return
 }
 
-func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
-	InitialAddress()
+func GenerateInputTXOs(total uint64, coinAddressType CoinAddressType) []*TxInputDescMLP {
+	var res []*TxInputDescMLP
+	ringSizeMax := 5
+	if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		ringSizeMax = 1
+	}
+	remain := total
+	for ringSize := 1; ringSize < ringSizeMax+1; ringSize++ {
+		currentValue := remain
+		if ringSize != ringSizeMax {
+			currentValue = uint64(rand.Intn(int(remain)))
+			remain -= currentValue
+		}
+		res = append(res, GenerateInputDescMLPs(ringSize, coinAddressType, currentValue)...)
+	}
+	return res
+}
+func SelectTxInputDescMLP(txInputRingDescMLPs []*TxInputDescMLP, count int) ([]*TxInputDescMLP, uint64, []uint64) {
+	n := len(txInputRingDescMLPs)
+	// 使用洗牌算法打乱数组
+	randRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randRand.Shuffle(n, func(i, j int) {
+		txInputRingDescMLPs[i], txInputRingDescMLPs[j] = txInputRingDescMLPs[j], txInputRingDescMLPs[i]
+	})
 
-	//vin := uint64(512)
+	totalInputValue := uint64(0)
+	inputValues := make([]uint64, count)
+
+	res := make([]*TxInputDescMLP, 0, count)
+	for i := 0; i < n && i < count; i++ {
+		res = append(res, txInputRingDescMLPs[i])
+		totalInputValue += txInputRingDescMLPs[i].value
+		inputValues[i] = txInputRingDescMLPs[i].value
+	}
+
+	return res, totalInputValue, inputValues
+}
+func GenerateInput(inputRingPreSize int, inputRingSize int, inputSingleSize int) (res []*TxInputDescMLP, totalInputValue uint64, inputValues []uint64) {
 	vin := uint64(1)<<pp.paramN - 1
-	for _, inputCoinAddressType := range []CoinAddressType{ /*CoinAddressTypePublicKeyForRingPre,*/ CoinAddressTypePublicKeyForRing, CoinAddressTypePublicKeyHashForSingle} {
-		for _, outputCoinAddressType := range []CoinAddressType{CoinAddressTypePublicKeyForRingPre, CoinAddressTypePublicKeyForRing, CoinAddressTypePublicKeyHashForSingle} {
-			ringSizeMax := 6
-			if inputCoinAddressType == CoinAddressTypePublicKeyHashForSingle {
-				ringSizeMax = 1
-			}
-			for ringSize := 1; ringSize < ringSizeMax; ringSize++ {
-				txInputRingDescMLPs := GenerateInputDescMLPs(ringSize, inputCoinAddressType, vin)
-				var txInputDescMLPs []*TxInputDescMLP
-				inputSize := 1
+	remain := vin
 
-				totalInputValue := uint64(0)
-				inputValues := make([]uint64, inputSize)
-				choosed := map[int]struct{}{}
-				for inputIdx := 0; inputIdx < inputSize; inputIdx++ {
-					txInputDescMLPs = make([]*TxInputDescMLP, inputSize)
-					currentChoose := rand.Intn(ringSize)
-					_, ok := choosed[currentChoose]
-					for ok {
-						currentChoose = rand.Intn(ringSize)
-						_, ok = choosed[currentChoose]
-					}
-					txInputDescMLPs[inputIdx] = txInputRingDescMLPs[currentChoose]
+	if inputRingPreSize != 0 {
+		ringPreValue := uint64(rand.Intn(int(remain)))
+		remain -= ringPreValue
+		txInputDescMLPRingPre, totalInputValuePre, inputValuesPre := SelectTxInputDescMLP(GenerateInputTXOs(ringPreValue, CoinAddressTypePublicKeyForRingPre), inputRingPreSize)
+		res = append(res, txInputDescMLPRingPre...)
+		totalInputValue += totalInputValuePre
+		inputValues = append(inputValues, inputValuesPre...)
+	}
 
-					totalInputValue += txInputRingDescMLPs[currentChoose].value
-					inputValues[inputIdx] = txInputRingDescMLPs[currentChoose].value
-				}
-				fee := uint64(rand.Intn(int(totalInputValue)))
+	if inputRingSize != 0 {
+		ringValue := uint64(rand.Intn(int(remain)))
+		remain -= ringValue
+		txInputDescMLPRingRand, totalInputValueRand, inputValuesRand := SelectTxInputDescMLP(GenerateInputTXOs(ringValue, CoinAddressTypePublicKeyForRing), inputRingSize)
+		res = append(res, txInputDescMLPRingRand...)
+		totalInputValue += totalInputValueRand
+		inputValues = append(inputValues, inputValuesRand...)
+	}
 
-				outputCoinAddressMap := coinAddressMapping[outputCoinAddressType]
-				outputCoinValuePublicKeyMap := coinValuePublicKeyMap[outputCoinAddressType]
+	if inputSingleSize != 0 {
+		singleValue := uint64(rand.Intn(int(remain)))
+		remain -= singleValue
+		txInputDescMLPSingle, totalInputValueSingle, inputValuesSingle := SelectTxInputDescMLP(GenerateInputTXOs(singleValue, CoinAddressTypePublicKeyHashForSingle), inputSingleSize)
+		res = append(res, txInputDescMLPSingle...)
+		totalInputValue += totalInputValueSingle
+		inputValues = append(inputValues, inputValuesSingle...)
+	}
 
-				for outputSize := 1; outputSize < 6; outputSize++ {
-					remainVin := totalInputValue - fee
-					nOutPres := make([]int, outputSize)
-					outputValues := make([]uint64, outputSize)
-					for i := 0; i < outputSize; i++ {
-						nOutPres[i] = rand.Intn(numPre)
-						if i == outputSize-1 {
-							outputValues[outputSize-1] = remainVin
-						} else {
-							outputValues[i] = uint64(rand.Intn(int(remainVin)))
-						}
+	return res, totalInputValue, inputValues
+}
+func generateNWithBound(count int, bound int) []int {
+	res := make([]int, 0, bound)
+	for i := 0; i < count; i++ {
+		res = append(res, rand.Intn(bound))
+	}
+	return res
+}
+func SplitNum(total uint64, num int) []uint64 {
+	remain := total - uint64(num)
+	if remain < 0 {
+		return nil
+	}
+	outputValues := make([]uint64, num)
+	for i := 0; i < num; i++ {
+		if remain <= 0 {
+			return nil
+		}
+		if i == num-1 {
+			outputValues[num-1] = remain
+		} else {
+			outputValues[i] = uint64(rand.Intn(int(remain)))
+		}
 
-						remainVin -= outputValues[i]
-					}
+		remain -= outputValues[i]
+	}
+	for i := 0; i < num; i++ {
+		outputValues[i] += 1
+	}
+	return outputValues
+}
+func GenerateOutput(totalOutput uint64, outputRingPreSize int, outputRingSize int, outputSingleSize int) (txOutputDescMLPS []*TxOutputDescMLP, outputValues []uint64) {
+	outputValues = SplitNum(totalOutput, outputRingPreSize+outputRingSize+outputSingleSize)
 
-					addressTypeNameMapping := map[CoinAddressType]string{
-						CoinAddressTypePublicKeyForRingPre:    "RingPre",
-						CoinAddressTypePublicKeyForRing:       "RingRand",
-						CoinAddressTypePublicKeyHashForSingle: "Single",
-					}
-					testCaseName := fmt.Sprintf("%s(%d, RingSize %d) -> %s(%d)", addressTypeNameMapping[inputCoinAddressType], inputSize, ringSize, addressTypeNameMapping[outputCoinAddressType], outputSize)
-					t.Run(testCaseName, func(t *testing.T) {
-						t.Logf("TestCase:%s", testCaseName)
-						t.Logf("inputValues = %v", inputValues)
-						t.Logf("outputValues = %v", outputValues)
-						t.Logf("fee = %v", fee)
-						txOutputDescMLPs := make([]*TxOutputDescMLP, 0, outputSize)
-						for i := 0; i < outputSize; i++ {
-							txOutputDescMLPs = append(txOutputDescMLPs, &TxOutputDescMLP{
-								coinAddress:        outputCoinAddressMap[nOutPres[i]],
-								coinValuePublicKey: outputCoinValuePublicKeyMap[nOutPres[i]],
-								value:              outputValues[i],
-							})
-						}
-
-						trTx, err := pp.TransferTxMLPGen(
-							txInputDescMLPs,
-							txOutputDescMLPs,
-							fee,
-							RandomBytes(10))
-						if (err != nil) != false {
-							t.Errorf("TransferTxMLPGen() error = %v, wantErr %v", err, false)
-							return
-						}
-						if (trTx != nil) != true {
-							t.Errorf("TransferTxMLPGen() error = %v, want %v", err, true)
-							return
-						}
-						err = pp.TransferTxMLPVerify(trTx)
-						if (err == nil) != true {
-							t.Errorf("TransferTxMLPVerify() error = %v, wantVerifyErr %v", err, true)
-							return
-						}
-					})
-				}
-			}
+	if outputRingPreSize != 0 {
+		outputValuesPre := outputValues[:outputRingPreSize]
+		nOutPres := generateNWithBound(outputRingPreSize, numPre)
+		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyForRingPre]
+		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyForRingPre]
+		for i := 0; i < outputRingPreSize; i++ {
+			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
+				coinAddress:        outputCoinAddressMap[nOutPres[i]],
+				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutPres[i]],
+				value:              outputValuesPre[i],
+			})
 		}
 	}
+
+	if outputRingSize != 0 {
+		outputValuesRand := outputValues[outputRingPreSize : outputRingPreSize+outputRingSize]
+		nOutRand := generateNWithBound(outputRingSize, numRand)
+		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyForRing]
+		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyForRing]
+		for i := 0; i < outputRingSize; i++ {
+			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
+				coinAddress:        outputCoinAddressMap[nOutRand[i]],
+				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutRand[i]],
+				value:              outputValuesRand[i],
+			})
+		}
+	}
+
+	if outputSingleSize != 0 {
+		outputValuesSingle := outputValues[outputRingPreSize+outputRingSize:]
+
+		nOutSingle := generateNWithBound(outputSingleSize, numSingle)
+		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyHashForSingle]
+		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyHashForSingle]
+		for i := 0; i < outputRingSize; i++ {
+			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
+				coinAddress:        outputCoinAddressMap[nOutSingle[i]],
+				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutSingle[i]],
+				value:              outputValuesSingle[i],
+			})
+		}
+	}
+
+	return txOutputDescMLPS, outputValues
+}
+
+func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
+	InitialAddress()
+	inputRingPreSize := 1
+	inputRingRandSize := 0
+	inputSingleSize := 0
+
+	outputRingPreSize := 1
+	outputRingRandSize := 1
+	outputSingleSize := 1
+
+	testCaseName := fmt.Sprintf("Input[%d][%d][%d] -> Output[%d][%d][%d]", inputRingPreSize, inputRingRandSize, inputSingleSize, outputRingPreSize, outputRingRandSize, outputSingleSize)
+	t.Run(testCaseName, func(t *testing.T) {
+		txInputDescMLPs, totalInputValue, inputValues := GenerateInput(inputRingPreSize, inputRingRandSize, inputSingleSize)
+		fee := uint64(rand.Intn(int(totalInputValue)))
+		totalOutputValue := totalInputValue - fee
+		txOutputDescMLPs, outputValues := GenerateOutput(totalOutputValue, outputRingPreSize, outputRingRandSize, outputSingleSize)
+
+		t.Logf("TestCase:%s", testCaseName)
+		t.Logf("inputValues = %v", inputValues)
+		t.Logf("outputValues = %v", outputValues)
+		t.Logf("fee = %v", fee)
+
+		trTx, err := pp.TransferTxMLPGen(
+			txInputDescMLPs,
+			txOutputDescMLPs,
+			fee,
+			RandomBytes(10))
+		if err != nil {
+			t.Errorf("TransferTxMLPGen() error = %v, wantErr %v", err, false)
+			return
+		}
+		if trTx == nil {
+			t.Errorf("TransferTxMLPGen() error = %v, want %v", err, true)
+			return
+		}
+
+		t.Logf("Transfer Witness Case:%s", txWitnessTrTxCaseMapping[trTx.txWitness.TxCase()])
+
+		err = pp.TransferTxMLPVerify(trTx)
+		if err != nil {
+			t.Errorf("TransferTxMLPVerify() error = %v, wantVerifyErr %v", err, true)
+			return
+		}
+	})
 }
