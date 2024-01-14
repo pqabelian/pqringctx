@@ -42,6 +42,68 @@ type TxoRCTPre struct {
 func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
 	return txoRCTPre.coinAddressType
 }
+func (pp *PublicParameter) txoRCTPreCoinReceive(txo *TxoRCTPre, serializedAPk []byte, serializedVPk []byte, serializedVSk []byte) (valid bool, v uint64, err error) {
+	if txo == nil {
+		return false, 0, fmt.Errorf("nil txo in txoCoinReceive")
+	}
+	if len(txo.vct) != pp.TxoValueBytesLen() {
+		return false, 0, fmt.Errorf("length of txo.Vct does not match the design")
+	}
+
+	apkInTxo, err := pp.serializeAddressPublicKeyForRing(txo.addressPublicKeyForRing)
+	if err != nil {
+		return false, 0, err
+		//log.Fatalln(err)
+	}
+	if !bytes.Equal(apkInTxo, serializedAPk) {
+		return false, 0, nil
+	}
+
+	kappa, err := pqringctxkem.Decaps(pp.paramKem, txo.ctKemSerialized, serializedVSk)
+	if err != nil {
+		//log.Fatalln(err)
+		return false, 0, err
+	}
+	sk, err := pp.expandValuePadRandomness(kappa)
+	if err != nil {
+		return false, 0, err
+		//log.Fatalln(err)
+	}
+	if len(sk) != pp.TxoValueBytesLen() {
+		return false, 0, fmt.Errorf("length of generated pad for value does not match the design")
+	}
+
+	valueBytes := make([]byte, pp.TxoValueBytesLen())
+	for i := 0; i < pp.TxoValueBytesLen(); i++ {
+		valueBytes[i] = txo.vct[i] ^ sk[i]
+	}
+
+	value, err := pp.decodeTxoValueFromBytes(valueBytes)
+	if err != nil {
+		return false, 0, fmt.Errorf("fail to decode value from txo.vct")
+	}
+
+	rctmp, err := pp.expandValueCmtRandomness(kappa)
+	if err != nil {
+		return false, 0, fmt.Errorf("fail to expand randomness for commitment")
+	}
+	cmtr := pp.NTTPolyCVec(rctmp)
+
+	mtmp := pp.intToBinary(value)
+	m := &PolyCNTT{coeffs: mtmp}
+	// [b c]^T = C*r + [0 m]^T
+	b := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr, pp.paramKC, pp.paramLC)
+	c := pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr, pp.paramLC),
+		m,
+	)
+
+	if !pp.PolyCNTTVecEqualCheck(b, txo.valueCommitment.b) || !pp.PolyCNTTEqualCheck(c, txo.valueCommitment.c) {
+		return false, 0, nil
+	}
+
+	return true, value, nil
+}
 
 // TxoRCT defines the Txo with RingCT-privacy.
 // reviewed on 2023.12.05
@@ -62,6 +124,69 @@ func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 	return txoRCT.coinAddressType
 }
 
+func (pp *PublicParameter) txoRCTCoinReceive(txo *TxoRCT, serializedAPk []byte, serializedVPk []byte, serializedVSk []byte) (valid bool, v uint64, err error) {
+	if txo == nil {
+		return false, 0, fmt.Errorf("nil txo in txoCoinReceive")
+	}
+	if len(txo.vct) != pp.TxoValueBytesLen() {
+		return false, 0, fmt.Errorf("length of txo.Vct does not match the design")
+	}
+
+	apkInTxo, err := pp.serializeAddressPublicKeyForRing(txo.addressPublicKeyForRing)
+	if err != nil {
+		return false, 0, err
+		//log.Fatalln(err)
+	}
+	if !bytes.Equal(apkInTxo, serializedAPk) {
+		return false, 0, nil
+	}
+
+	kappa, err := pqringctxkem.Decaps(pp.paramKem, txo.ctKemSerialized, serializedVSk)
+	if err != nil {
+		//log.Fatalln(err)
+		return false, 0, err
+	}
+	sk, err := pp.expandValuePadRandomness(kappa)
+	if err != nil {
+		return false, 0, err
+		//log.Fatalln(err)
+	}
+	if len(sk) != pp.TxoValueBytesLen() {
+		return false, 0, fmt.Errorf("length of generated pad for value does not match the design")
+	}
+
+	valueBytes := make([]byte, pp.TxoValueBytesLen())
+	for i := 0; i < pp.TxoValueBytesLen(); i++ {
+		valueBytes[i] = txo.vct[i] ^ sk[i]
+	}
+
+	value, err := pp.decodeTxoValueFromBytes(valueBytes)
+	if err != nil {
+		return false, 0, fmt.Errorf("fail to decode value from txo.vct")
+	}
+
+	rctmp, err := pp.expandValueCmtRandomness(kappa)
+	if err != nil {
+		return false, 0, fmt.Errorf("fail to expand randomness for commitment")
+	}
+	cmtr := pp.NTTPolyCVec(rctmp)
+
+	mtmp := pp.intToBinary(value)
+	m := &PolyCNTT{coeffs: mtmp}
+	// [b c]^T = C*r + [0 m]^T
+	b := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, cmtr, pp.paramKC, pp.paramLC)
+	c := pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[0], cmtr, pp.paramLC),
+		m,
+	)
+
+	if !pp.PolyCNTTVecEqualCheck(b, txo.valueCommitment.b) || !pp.PolyCNTTEqualCheck(c, txo.valueCommitment.c) {
+		return false, 0, nil
+	}
+
+	return true, value, nil
+}
+
 // TxoSDN defines the Txo with Pseudonym-privacy.
 // reviewed on 2023.12.05
 type TxoSDN struct {
@@ -76,6 +201,29 @@ type TxoSDN struct {
 // reviewed on 2023.12.05
 func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
+}
+
+func (pp *PublicParameter) txoSDNCoinReceive(txo *TxoSDN, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
+	if txo == nil {
+		return false, 0, fmt.Errorf("nil txo in txoSDNCoinReceive")
+	}
+	coinAddressType := CoinAddressType(coinAddress[0])
+	if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+		return false, 0, fmt.Errorf("txoSDNCoinReceive: the input coinAddress has an invalid address type")
+	}
+	// parse coinAddress
+	apkHashSize := HashOutputBytesLen
+	publicRandSize := pp.GetParamKeyGenPublicRandBytesLen()
+	detectorTagSize := pp.GetParamMACOutputBytesLen()
+	if len(coinAddress) != 1+apkHashSize+publicRandSize+detectorTagSize {
+		return false, 0, fmt.Errorf("txoSDNCoinReceive: the input coinAddress has an invalid length (%d)", len(coinAddress))
+	}
+
+	if !bytes.Equal(coinAddress, txo.addressPublicKeyForSingleHash) {
+		return false, 0, nil
+	}
+
+	return true, txo.value, nil
 }
 
 //	TXO	Gen		begin
@@ -970,4 +1118,21 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 	}
 
 	return w.Bytes(), nil
+}
+
+func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
+	if txoMLP == nil {
+		return false, 0, fmt.Errorf("nil txo in txoCoinReceive")
+	}
+	switch txo := txoMLP.(type) {
+	case *TxoRCTPre:
+		return pp.txoRCTPreCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+	case *TxoRCT:
+		return pp.txoRCTCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+	case *TxoSDN:
+		return pp.txoSDNCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+
+	default:
+		return false, 0, fmt.Errorf("unsupported coin address type")
+	}
 }

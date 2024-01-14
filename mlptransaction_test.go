@@ -48,7 +48,11 @@ var coinSerialNumberSecretKeySingles = make([][]byte, numSingle)
 var valuePublicKeyForSingles = make([][]byte, numSingle)
 var valueSecretKeyForSingles = make([][]byte, numSingle)
 
-var addressTypeNameMapping map[CoinAddressType]string
+var addressTypeNameMapping = map[CoinAddressType]string{
+	CoinAddressTypePublicKeyForRingPre:    "RingPre",
+	CoinAddressTypePublicKeyForRing:       "RingRand",
+	CoinAddressTypePublicKeyHashForSingle: "Single",
+}
 var txWitnessCbTxCaseMapping = map[TxWitnessCbTxCase]string{
 	TxWitnessCbTxCaseC0: "TxWitnessCbTxCaseC0",
 	TxWitnessCbTxCaseC1: "TxWitnessCbTxCaseC1",
@@ -204,12 +208,6 @@ func InitialAddress() {
 		CoinAddressTypePublicKeyForRingPre:    valueSecretKeyPres,
 		CoinAddressTypePublicKeyForRing:       valueSecretKeys,
 		CoinAddressTypePublicKeyHashForSingle: valueSecretKeyForSingles,
-	}
-
-	addressTypeNameMapping = map[CoinAddressType]string{
-		CoinAddressTypePublicKeyForRingPre:    "RingPre",
-		CoinAddressTypePublicKeyForRing:       "RingRand",
-		CoinAddressTypePublicKeyHashForSingle: "Single",
 	}
 }
 

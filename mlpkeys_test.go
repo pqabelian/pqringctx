@@ -1,7 +1,6 @@
 package pqringctx
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -92,8 +91,7 @@ func TestPublicParameter_MLPKey_Sizes(t *testing.T) {
 	}
 
 	for i := 0; i < len(coinAddressTypes); i++ {
-		reflectType := reflect.ValueOf(coinAddressTypes[i]).Type()
-		t.Logf(" -- CoinAddress Type: %s -- ", reflectType.Name())
+		t.Logf(" -- CoinAddress Type: %s -- ", addressTypeNameMapping[coinAddressTypes[i]])
 
 		size, err := pp.GetCoinAddressSize(coinAddressTypes[i])
 		if err != nil {

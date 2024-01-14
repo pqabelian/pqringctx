@@ -320,6 +320,15 @@ func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
 	return pqringctx.NewLgrTxoMLP(txo, id)
 }
 
+func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
+	bl, value, err := pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+
+	if err != nil {
+		return false, 0, err
+	}
+	return bl, value, nil
+}
+
 // APIs	for Txo	end
 
 // APIs for Witness 	begin
