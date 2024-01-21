@@ -284,6 +284,9 @@ func GetSerialNumberSize(pp *PublicParameter) int {
 // APIs	for TxIn	end
 
 // APIs	for Txo	begin
+func GetTxoSerializeSizeWithCoinAddressType(pp *PublicParameter, coinAddressType CoinAddressType) (int, error) {
+	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
+}
 
 // GetTxoSerializeSize return the size of a Txo on the input coinAddress.
 // Note that the Txos on coinAddresses with different types may have different formats and sizes.
@@ -329,6 +332,10 @@ func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinVal
 	return bl, value, nil
 }
 
+func TxoCoinSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+	return pp.TxoCoinSerialNumberGen(lgrTxo, coinSerialNumberSecretKey)
+}
+
 // APIs	for Txo	end
 
 // APIs for Witness 	begin
@@ -349,6 +356,10 @@ func SerializeTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]by
 // reviewed on 2023.12.07
 func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessCbTx, error) {
 	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
+}
+
+func GetTxWitnessTrTxSerializeSizeByDesc(pp *PublicParameter, inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
+	return pp.TxWitnessTrTxSerializeSize(inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic)
 }
 
 // SerializeTxWitnessTrTx serializes TxWitnessTrTx to []byte.

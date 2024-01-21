@@ -124,7 +124,7 @@ func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 	return txoRCT.coinAddressType
 }
 
-func (pp *PublicParameter) txoRCTCoinReceive(txo *TxoRCT, serializedAPk []byte, serializedVPk []byte, serializedVSk []byte) (valid bool, v uint64, err error) {
+func (pp *PublicParameter) txoRCTCoinReceive(txo *TxoRCT, coinAddress []byte, coinValuePk []byte, coinValueSk []byte) (valid bool, v uint64, err error) {
 	if txo == nil {
 		return false, 0, fmt.Errorf("nil txo in txoCoinReceive")
 	}
@@ -137,11 +137,12 @@ func (pp *PublicParameter) txoRCTCoinReceive(txo *TxoRCT, serializedAPk []byte, 
 		return false, 0, err
 		//log.Fatalln(err)
 	}
-	if !bytes.Equal(apkInTxo, serializedAPk) {
+
+	if !bytes.Equal(apkInTxo, coinAddress[1:1+pp.addressPublicKeyForRingSerializeSize()]) {
 		return false, 0, nil
 	}
 
-	kappa, err := pqringctxkem.Decaps(pp.paramKem, txo.ctKemSerialized, serializedVSk)
+	kappa, err := pqringctxkem.Decaps(pp.paramKem, txo.ctKemSerialized, coinValueSk)
 	if err != nil {
 		//log.Fatalln(err)
 		return false, 0, err
@@ -219,7 +220,7 @@ func (pp *PublicParameter) txoSDNCoinReceive(txo *TxoSDN, coinAddress []byte, co
 		return false, 0, fmt.Errorf("txoSDNCoinReceive: the input coinAddress has an invalid length (%d)", len(coinAddress))
 	}
 
-	if !bytes.Equal(coinAddress, txo.addressPublicKeyForSingleHash) {
+	if !bytes.Equal(coinAddress[1:1+apkHashSize], txo.addressPublicKeyForSingleHash) {
 		return false, 0, nil
 	}
 
@@ -1135,4 +1136,16 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 	default:
 		return false, 0, fmt.Errorf("unsupported coin address type")
 	}
+}
+
+func (pp *PublicParameter) TxoCoinSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+	m_r, err := pp.expandKIDRMLP(lgrTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
+	ma_ps := pp.PolyANTTAdd(askSn.ma, m_r)
+
+	return pp.ledgerTxoSerialNumberComputeMLP(ma_ps)
 }
