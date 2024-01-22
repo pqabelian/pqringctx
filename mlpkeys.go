@@ -83,7 +83,10 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byt
 	copy(coinAddress[1+len(serializedAPK):], publicRand)
 	coinAddressMsg := make([]byte, 1+len(serializedAPK)+len(publicRand))
 	copy(coinAddressMsg, coinAddress[:1+len(serializedAPK)+len(publicRand)])
-	tag := MACGen(coinDetectorKey, coinAddressMsg)
+	tag, err := MACGen(coinDetectorKey, coinAddressMsg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	copy(coinAddress[1+len(serializedAPK)+len(publicRand):], tag)
 
 	coinSpendSecretKey = make([]byte, 1+len(serializedASKSp))
@@ -203,8 +206,9 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coi
 		coinAddressTag := make([]byte, detectorTagSize)
 		copy(coinAddressMsg, coinAddress[:1+apkSize+publicRandSize])
 		copy(coinAddressTag, coinAddress[1+apkSize+publicRandSize:])
-		if !MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag) {
-			return false, nil
+		err = MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+		if err != nil {
+			return false, err
 		}
 
 		//	parse to Address and Keys for Ring
@@ -276,7 +280,10 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []
 	copy(coinAddress[1+HashOutputBytesLen:], publicRand)
 	coinAddressMsg := make([]byte, 1+HashOutputBytesLen+len(publicRand))
 	copy(coinAddressMsg, coinAddress[:1+HashOutputBytesLen+len(publicRand)])
-	tag := MACGen(coinDetectorKey, coinAddressMsg)
+	tag, err := MACGen(coinDetectorKey, coinAddressMsg)
+	if err != nil {
+		return nil, nil, err
+	}
 	copy(coinAddress[1+HashOutputBytesLen+len(publicRand):], tag)
 
 	coinSpendSecretKey = make([]byte, 1+len(serializedAPK)+len(serializedASKSp))
@@ -345,8 +352,9 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 	coinAddressTag := make([]byte, detectorTagSize)
 	copy(coinAddressMsg, coinAddress[:1+HashOutputBytesLen+publicRandSize])
 	copy(coinAddressTag, coinAddress[1+HashOutputBytesLen+publicRandSize:])
-	if !MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag) {
-		return false, nil
+	err = MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+	if err != nil {
+		return false, err
 	}
 
 	//	parse to Address and Keys for Single

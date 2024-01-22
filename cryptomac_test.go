@@ -28,8 +28,11 @@ func TestMACGen(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			key := RandomBytes(MACKeyBytesLen)
-			gotMessageMac := MACGen(key, tt.message)
-			if !MACVerify(key, tt.message, gotMessageMac) {
+			gotMessageMac, err := MACGen(key, tt.message)
+			if err != nil {
+				t.Errorf("error happen when calling MacGen: %v", err)
+			}
+			if MACVerify(key, tt.message, gotMessageMac) != nil {
 				t.Errorf("MACGen() = %v, want %v", gotMessageMac, tt.message)
 			}
 		})
