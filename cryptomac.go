@@ -1,7 +1,6 @@
 package pqringctx
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"fmt"
 	"golang.org/x/crypto/sha3"
@@ -36,7 +35,8 @@ func MACVerify(key []byte, message []byte, messageMac []byte) error {
 	if err != nil {
 		return fmt.Errorf("MACVerify: error happens when computing mac: %v", err)
 	}
-	if bytes.Equal(computedTag, messageMac) {
+
+	if hmac.Equal(computedTag, messageMac) {
 		return nil
 	}
 
