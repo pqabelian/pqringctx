@@ -32,7 +32,11 @@ func TestMACGen(t *testing.T) {
 			if err != nil {
 				t.Errorf("error happen when calling MacGen: %v", err)
 			}
-			if MACVerify(key, tt.message, gotMessageMac) != nil {
+			valid, err := MACVerify(key, tt.message, gotMessageMac)
+			if err != nil {
+				t.Errorf("error happen when calling MacGen: %v", err)
+			}
+			if !valid {
 				t.Errorf("MACGen() = %v, want %v", gotMessageMac, tt.message)
 			}
 		})
