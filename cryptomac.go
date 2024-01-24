@@ -22,23 +22,25 @@ func MACGen(key []byte, message []byte) (messageMac []byte, err error) {
 	return messageMac, nil
 }
 
-func MACVerify(key []byte, message []byte, messageMac []byte) error {
+// MACVerify checks the validity of the input message and messageMac, using the input key.
+// Note: err != nil implies unexpected cases happens, it is necessary for the caller to print the error to log and/or return err to its caller.
+func MACVerify(key []byte, message []byte, messageMac []byte) (bool, error) {
 	if len(key) != MACKeyBytesLen {
-		return fmt.Errorf("MACVerify: the input key has an invalid length (%d)", len(key))
+		return false, fmt.Errorf("MACVerify: the input key has an invalid length (%d)", len(key))
 	}
 
 	if len(messageMac) != MACOutputBytesLen {
-		return fmt.Errorf("MACVerify: the input messageMac has an invalid length (%d)", len(messageMac))
+		return false, fmt.Errorf("MACVerify: the input messageMac has an invalid length (%d)", len(messageMac))
 	}
 
 	computedTag, err := MACGen(key, message)
 	if err != nil {
-		return fmt.Errorf("MACVerify: error happens when computing mac: %v", err)
+		return false, fmt.Errorf("MACVerify: error happens when computing mac: %v", err)
 	}
 
 	if hmac.Equal(computedTag, messageMac) {
-		return nil
+		return true, nil
 	}
 
-	return fmt.Errorf("MACVerify: the input message and messageMac does not match")
+	return false, nil
 }
