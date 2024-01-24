@@ -729,6 +729,26 @@ func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
 	return pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem)
 }
 
+// DetectCoinAddress checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
+// todo: review
+func (pp *PublicParameter) DetectCoinAddress(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
+	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
+	if err != nil {
+		return false, err
+	}
+
+	switch coinAddressType {
+	case CoinAddressTypePublicKeyForRing:
+		return pp.CoinAddressForPKRingDetect(coinAddress, coinDetectorKey)
+
+	case CoinAddressTypePublicKeyHashForSingle:
+		return pp.CoinAddressForPKHSingleDetect(coinAddress, coinDetectorKey)
+
+	default:
+		return false, nil
+	}
+}
+
 //	CoinAddress and CoinKeys	end
 
 //	helper functions	begin

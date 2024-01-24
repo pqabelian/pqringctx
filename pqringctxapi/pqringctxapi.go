@@ -322,6 +322,12 @@ func ExtractCoinAddressFromSerializedTxo(pp *PublicParameter, serializedTxo []by
 	return pp.ExtractCoinAddressFromSerializedTxo(serializedTxo)
 }
 
+// DetectCoinAddress
+// todo: review
+func DetectCoinAddress(pp *PublicParameter, coinAddress []byte, coinDetectorKey []byte) (bool, error) {
+	return pp.DetectCoinAddress(coinAddress, coinDetectorKey)
+}
+
 // NewLgrTxo constructs a new LgrTxoMLP.
 // reviewed on 2023.12.08
 func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
