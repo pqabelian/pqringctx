@@ -107,7 +107,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byt
 // added on 2023.12.13
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
-// REVIERED ON 2023/12/31
+// REVIEWED ON 2023/12/31
 func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -206,9 +206,12 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coi
 		coinAddressTag := make([]byte, detectorTagSize)
 		copy(coinAddressMsg, coinAddress[:1+apkSize+publicRandSize])
 		copy(coinAddressTag, coinAddress[1+apkSize+publicRandSize:])
-		err = MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+		valid, err := MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
 		if err != nil {
 			return false, err
+		}
+		if !valid {
+			return false, nil
 		}
 
 		//	parse to Address and Keys for Ring
@@ -235,6 +238,57 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coi
 		return true, nil
 	}
 	return false, fmt.Errorf(hints)
+}
+
+// CoinAddressForPKRingDetect checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
+// Note that err != nil implies that unexpected cases (such as incorrect call) happen,
+// and it is necessary for the caller to print the error to log and/or return the error to its caller.
+// todo: review
+func (pp *PublicParameter) CoinAddressForPKRingDetect(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
+
+	//	not nil
+	if len(coinAddress) == 0 {
+		return false, fmt.Errorf("CoinAddressForPKRingDetect: the input coinAddress is nil/empty")
+	}
+
+	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
+		return false, fmt.Errorf("CoinAddressForPKRingDetect: the input coinDetectorKey has an invalid length (%d)", len(coinDetectorKey))
+	}
+
+	//	address and keys shall have the same coinAddressType
+	coinAddressTypeInAddress, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
+	if err != nil {
+		return false, err
+	}
+
+	//	match check
+	if coinAddressTypeInAddress != CoinAddressTypePublicKeyForRing {
+		return false, fmt.Errorf("CoinAddressForPKRingDetect: the coinAddressType of the input coinAddress is not CoinAddressTypePublicKeyForRing")
+	}
+
+	//	check the size
+	apkSize := pp.addressPublicKeyForRingSerializeSize()
+	publicRandSize := pp.GetParamKeyGenPublicRandBytesLen()
+	detectorTagSize := pp.GetParamMACOutputBytesLen()
+	if len(coinAddress) != 1+apkSize+publicRandSize+detectorTagSize {
+		return false, nil
+	}
+
+	//	check the MAC tag
+	coinAddressMsg := make([]byte, 1+apkSize+publicRandSize)
+	coinAddressTag := make([]byte, detectorTagSize)
+	copy(coinAddressMsg, coinAddress[:1+apkSize+publicRandSize])
+	copy(coinAddressTag, coinAddress[1+apkSize+publicRandSize:])
+	valid, err := MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+
+	return true, nil
+
 }
 
 // CoinAddressKeyForPKHSingleGen generates coinAddress and coinSpendKey
@@ -305,7 +359,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 
 	//	not nil
 	if len(coinAddress) == 0 || len(coinSpendSecretKey) == 0 {
-		return false, nil
+		return false, fmt.Errorf("CoinAddressKeyForPKHSingleVerify: the input coinAddress or coinSpendSecretKey is nil/empty")
 	}
 
 	//	address and keys shall have the same coinAddressType
@@ -352,9 +406,12 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 	coinAddressTag := make([]byte, detectorTagSize)
 	copy(coinAddressMsg, coinAddress[:1+HashOutputBytesLen+publicRandSize])
 	copy(coinAddressTag, coinAddress[1+HashOutputBytesLen+publicRandSize:])
-	err = MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+	valid, err := MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
 	if err != nil {
 		return false, err
+	}
+	if !valid {
+		return false, nil
 	}
 
 	//	parse to Address and Keys for Single
@@ -400,6 +457,57 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 	}
 
 	return false, fmt.Errorf(hints)
+}
+
+// CoinAddressForPKHSingleDetect checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
+// Note that err != nil implies that unexpected cases (such as incorrect call) happen,
+// and it is necessary for the caller to print the error to log and/or return the error to its caller.
+// todo: review
+func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
+
+	//	not nil
+	if len(coinAddress) == 0 {
+		return false, fmt.Errorf("CoinAddressForPKHSingleDetect: the input coinAddress is nil/empty")
+	}
+
+	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
+		return false, fmt.Errorf("CoinAddressForPKHSingleDetect: the input coinDetectorKey has an invalid length (%d)", len(coinDetectorKey))
+	}
+
+	//	address and keys shall have the same coinAddressType
+	coinAddressTypeInAddress, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
+	if err != nil {
+		return false, err
+	}
+
+	//	match check
+	if coinAddressTypeInAddress != CoinAddressTypePublicKeyHashForSingle {
+		return false, fmt.Errorf("CoinAddressForPKHSingleDetect: the coinAddressType of the input coinAddress is not CoinAddressTypePublicKeyHashForSingle")
+	}
+	// 	the address was generated by CoinAddressKeyForPKHSingleGen
+
+	//	check the size
+	publicRandSize := pp.GetParamKeyGenPublicRandBytesLen()
+	detectorTagSize := pp.GetParamMACOutputBytesLen()
+
+	if len(coinAddress) != 1+HashOutputBytesLen+publicRandSize+detectorTagSize {
+		return false, nil
+	}
+
+	//	check the tag
+	coinAddressMsg := make([]byte, 1+HashOutputBytesLen+publicRandSize)
+	coinAddressTag := make([]byte, detectorTagSize)
+	copy(coinAddressMsg, coinAddress[:1+HashOutputBytesLen+publicRandSize])
+	copy(coinAddressTag, coinAddress[1+HashOutputBytesLen+publicRandSize:])
+	valid, err := MACVerify(coinDetectorKey, coinAddressMsg, coinAddressTag)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // CoinValueKeyGen generates serializedValuePublicKey and serializedValueSecretKey,
