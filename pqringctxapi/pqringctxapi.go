@@ -322,10 +322,25 @@ func ExtractCoinAddressFromSerializedTxo(pp *PublicParameter, serializedTxo []by
 	return pp.ExtractCoinAddressFromSerializedTxo(serializedTxo)
 }
 
+// GetCoinAddressFromTxo returns the coinAddress from TxoMLP.
+// NOTE: this function provides the same functionality as ExtractCoinAddressFromSerializedTxo, but takes a TxoMLP as input.
+// The caller can call GetCoinAddressFromTxo or ExtractCoinAddressFromSerializedTxo as he needs,
+// depending on whether he needs to deserialize serializedTxo []byte to TxoMLP before the calling, for other uses.
+// todo: review
+func GetCoinAddressFromTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
+	return pp.GetCoinAddressFromTxoMLP(txo)
+}
+
 // DetectCoinAddress
 // todo: review
 func DetectCoinAddress(pp *PublicParameter, coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 	return pp.DetectCoinAddress(coinAddress, coinDetectorKey)
+}
+
+// TxoCoinReceive
+// todo: review
+func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, value uint64, err error) {
+	return pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
 }
 
 // NewLgrTxo constructs a new LgrTxoMLP.
@@ -334,14 +349,14 @@ func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
 	return pqringctx.NewLgrTxoMLP(txo, id)
 }
 
-func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
-	bl, value, err := pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
-
-	if err != nil {
-		return false, 0, err
-	}
-	return bl, value, nil
-}
+//func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
+//	bl, value, err := pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+//
+//	if err != nil {
+//		return false, 0, err
+//	}
+//	return bl, value, nil
+//}
 
 func TxoCoinSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
 	return pp.TxoCoinSerialNumberGen(lgrTxo, coinSerialNumberSecretKey)
