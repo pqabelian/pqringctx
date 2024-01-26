@@ -35,6 +35,7 @@ type ValueSecretKey struct {
 	SerializedSK []byte
 }
 
+// todo: sanity-check on the seed length? added by Alice, 2024.01.26
 func KeyGen(ppkem *ParamKem, seed []byte, seedLen int) ([]byte, []byte, error) {
 	var originSerializedPK, originSerializedSK []byte
 	var err error

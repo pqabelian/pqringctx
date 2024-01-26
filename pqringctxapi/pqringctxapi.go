@@ -66,6 +66,10 @@ func CoinAddressKeyForPKRingGen(pp *PublicParameter,
 	return pp.CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed, coinSerialNumberKeyRandSeed, coinDetectorKey, publicRand)
 }
 
+func CoinAddressKeyForPKRingGenSerialNumberKeyPart(pp *PublicParameter, coinSerialNumberKeyRandSeed []byte) (coinSerialNumberSecretKey []byte, err error) {
+	return pp.CoinAddressKeyForPKRingGenSerialNumberKeyPart(coinSerialNumberKeyRandSeed)
+}
+
 // CoinAddressKeyForPKHSingleGen generates coinAddress and coinSpendKey
 // for the key which will be used to host the coins with pseudonym-privacy.
 // Note that keys are purely in cryptography, we export bytes,
@@ -365,9 +369,17 @@ func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
 //	return bl, value, nil
 //}
 
-func TxoCoinSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
-	return pp.TxoCoinSerialNumberGen(lgrTxo, coinSerialNumberSecretKey)
+// LedgerTxoSerialNumberGen generates serialNumber for the input LgrTxoMLP, using the input coinSerialNumberSecretKey.
+// NOTE: the input coinSerialNumberSecretKey could be nil, for example, when the input LgrTxoMLP is on a CoinAddressTypePublicKeyHashForSingle.
+// todo: review
+func LedgerTxoSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+	return pp.LedgerTxoSerialNumberGen(lgrTxo, coinSerialNumberSecretKey)
 }
+
+// todo: remove this
+//func TxoCoinSerialNumberGen(pp *PublicParameter, lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+//	return pp.TxoCoinSerialNumberGen(lgrTxo, coinSerialNumberSecretKey)
+//}
 
 // APIs	for Txo	end
 

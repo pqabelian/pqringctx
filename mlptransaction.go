@@ -631,6 +631,9 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		}
 
 		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(txInputDescItem.coinSerialNumberSecretKey)
+		if err != nil {
+			return nil, err
+		}
 		ma_ps[i] = pp.PolyANTTAdd(askSn.ma, m_r)
 
 		sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_ps[i])

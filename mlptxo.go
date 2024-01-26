@@ -1030,14 +1030,60 @@ func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []b
 	}
 }
 
-func (pp *PublicParameter) TxoCoinSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+// LedgerTxoSerialNumberGen generates serialNumber for the input LgrTxoMLP, using the input coinSerialNumberSecretKey.
+// NOTE: the input coinSerialNumberSecretKey could be nil, for example, when the input LgrTxoMLP is on a CoinAddressTypePublicKeyHashForSingle.
+// NOTE: this must keep the same as pqringct.ledgerTXOSerialNumberGen, and consistent with the codes in TransferTxMLPGen.
+// todo: review
+func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
+		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: there is nil in the input LgrTxoMLP")
+	}
+
 	m_r, err := pp.expandKIDRMLP(lgrTxo)
 	if err != nil {
 		return nil, err
 	}
 
-	askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
-	ma_ps := pp.PolyANTTAdd(askSn.ma, m_r)
+	coinAddressType := lgrTxo.txo.CoinAddressType()
 
-	return pp.ledgerTxoSerialNumberComputeMLP(ma_ps)
+	var ma_p *PolyANTT
+	if len(coinSerialNumberSecretKey) != 0 {
+		if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
+			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is not nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing", coinAddressType)
+		}
+
+		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
+		if err != nil {
+			return nil, err
+		}
+
+		ma_p = pp.PolyANTTAdd(askSn.ma, m_r)
+
+	} else {
+
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		}
+
+		ma_p = m_r
+	}
+
+	sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_p)
+	if err != nil {
+		return nil, err
+	}
+	return sn, nil
 }
+
+// todo: remove this
+//func (pp *PublicParameter) TxoCoinSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+//	m_r, err := pp.expandKIDRMLP(lgrTxo)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
+//	ma_ps := pp.PolyANTTAdd(askSn.ma, m_r)
+//
+//	return pp.ledgerTxoSerialNumberComputeMLP(ma_ps)
+//}
