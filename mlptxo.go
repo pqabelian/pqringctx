@@ -1009,6 +1009,27 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 	return true, value, nil
 }
 
+// PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
+// return an err if it is not a Pseudonym-Privacy Txo.
+// todo: review
+func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []byte, value uint64, err error) {
+	if txoMLP == nil {
+		return nil, 0, fmt.Errorf("PseudonymTxoCoinParse: the input txoMLP is nil")
+	}
+
+	coinAddress, err = pp.GetCoinAddressFromTxoMLP(txoMLP)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	switch txoInst := txoMLP.(type) {
+	case *TxoSDN:
+		return coinAddress, txoInst.value, nil
+	default:
+		return nil, 0, fmt.Errorf("PseudonymTxoCoinParse: the input txoMLP is not a TxoSDN")
+	}
+}
+
 func (pp *PublicParameter) TxoCoinSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
 	m_r, err := pp.expandKIDRMLP(lgrTxo)
 	if err != nil {

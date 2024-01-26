@@ -343,6 +343,13 @@ func TxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinVal
 	return pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
 }
 
+// PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
+// return an err if it is not a Pseudonym-Privacy Txo.
+// todo: review
+func PseudonymTxoCoinParse(pp *PublicParameter, txo TxoMLP) (coinAddress []byte, value uint64, err error) {
+	return pp.PseudonymTxoCoinParse(txo)
+}
+
 // NewLgrTxo constructs a new LgrTxoMLP.
 // reviewed on 2023.12.08
 func NewLgrTxo(txo TxoMLP, id []byte) *LgrTxoMLP {
