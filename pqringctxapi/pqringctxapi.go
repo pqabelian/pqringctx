@@ -295,9 +295,9 @@ func GetSerialNumberSerializeSize(pp *PublicParameter) int {
 // APIs	for TxIn	end
 
 // APIs	for Txo	begin
-func GetTxoSerializeSizeWithCoinAddressType(pp *PublicParameter, coinAddressType CoinAddressType) (int, error) {
-	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
-}
+//func GetTxoSerializeSizeWithCoinAddressType(pp *PublicParameter, coinAddressType CoinAddressType) (int, error) {
+//	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
+//}
 
 // GetTxoSerializeSize return the size of a Txo on the input coinAddress.
 // Note that the Txos on coinAddresses with different types may have different formats and sizes.
