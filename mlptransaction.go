@@ -1128,6 +1128,34 @@ func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [
 	return pp.TxWitnessCbTxSerializeSize(uint8(outForRing))
 }
 
+// GetTxWitnessTrTxSerializeSizeByDesc returns the serialize size for TxWitnessTrTx according to the input description information, say (inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic).
+// todo: review
+func (pp *PublicParameter) GetTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
+	if inForRing > pp.paramI {
+		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
+	}
+
+	if inForSingleDistinct > pp.paramISingleDistinct {
+		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input inForSingleDistinct (%d) exceeds the allowed maximum value (%d)", inForSingleDistinct, pp.paramISingleDistinct)
+	}
+
+	if outForRing > pp.paramJ {
+		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
+	}
+
+	if len(inRingSizes) != int(inForRing) {
+		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the leng of input inRingSizes (%d) does not equal the input inForRing (%d)", len(inRingSizes), inForRing)
+	}
+
+	for i := uint8(0); i < inForRing; i++ {
+		if inRingSizes[i] > pp.paramRingSizeMax {
+			return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: inRingSizes[%d] (%d) exceeds allowed maximum value", i, inRingSizes[i])
+		}
+	}
+
+	return pp.TxWitnessTrTxSerializeSize(inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic)
+}
+
 //	TxWitness		end
 
 //	TxInput		begin

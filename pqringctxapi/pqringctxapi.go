@@ -403,8 +403,10 @@ func DeserializeTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (
 	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
 }
 
+// GetTxWitnessTrTxSerializeSizeByDesc returns the serialize size for TxWitnessTrTx according to the input description information, say (inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic).
+// todo: review
 func GetTxWitnessTrTxSerializeSizeByDesc(pp *PublicParameter, inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
-	return pp.TxWitnessTrTxSerializeSize(inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic)
+	return pp.GetTxWitnessTrTxSerializeSizeByDesc(inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic)
 }
 
 // SerializeTxWitnessTrTx serializes TxWitnessTrTx to []byte.

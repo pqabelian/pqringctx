@@ -256,10 +256,10 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
 func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
-	outForRing uint8, ringSizes []uint8, vPublic int64) (int, error) {
+	outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
 
-	if len(ringSizes) != int(inForRing) {
-		return 0, fmt.Errorf("TxWitnessTrTxSerializeSize: the length of ringSizes[] (%d) is differnet from inForRing (%d)", len(ringSizes), inForRing)
+	if len(inRingSizes) != int(inForRing) {
+		return 0, fmt.Errorf("TxWitnessTrTxSerializeSize: the length of ringSizes[] (%d) is differnet from inForRing (%d)", len(inRingSizes), inForRing)
 	}
 
 	length := 1 + //	txCase                     TxWitnessTrTxCase
@@ -272,7 +272,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 
 	//	elrSigs                    []*ElrSignatureMLP
 	for i := 0; i < int(inForRing); i++ {
-		elrSigSize := pp.elrSignatureMLPSerializeSize(ringSizes[i])
+		elrSigSize := pp.elrSignatureMLPSerializeSize(inRingSizes[i])
 		length = length + elrSigSize
 	}
 
