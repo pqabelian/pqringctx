@@ -1175,8 +1175,9 @@ func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
 	return nullSn
 }
 
+// GetSerialNumberSerializeSize
 // todo: review
-func (pp *PublicParameter) GetSerialNumberSize() int {
+func (pp *PublicParameter) GetSerialNumberSerializeSize() int {
 	return pp.ledgerTxoSerialNumberSerializeSizeMLP()
 }
 
