@@ -2,8 +2,6 @@ github.com/cryptosuite/kyber-go v0.0.2-alpha h1:JHvNqZho24qJq7c4JnyKGtyQuF03VOeE
 github.com/cryptosuite/kyber-go v0.0.2-alpha/go.mod h1:1G0Jh7bXJGSUCTrC6ZB9lFpmCF+VFQehDqIwm9dJU3s=
 github.com/cryptosuite/liboqs-go v0.9.5-alpha h1:mmCyD1gZRnm6sD214ylg0h17I37BmY8wDDbcvpW4fDc=
 github.com/cryptosuite/liboqs-go v0.9.5-alpha/go.mod h1:LzuvuQAJHbED51lHoYr91rBbKRdv2MewGcVCwjE1JCk=
-github.com/cryptosuite/pqringct v0.11.11 h1:Nc3Cix07ZKB0qrI8qjuF16foLcscCoRyCmKPF03LPCA=
-github.com/cryptosuite/pqringct v0.11.11/go.mod h1:LVtvih9kNVHzAX60qzOqO6TAIjurfNKYWICRDUegjkg=
 github.com/cryptosuite/pqringct v0.11.12-alpha h1:ZJ8dLTTpF5tDUs09WgX2JqkI3+4eTFduyxv9hmYr53U=
 github.com/cryptosuite/pqringct v0.11.12-alpha/go.mod h1:LVtvih9kNVHzAX60qzOqO6TAIjurfNKYWICRDUegjkg=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
