@@ -3,23 +3,24 @@ package pqringctx
 import (
 	"crypto/hmac"
 	"fmt"
-	"golang.org/x/crypto/sha3"
+	"github.com/cryptosuite/pqringctx/internal"
 )
 
-const MACKeyBytesLen = 64
-const MACOutputBytesLen = 64
+const (
+	MACKeyBytesLen    = 64
+	MACOutputBytesLen = 64
+)
+const domainSeparationCustomizationString = "PQRINGCT"
 
 // MACGen
-// TODO A Test Implementation
+// TODO review the implementation of underlying KMAC
 func MACGen(key []byte, message []byte) (messageMac []byte, err error) {
-	// todo
 	if len(key) != MACKeyBytesLen {
 		return nil, fmt.Errorf("MACGen: the input key has an invalid length (%d)", len(key))
 	}
-	mac := hmac.New(sha3.New512, key)
-	mac.Write(message)
-	messageMac = mac.Sum(nil)
-	return messageMac, nil
+	kmac256 := internal.NewKMAC256(key, MACOutputBytesLen, []byte(domainSeparationCustomizationString))
+	kmac256.Write(message)
+	return kmac256.Sum(nil), nil
 }
 
 // MACVerify checks the validity of the input message and messageMac, using the input key.

@@ -48,7 +48,8 @@ func TestMACGen(t *testing.T) {
 	res1 := mac.Sum(nil)
 
 	mac2 := hmac.New(sha3.New512, RandomBytes(MACKeyBytesLen))
-	res2 := mac2.Sum(message)
+	mac2.Write(message)
+	res2 := mac.Sum(nil)
 	if !bytes.Equal(res1, res2) {
 		t.Fatal("Fail")
 	}
