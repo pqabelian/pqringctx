@@ -39,6 +39,7 @@ func MACVerify(key []byte, message []byte, messageMac []byte) (bool, error) {
 		return false, fmt.Errorf("MACVerify: error happens when computing mac: %v", err)
 	}
 
+	// TODO replace with subtle.ConstantTimeCompare()
 	if hmac.Equal(computedTag, messageMac) {
 		return true, nil
 	}

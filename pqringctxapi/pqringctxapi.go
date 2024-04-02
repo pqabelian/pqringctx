@@ -1,6 +1,7 @@
 package pqringctxapi
 
 import (
+	"fmt"
 	"github.com/cryptosuite/pqringctx"
 )
 
@@ -66,6 +67,12 @@ func CoinAddressKeyForPKRingGen(pp *PublicParameter,
 	return pp.CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed, coinSerialNumberKeyRandSeed, coinDetectorKey, publicRand)
 }
 
+func CoinAddressKeyForPKRingVerify(pp *PublicParameter,
+	coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte,
+	coinDetectorKey []byte) (bool, error) {
+	return pp.CoinAddressKeyForPKRingVerify(coinAddress, coinSpendSecretKey, coinSerialNumberSecretKey, coinDetectorKey)
+}
+
 func CoinAddressKeyForPKRingGenSerialNumberKeyPart(pp *PublicParameter, coinSerialNumberKeyRandSeed []byte) (coinSerialNumberSecretKey []byte, err error) {
 	return pp.CoinAddressKeyForPKRingGenSerialNumberKeyPart(coinSerialNumberKeyRandSeed)
 }
@@ -81,6 +88,10 @@ func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []b
 	//	return nil, nil, err
 }
 
+func CoinAddressKeyForPKHSingleVerify(pp *PublicParameter, coinAddress []byte, coinSpendSecretKey []byte, coinDetectorKey []byte) (bool, error) {
+	return pp.CoinAddressKeyForPKHSingleVerify(coinAddress, coinSpendSecretKey, coinDetectorKey)
+}
+
 // CoinValueKeyGen generates serializedValuePublicKey and serializedValueSecretKey,
 // which will be used to transmit the (value, randomness) pair of the value-commitment to the coin owner.
 // Note that by default, pqringctx transmits the (value, randomness) pair by on-chain data,
@@ -89,6 +100,14 @@ func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []b
 // we use a standalone ValueKeyGen algorithm to generate these keys.
 func CoinValueKeyGen(pp *PublicParameter, randSeed []byte) (coinValuePublicKey []byte, coinValueSecretKey []byte, err error) {
 	return pp.CoinValueKeyGen(randSeed)
+}
+
+func CoinValueKeyVerify(pp *PublicParameter, coinValuePublicKey []byte, coinValueSecretKey []byte) (bool, error) {
+	valid, hints := pp.CoinValueKeyVerify(coinValuePublicKey, coinValueSecretKey)
+	if valid {
+		return true, nil
+	}
+	return false, fmt.Errorf("%s", hints)
 }
 
 // NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
