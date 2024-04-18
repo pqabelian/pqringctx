@@ -2,14 +2,12 @@ package pqringctx
 
 import (
 	"fmt"
-	"github.com/cryptosuite/pqringct"
 	"math/rand"
 	"testing"
 	"time"
 )
 
 var pp = Initialize(nil)
-var ppOld = pqringct.Initialize(nil)
 
 var coinAddressMapping map[CoinAddressType][][]byte
 var coinSpendSecretKeyMapping map[CoinAddressType][][]byte
@@ -83,7 +81,7 @@ func InitialAddress() {
 		coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte) {
 		seed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 
-		serializedAPk, serializedASksp, serializedASksn, err := pqringct.AddressKeyGen(ppOld, seed)
+		serializedAPk, serializedASksp, serializedASksn, err := AddressKeyGen(pp, seed)
 		if err != nil {
 			panic(err)
 		}
@@ -94,7 +92,7 @@ func InitialAddress() {
 		randSeed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 
 		var err error
-		coinValuePublicKey, coinValueSecretKey, err = pqringct.ValueKeyGen(ppOld, randSeed)
+		coinValuePublicKey, coinValueSecretKey, err = ValueKeyGen(pp, randSeed)
 		if err != nil {
 			panic(err)
 		}

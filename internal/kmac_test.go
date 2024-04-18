@@ -1,12 +1,30 @@
 package internal
 
 import (
-	"github.com/abesuite/abec/abecrypto"
+	"crypto/rand"
 	"golang.org/x/crypto/sha3"
 	"reflect"
 	"testing"
 )
 
+// RandomBytes returns a byte array with given length from crypto/rand.Reader
+func RandomBytes(length int) []byte {
+	res := make([]byte, 0, length)
+
+	neededLen := length
+	var tmp []byte
+	for neededLen > 0 {
+		tmp = make([]byte, neededLen)
+		// n == len(b) if and only if err == nil.
+		n, err := rand.Read(tmp)
+		if err != nil {
+			continue
+		}
+		res = append(res, tmp[:n]...)
+		neededLen -= n
+	}
+	return res
+}
 func Test_kmac_Clone(t *testing.T) {
 	type fields struct {
 		outputLen int
@@ -21,7 +39,7 @@ func Test_kmac_Clone(t *testing.T) {
 			name: "clone",
 			fields: fields{
 				outputLen: 64,
-				initBlock: abecrypto.RandomBytes(256),
+				initBlock: RandomBytes(256),
 			},
 			want: nil,
 		},
@@ -32,7 +50,7 @@ func Test_kmac_Clone(t *testing.T) {
 				outputLen: tt.fields.outputLen,
 				initBlock: tt.fields.initBlock,
 			}
-			k.ShakeHash = sha3.NewCShake128(abecrypto.RandomBytes(64), abecrypto.RandomBytes(64))
+			k.ShakeHash = sha3.NewCShake128(RandomBytes(64), RandomBytes(64))
 
 			expected := k.Sum(nil)
 

@@ -1,7 +1,6 @@
 package pqringctx
 
 import (
-	"github.com/cryptosuite/pqringct"
 	"reflect"
 	"testing"
 )
@@ -12,14 +11,14 @@ func TestPublicParameter_ExtractValueAndRandFromTxoMLP(t *testing.T) {
 	t.Run("Pre", func(t *testing.T) {
 		value := uint64(512)
 
-		coinAddressPre, _, _, err := pqringct.AddressKeyGen(ppOld, RandomBytes(pp.paramKeyGenSeedBytesLen))
+		coinAddressPre, _, _, err := AddressKeyGen(pp, RandomBytes(pp.paramKeyGenSeedBytesLen))
 		if err != nil {
 			panic(err)
 		}
 
 		randSeed := RandomBytes(pp.paramKeyGenSeedBytesLen)
 
-		valuePublicKeyPre, valueSecretKeyPre, err := pqringct.ValueKeyGen(ppOld, randSeed)
+		valuePublicKeyPre, valueSecretKeyPre, err := ValueKeyGen(pp, randSeed)
 		if err != nil {
 			panic(err)
 		}
