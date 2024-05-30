@@ -311,20 +311,55 @@ type PublicParameter struct {
 	// As paramParameterSeedString is used to generate the public matrix, such as paramMatrixA, paramVectorA, paramMatrixB, paramMatrixH
 	paramParameterSeedString []byte
 
-	// paramMatrixA expands from paramParameterSeedString, with size k_a rows, each row with size l_a
+	// paramMatrixA expands from paramParameterSeedString, with size k_a(paramKA) rows, each row with size l_a(paramLA)
+	// *                 paramKA
+	// *                    |
+	// *                    v
+	// * [ unit    0  ...   0   x ... x ]
+	// * [   0   unit ...   0   x ... x ]
+	// * ...
+	// * [   0     0  ... unit  x ... x ]
 	paramMatrixA []*PolyANTTVec
 
-	// paramVectorA expands from paramParameterSeedString, with size l_a
+	// paramVectorA expands from paramParameterSeedString, with size l_a (paramLA)
+	// *             paramKA
+	// *                |
+	// *                v
+	// * [ 0 0  ... 0 unit  x ... x ]
 	paramVectorA *PolyANTTVec
 
-	//paramMatrixB expands from paramParameterSeedString, with size k_c rows, each row with size l_c
+	//paramMatrixB expands from paramParameterSeedString, with size k_c(paramKC) rows, each row with size l_c(paramLC)
+	// *                 paramKC
+	// *                    |
+	// *                    v
+	// * [ unit    0  ...   0   y ... y ]
+	// * [   0   unit ...   0   y ... y ]
+	// * ...
+	// * [   0     0  ... unit  y ... y ]
 	paramMatrixB []*PolyCNTTVec
 
-	// paramMatrixH expands from paramParameterSeedString, with size (paramI + paramJ + 7) rows, each row with size l_c
+	// paramMatrixH expands from paramParameterSeedString, with size (paramI + paramJ + 7) rows, each row with size l_c(paramLC)
+	// *                      paramKC + paramI + paramJ + 7 + paramLambdaC
+	// *               paramKC + paramI + paramJ + 7 |
+	// *              paramKC             |          |
+	// *                |                 |          |
+	// *                v                 v          v
+	// * [   0  0  ...  0 unit   0  ...   0    y ... y ]
+	// * [   0  0  ...  0   0  unit ...   0    y ... y ]
+	// * ...
+	// * [   0  0  ...  0   0    0  ... unit   y ... y ]
 	paramMatrixH []*PolyCNTTVec
 
 	// paramMu defines the const mu, which is determined by the value of N and d
 	// paramMu will be used as a constant PolyCNTT, where coeff[0]~coeff[N-1] is 1, and the remainder coeffs are 0.
+	// *            paramN    paramDC
+	// *              |         |
+	// *              v         v
+	// * [ 1  1  ...  1 0 0 ... 0]
+	//	}
+	//	for i := res.paramN; i < res.paramDC; i++ {
+	//		muCoeff[i] = 0
+	//	}
 	paramMu *PolyCNTT
 
 	// paramKem defines the key encapsulate mechanism
