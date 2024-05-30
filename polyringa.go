@@ -256,7 +256,7 @@ func (pp *PublicParameter) NTTInvPolyAVec(polyANTTVec *PolyANTTVec) (polyAVec *P
 
 func (pp *PublicParameter) PolyANTTAdd(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
-		log.Panic("the length of the input polyANTT is not paramDA")
+		log.Panic("PolyANTTAdd: the length of the input polyANTT is not paramDA")
 	}
 
 	rst := pp.NewPolyANTT()
@@ -273,7 +273,7 @@ func (pp *PublicParameter) PolyANTTAdd(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 
 func (pp *PublicParameter) PolyANTTSub(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
-		log.Panic("the length of the input polyANTT is not paramDA")
+		log.Panic("PolyANTTSub: the length of the input polyANTT is not paramDA")
 	}
 
 	rst := pp.NewPolyANTT()
@@ -289,10 +289,10 @@ func (pp *PublicParameter) PolyANTTSub(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 }
 
 func (pp *PublicParameter) PolyANTTMul(a *PolyANTT, b *PolyANTT) *PolyANTT {
-	bigQA := big.NewInt(pp.paramQA)
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
-		log.Panic("the length of the input polyANTT is not paramDA")
+		log.Panic("PolyANTTMul: the length of the input polyANTT is not paramDA")
 	}
+	bigQA := big.NewInt(pp.paramQA)
 	rst := pp.NewPolyANTT()
 	factor := make([]int, pp.paramZetaAOrder/2)
 	for i := 0; i < pp.paramZetaAOrder/4; i++ {
@@ -329,6 +329,9 @@ func (pp *PublicParameter) PolyANTTMul(a *PolyANTT, b *PolyANTT) *PolyANTT {
 }
 
 func (pp *PublicParameter) PolyANTTVecAdd(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTTVec) {
+	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
+		log.Panic("PolyANTTVecAdd: the length of the input vector not equal to specific length")
+	}
 	var rst = pp.NewPolyANTTVec(vecLen)
 	for i := 0; i < vecLen; i++ {
 		rst.polyANTTs[i] = pp.PolyANTTAdd(a.polyANTTs[i], b.polyANTTs[i])
@@ -337,6 +340,9 @@ func (pp *PublicParameter) PolyANTTVecAdd(a *PolyANTTVec, b *PolyANTTVec, vecLen
 }
 
 func (pp *PublicParameter) PolyANTTVecSub(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTTVec) {
+	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
+		log.Panic("PolyANTTVecSub: the length of the input vector not equal to specific length")
+	}
 	var rst = pp.NewPolyANTTVec(vecLen)
 	for i := 0; i < vecLen; i++ {
 		rst.polyANTTs[i] = pp.PolyANTTSub(a.polyANTTs[i], b.polyANTTs[i])
@@ -345,6 +351,9 @@ func (pp *PublicParameter) PolyANTTVecSub(a *PolyANTTVec, b *PolyANTTVec, vecLen
 }
 
 func (pp *PublicParameter) PolyANTTVecInnerProduct(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTT) {
+	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
+		log.Panic("PolyANTTVecInnerProduct: the length of the input vector not equal to specific length")
+	}
 	var rst = pp.NewZeroPolyANTT()
 	for i := 0; i < vecLen; i++ {
 		tmp := pp.PolyANTTMul(a.polyANTTs[i], b.polyANTTs[i])
@@ -354,6 +363,9 @@ func (pp *PublicParameter) PolyANTTVecInnerProduct(a *PolyANTTVec, b *PolyANTTVe
 }
 
 func (pp *PublicParameter) PolyANTTMatrixMulVector(M []*PolyANTTVec, vec *PolyANTTVec, rowNum int, vecLen int) (r *PolyANTTVec) {
+	if len(M) != rowNum {
+		log.Panic("PolyANTTMatrixMulVector: the row length of the input matrix not equal to specific length")
+	}
 	rst := pp.NewPolyANTTVec(rowNum)
 
 	for i := 0; i < rowNum; i++ {
