@@ -311,16 +311,16 @@ type PublicParameter struct {
 	// As paramParameterSeedString is used to generate the public matrix, such as paramMatrixA, paramVectorA, paramMatrixB, paramMatrixH
 	paramParameterSeedString []byte
 
-	// paramMatrixA is expand from paramParameterSeedString, with size k_a rows, each row with size l_a
+	// paramMatrixA expands from paramParameterSeedString, with size k_a rows, each row with size l_a
 	paramMatrixA []*PolyANTTVec
 
-	// paramVectorA is expand from paramParameterSeedString, with size l_a
+	// paramVectorA expands from paramParameterSeedString, with size l_a
 	paramVectorA *PolyANTTVec
 
-	//paramMatrixB is expand from paramParameterSeedString, with size k_c rows, each row with size l_c
+	//paramMatrixB expands from paramParameterSeedString, with size k_c rows, each row with size l_c
 	paramMatrixB []*PolyCNTTVec
 
-	// paramMatrixH is expand from paramParameterSeedString, with size (paramI + paramJ + 7) rows, each row with size l_c
+	// paramMatrixH expands from paramParameterSeedString, with size (paramI + paramJ + 7) rows, each row with size l_c
 	paramMatrixH []*PolyCNTTVec
 
 	// paramMu defines the const mu, which is determined by the value of N and d
@@ -331,10 +331,20 @@ type PublicParameter struct {
 	paramKem *pqringctxkem.ParamKem
 }
 
-func (pp *PublicParameter) ParamSeedBytesLen() int {
-	return pp.paramKeyGenSeedBytesLen
-}
-
+// expandPubMatrixA expand matrix from specified seed
+// the matrix would be PublicParameter.paramKA * PublicParameter.paramLA
+// the origin matrix would look like the following:
+// unit = [1,0,...,0] in S_{q_a}^{d_a}
+// 0 is zero element in  S_{q_a}^{d_a}
+// x is random element in S_{q_a}^{d_a}
+// *          PublicParameter.paramKA
+// *                    |
+// *                    v
+// * [ unit    0  ...   0   x ... x ]
+// * [   0   unit ...   0   x ... x ]
+// * ...
+// * [   0     0  ... unit  x ... x ]
+// For ease of use, the returned representation will be the NTT representation instead of the original representation
 func (pp *PublicParameter) expandPubMatrixA(seed []byte) ([]*PolyANTTVec, error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixA: the seed is empty")
@@ -371,6 +381,17 @@ func (pp *PublicParameter) expandPubMatrixA(seed []byte) ([]*PolyANTTVec, error)
 	return res, nil
 }
 
+// expandPubVectorA expand vector from specified seed
+// the length of vector would be  PublicParameter.paramLA
+// the origin vector would look like the following:
+// unit = [1,0,...,0] in S_{q_a}^{d_a}
+// 0 is zero element in  S_{q_a}^{d_a}
+// x is random element in S_{q_a}^{d_a}
+// *         PublicParameter.paramKA
+// *                |
+// *                v
+// * [ 0 0  ... 0 unit  x ... x ]
+// For ease of use, the returned representation will be the NTT representation instead of the original representation
 func (pp *PublicParameter) expandPubVectorA(seed []byte) (*PolyANTTVec, error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubVectorA: the seed is empty")
@@ -398,6 +419,20 @@ func (pp *PublicParameter) expandPubVectorA(seed []byte) (*PolyANTTVec, error) {
 	return res, nil
 }
 
+// expandPubMatrixB expand matrix from specified seed
+// the matrix would be PublicParameter.paramKC * PublicParameter.paramLC
+// the origin matrix would look like the following:
+// unit = [1,0,...,0] in S_{q_c}^{d_c}
+// 0 is zero element in  S_{q_c}^{d_c}
+// y is random element in S_{q_c}^{d_c}
+// *          PublicParameter.paramKC
+// *                    |
+// *                    v
+// * [ unit    0  ...   0   y ... y ]
+// * [   0   unit ...   0   y ... y ]
+// * ...
+// * [   0     0  ... unit  y ... y ]
+// For ease of use, the returned representation will be the NTT representation instead of the original representation
 func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec, err error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixB: the seed is empty")
@@ -433,6 +468,21 @@ func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec
 	return res, nil
 }
 
+// expandPubMatrixH expand matrix from specified seed
+// the matrix would be (PublicParameter.paramI + PublicParameter.paramJ + 7) * PublicParameter.paramLC
+// the origin matrix would look like the following:
+// unit = [1,0,...,0] in S_{q_c}^{d_c}
+// 0 is zero element in  S_{q_c}^{d_c}
+// y is random element in S_{q_c}^{d_c}
+// *    PublicParameter.paramKC + PublicParameter.paramI + PublicParameter.paramJ + 7
+// *    PublicParameter.paramKC       |
+// *                |                 |
+// *                v                 v
+// * [   0  0  ...  0 unit   0  ...   0    y ... y ]
+// * [   0  0  ...  0   0  unit ...   0    y ... y ]
+// * ...
+// * [   0  0  ...  0   0    0  ... unit   y ... y ]
+// For ease of use, the returned representation will be the NTT representation instead of the original representation
 func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec, err error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixH: the seed is empty")
@@ -561,6 +611,10 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 	return defaultPP
 }
 
+// TODO delete this method? repeat with GetParamSeedBytesLen
+func (pp *PublicParameter) ParamSeedBytesLen() int {
+	return pp.paramKeyGenSeedBytesLen
+}
 func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
 }
