@@ -9,9 +9,6 @@ import (
 	"log"
 )
 
-// KyberKem is the public parameter for kem
-var KyberKem = NewParamKem(KEM_OQS_KYBER, nil, "Kyber768")
-
 type VersionKEM uint32
 
 const (
@@ -53,6 +50,7 @@ func KeyGen(ppkem *ParamKem, seed []byte, seedLen int) ([]byte, []byte, error) {
 			recovery = false
 		} else {
 			recovery = true
+			seed = seed[:32]
 		}
 		originSerializedPK, originSerializedSK, err = pqringctOQSKem.KeyPair(ppkem.OQSKyber, seed, recovery)
 		if err != nil {
@@ -79,16 +77,25 @@ func KeyGen(ppkem *ParamKem, seed []byte, seedLen int) ([]byte, []byte, error) {
 }
 
 func VerifyKeyPair(ppkem *ParamKem, serializedPK []byte, serializedSK []byte) (valid bool, hints string) {
+	// check length
+	if len(serializedPK) < 4 {
+		return false, "invalid serialized public key"
+	}
+
 	// check the version
 	pkVersion := uint32(serializedPK[0]) << 0
 	pkVersion |= uint32(serializedPK[1]) << 8
 	pkVersion |= uint32(serializedPK[2]) << 16
 	pkVersion |= uint32(serializedPK[3]) << 24
 
+	if len(serializedSK) < 4 {
+		return false, "invalid serialized secret key"
+	}
 	skVersion := uint32(serializedSK[0]) << 0
 	skVersion |= uint32(serializedSK[1]) << 8
 	skVersion |= uint32(serializedSK[2]) << 16
 	skVersion |= uint32(serializedSK[3]) << 24
+
 	if VersionKEM(pkVersion) != ppkem.Version {
 		return false, "the version is not matched"
 	}
@@ -115,6 +122,10 @@ func VerifyKeyPair(ppkem *ParamKem, serializedPK []byte, serializedSK []byte) (v
 func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	var serializedC, kappa []byte
 	var err error
+
+	if len(pk) < 4 {
+		return nil, nil, errors.New("invalid public key")
+	}
 	version := uint32(pk[0]) << 0
 	version |= uint32(pk[1]) << 8
 	version |= uint32(pk[2]) << 16
@@ -124,11 +135,21 @@ func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	}
 	switch ppkem.Version {
 	case KEM_KYBER:
+		if len(pk) != 4+ppkem.Kyber.CryptoPublicKeyBytes() {
+			return nil, nil, errors.New("invalid public key")
+		}
 		serializedC, kappa, err = pqringctkyber.Encaps(ppkem.Kyber, pk[4:])
 		if err != nil {
 			return nil, nil, err
 		}
 	case KEM_OQS_KYBER:
+		expectPKLen, err := pqringctOQSKem.LengthPublicKey(ppkem.OQSKyber)
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(pk) != 4+expectPKLen {
+			return nil, nil, errors.New("invalid public key")
+		}
 		serializedC, kappa, err = pqringctOQSKem.Encaps(ppkem.OQSKyber, pk[4:])
 		if err != nil {
 			return nil, nil, err
@@ -149,12 +170,19 @@ func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 }
 
 func Decaps(ppkem *ParamKem, serializedC []byte, sk []byte) ([]byte, error) {
+	if len(sk) < 4 {
+		return nil, errors.New("invalid secret key")
+	}
 	version := uint32(sk[0]) << 0
 	version |= uint32(sk[1]) << 8
 	version |= uint32(sk[2]) << 16
 	version |= uint32(sk[3]) << 24
 	if VersionKEM(version) != ppkem.Version {
 		return nil, errors.New("the version of kem is not matched")
+	}
+
+	if len(serializedC) < 4 {
+		return nil, errors.New("invalid serialized cipher text")
 	}
 	version = uint32(serializedC[0]) << 0
 	version |= uint32(serializedC[1]) << 8
@@ -167,17 +195,39 @@ func Decaps(ppkem *ParamKem, serializedC []byte, sk []byte) ([]byte, error) {
 	var err error
 	switch ppkem.Version {
 	case KEM_KYBER:
+		if len(sk) != 4+ppkem.Kyber.CryptoSecretKeyBytes() {
+			return nil, errors.New("invalid secret key")
+		}
+		if len(serializedC) != 4+ppkem.Kyber.CryptoCiphertextBytes() {
+			return nil, errors.New("invalid secret key")
+		}
 		kappa, err = pqringctkyber.Decaps(ppkem.Kyber, serializedC[4:], sk[4:])
 		if err != nil {
 			return nil, err
 		}
 	case KEM_OQS_KYBER:
+		expectedSKLen, err := pqringctOQSKem.LengthSecretKey(ppkem.OQSKyber)
+		if err != nil {
+			return nil, errors.New("invalid secret key")
+		}
+		if len(sk) != 4+expectedSKLen {
+			return nil, errors.New("invalid secret key")
+		}
+
+		expectedCipherTextLen, err := pqringctOQSKem.LengthCiphertext(ppkem.OQSKyber)
+		if err != nil {
+			return nil, errors.New("invalid cipher text")
+		}
+		if len(serializedC) != 4+expectedCipherTextLen {
+			return nil, errors.New("invalid cipher text")
+		}
+
 		kappa, err = pqringctOQSKem.Decaps(ppkem.OQSKyber, serializedC[4:], sk[4:])
 		if err != nil {
 			return nil, err
 		}
 	default:
-		log.Fatalln("Unsupported KEM version.")
+		return nil, errors.New("unsupported KEM version.")
 	}
 	return kappa, nil
 }
@@ -251,6 +301,12 @@ func NewParamKem(version VersionKEM, kyber *kyber.ParameterSet, oqsKEM string) *
 		return &ParamKem{
 			Version: version,
 			Kyber:   kyber,
+		}
+	case KEM_OQS_KYBER:
+		return &ParamKem{
+			Version:  version,
+			Kyber:    nil,
+			OQSKyber: oqsKEM,
 		}
 	default:
 		return nil
