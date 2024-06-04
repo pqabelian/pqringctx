@@ -312,7 +312,8 @@ type PublicParameter struct {
 	paramParameterSeedString []byte
 
 	// paramMatrixA expands from paramParameterSeedString, with size k_a(paramKA) rows, each row with size l_a(paramLA)
-	// *                 paramKA
+	//
+	//*                 paramKA
 	// *                    |
 	// *                    v
 	// * [ unit    0  ...   0   x ... x ]
@@ -322,6 +323,7 @@ type PublicParameter struct {
 	paramMatrixA []*PolyANTTVec
 
 	// paramVectorA expands from paramParameterSeedString, with size l_a (paramLA)
+	//
 	// *             paramKA
 	// *                |
 	// *                v
@@ -329,6 +331,7 @@ type PublicParameter struct {
 	paramVectorA *PolyANTTVec
 
 	//paramMatrixB expands from paramParameterSeedString, with size k_c(paramKC) rows, each row with size l_c(paramLC)
+	//
 	// *                 paramKC
 	// *                    |
 	// *                    v
@@ -339,6 +342,7 @@ type PublicParameter struct {
 	paramMatrixB []*PolyCNTTVec
 
 	// paramMatrixH expands from paramParameterSeedString, with size (paramI + paramJ + 7) rows, each row with size l_c(paramLC)
+	//
 	// *                      paramKC + paramI + paramJ + 7 + paramLambdaC
 	// *               paramKC + paramI + paramJ + 7 |
 	// *              paramKC             |          |
@@ -646,10 +650,6 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 	return defaultPP
 }
 
-// TODO delete this method? repeat with GetParamSeedBytesLen
-func (pp *PublicParameter) ParamSeedBytesLen() int {
-	return pp.paramKeyGenSeedBytesLen
-}
 func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
 }
