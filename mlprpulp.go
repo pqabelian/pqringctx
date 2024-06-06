@@ -859,6 +859,53 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	fmt.Println("phip:", phip) // remove this line after test
 
 	//	phi'^(\xi)
+	//	old codes, remove them after test	begin
+	phipsOld := make([]*PolyCNTT, pp.paramK)
+	consttermOld := pp.PolyCNTTSub(pp.PolyCNTTAdd(phip, rpulppi.c_hat_g), rpulppi.phi)
+
+	for xi := 0; xi < pp.paramK; xi++ {
+		phipsOld[xi] = pp.NewZeroPolyCNTT()
+
+		for t := 0; t < pp.paramK; t++ {
+
+			tmp1 := pp.NewZeroPolyCNTT()
+			for tau := 0; tau < pp.paramK; tau++ {
+
+				tmp := pp.NewZeroPolyCNTTVec(pp.paramLC)
+
+				for j := uint8(0); j < n2; j++ {
+					tmp = pp.PolyCNTTVecAdd(
+						tmp,
+						pp.PolyCNTTVecScaleMul(p[t][j], pp.paramMatrixH[j+1], pp.paramLC),
+						pp.paramLC)
+				}
+
+				tmp1 = pp.PolyCNTTAdd(
+					tmp1,
+					pp.sigmaPowerPolyCNTT(
+						pp.PolyCNTTVecInnerProduct(tmp, zs_ntt[(xi-tau+pp.paramK)%pp.paramK], pp.paramLC),
+						tau),
+				)
+			}
+
+			xt := pp.NewZeroPolyC()
+			xt.coeffs[t] = pp.paramKInv
+
+			tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
+
+			phipsOld[xi] = pp.PolyCNTTAdd(phipsOld[xi], tmp1)
+		}
+
+		phipsOld[xi] = pp.PolyCNTTAdd(
+			phipsOld[xi],
+			pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[int(pp.paramI)+int(pp.paramJ)+5], zs_ntt[xi], pp.paramLC))
+
+		phipsOld[xi] = pp.PolyCNTTSub(
+			phipsOld[xi],
+			pp.PolyCNTTMul(sigma_chs[xi], consttermOld))
+	}
+	//	old codes, remove them after test	end
+
 	phips := make([]*PolyCNTT, pp.paramK)
 	constterm := pp.PolyCNTTSub(pp.PolyCNTTAdd(phip, rpulppi.c_hat_g), rpulppi.phi)
 
@@ -903,6 +950,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 			phips[xi],
 			pp.PolyCNTTMul(sigma_chs[xi], constterm))
 	}
+
 	//fmt.Printf("Verify\n")
 	//
 	//fmt.Printf("phips = \n")
