@@ -766,11 +766,43 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	}
 
 	//	phip
-	phip := pp.NewZeroPolyCNTT()
 	var inprd, dcInv big.Int
 	dcInv.SetInt64(pp.paramDCInv)
 	bigQc := new(big.Int).SetInt64(pp.paramQC)
 
+	//	old codes, remove them after test	begin
+	phipOld := pp.NewZeroPolyCNTT()
+	for t := 0; t < pp.paramK; t++ {
+		tmp1 := pp.NewZeroPolyCNTT()
+		for tau := 0; tau < pp.paramK; tau++ {
+
+			tmp := pp.NewZeroPolyCNTT()
+			for j := uint8(0); j < n2; j++ {
+				tmp = pp.PolyCNTTAdd(tmp, pp.PolyCNTTMul(p[t][j], c_hats[j]))
+			}
+
+			constPoly := pp.NewZeroPolyC()
+			inprd.SetInt64(pp.intMatrixInnerProductWithReductionQc(u_hats, gammas[t], int(m), pp.paramDC))
+			inprd.Mul(&inprd, &dcInv)
+			//constPoly.coeffs[0] = reduceBigInt(&inprd, pp.paramQC)
+			inprd.Mod(&inprd, bigQc)
+			constPoly.coeffs[0] = reduceInt64(inprd.Int64(), pp.paramQC)
+
+			tmp = pp.PolyCNTTSub(tmp, pp.NTTPolyC(constPoly))
+
+			tmp1 = pp.PolyCNTTAdd(tmp1, pp.sigmaPowerPolyCNTT(tmp, tau))
+		}
+
+		xt := pp.NewZeroPolyC()
+		xt.coeffs[t] = pp.paramKInv
+
+		tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
+
+		phipOld = pp.PolyCNTTAdd(phipOld, tmp1)
+	}
+	//	old codes, remove them after test	end
+
+	phip := pp.NewZeroPolyCNTT()
 	for t := 0; t < pp.paramK; t++ {
 		tmp1 := pp.NewZeroPolyCNTT()
 		for tau := 0; tau < pp.paramK; tau++ {
