@@ -771,15 +771,23 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 	bigQc := new(big.Int).SetInt64(pp.paramQC)
 
 	//	old codes, remove them after test	begin
+	fmt.Println("OLD phip in Verify::")
 	phipOld := pp.NewZeroPolyCNTT()
 	for t := 0; t < pp.paramK; t++ {
+
+		fmt.Println("t:", t)
+
 		tmp1 := pp.NewZeroPolyCNTT()
 		for tau := 0; tau < pp.paramK; tau++ {
+
+			fmt.Println("tau:", tau)
 
 			tmp := pp.NewZeroPolyCNTT()
 			for j := uint8(0); j < n2; j++ {
 				tmp = pp.PolyCNTTAdd(tmp, pp.PolyCNTTMul(p[t][j], c_hats[j]))
 			}
+
+			fmt.Println("jSum:", tmp)
 
 			constPoly := pp.NewZeroPolyC()
 			inprd.SetInt64(pp.intMatrixInnerProductWithReductionQc(u_hats, gammas[t], int(m), pp.paramDC))
@@ -790,47 +798,65 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 			tmp = pp.PolyCNTTSub(tmp, pp.NTTPolyC(constPoly))
 
+			fmt.Println("tauItem:", tmp)
+
 			tmp1 = pp.PolyCNTTAdd(tmp1, pp.sigmaPowerPolyCNTT(tmp, tau))
 		}
+
+		fmt.Println("tauSum:", tmp1)
 
 		xt := pp.NewZeroPolyC()
 		xt.coeffs[t] = pp.paramKInv
 
 		tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
+
+		fmt.Println("tItem:", tmp1)
 
 		phipOld = pp.PolyCNTTAdd(phipOld, tmp1)
 	}
+	fmt.Println("phip:", phipOld)
 	//	old codes, remove them after test	end
 
+	fmt.Println("NEW phip in Verify::") // remove this line after test
 	phip := pp.NewZeroPolyCNTT()
 	for t := 0; t < pp.paramK; t++ {
-		tmp1 := pp.NewZeroPolyCNTT()
-		for tau := 0; tau < pp.paramK; tau++ {
+		fmt.Println("t:", t) // remove this line after test
 
-			tmp := pp.NewZeroPolyCNTT()
-			for j := uint8(0); j < n2; j++ {
-				tmp = pp.PolyCNTTAdd(tmp, pp.PolyCNTTMul(p[t][j], c_hats[j]))
-			}
-
-			constPoly := pp.NewZeroPolyC()
-			inprd.SetInt64(pp.intMatrixInnerProductWithReductionQc(u_hats, gammas[t], int(m), pp.paramDC))
-			inprd.Mul(&inprd, &dcInv)
-			//constPoly.coeffs[0] = reduceBigInt(&inprd, pp.paramQC)
-			inprd.Mod(&inprd, bigQc)
-			constPoly.coeffs[0] = reduceInt64(inprd.Int64(), pp.paramQC)
-
-			tmp = pp.PolyCNTTSub(tmp, pp.NTTPolyC(constPoly))
-
-			tmp1 = pp.PolyCNTTAdd(tmp1, pp.sigmaPowerPolyCNTT(tmp, tau))
+		jSum := pp.NewZeroPolyCNTT()
+		for j := uint8(0); j < n2; j++ {
+			jSum = pp.PolyCNTTAdd(jSum, pp.PolyCNTTMul(p[t][j], c_hats[j]))
 		}
 
-		xt := pp.NewZeroPolyC()
-		xt.coeffs[t] = pp.paramKInv
+		fmt.Println("jSum:", jSum) // remove this line after test
 
-		tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
+		constPoly := pp.NewZeroPolyC()
+		inprd.SetInt64(pp.intMatrixInnerProductWithReductionQc(u_hats, gammas[t], int(m), pp.paramDC))
+		inprd.Mul(&inprd, &dcInv)
+		//constPoly.coeffs[0] = reduceBigInt(&inprd, pp.paramQC)
+		inprd.Mod(&inprd, bigQc)
+		constPoly.coeffs[0] = reduceInt64(inprd.Int64(), pp.paramQC)
 
-		phip = pp.PolyCNTTAdd(phip, tmp1)
+		tauItemConst := pp.PolyCNTTSub(jSum, pp.NTTPolyC(constPoly))
+		fmt.Println("tauItem:", tauItemConst) // remove this line after test
+
+		tauSum := pp.NewZeroPolyCNTT()
+		for tau := 0; tau < pp.paramK; tau++ {
+			tauSum = pp.PolyCNTTAdd(tauSum, pp.sigmaPowerPolyCNTT(tauItemConst, tau))
+		}
+
+		fmt.Println("tauSum:", tauSum) // remove this line after test
+
+		xtPoly := pp.NewZeroPolyC()
+		xtPoly.coeffs[t] = pp.paramKInv
+
+		tItem := pp.PolyCNTTMul(pp.NTTPolyC(xtPoly), tauSum)
+
+		fmt.Println("tItem:", tItem) // remove this line after test
+
+		phip = pp.PolyCNTTAdd(phip, tItem)
 	}
+
+	fmt.Println("phip:", phip) // remove this line after test
 
 	//	phi'^(\xi)
 	phips := make([]*PolyCNTT, pp.paramK)
