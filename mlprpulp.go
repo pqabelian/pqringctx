@@ -860,16 +860,24 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 	//	phi'^(\xi)
 	//	old codes, remove them after test	begin
+	fmt.Println("OLE phips in Verify::") // remove this line after test
 	phipsOld := make([]*PolyCNTT, pp.paramK)
 	consttermOld := pp.PolyCNTTSub(pp.PolyCNTTAdd(phip, rpulppi.c_hat_g), rpulppi.phi)
 
 	for xi := 0; xi < pp.paramK; xi++ {
+
+		fmt.Println("xi:", xi) // remove this line after test
+
 		phipsOld[xi] = pp.NewZeroPolyCNTT()
 
 		for t := 0; t < pp.paramK; t++ {
 
+			fmt.Println("t:", t) // remove this line after test
+
 			tmp1 := pp.NewZeroPolyCNTT()
 			for tau := 0; tau < pp.paramK; tau++ {
+
+				fmt.Println("tau:", tau) // remove this line after test
 
 				tmp := pp.NewZeroPolyCNTTVec(pp.paramLC)
 
@@ -880,6 +888,8 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 						pp.paramLC)
 				}
 
+				fmt.Println("jSum:", tmp) // remove this line after test
+
 				tmp1 = pp.PolyCNTTAdd(
 					tmp1,
 					pp.sigmaPowerPolyCNTT(
@@ -887,14 +897,19 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 						tau),
 				)
 			}
+			fmt.Println("tauSum:", tmp1) // remove this line after test
 
 			xt := pp.NewZeroPolyC()
 			xt.coeffs[t] = pp.paramKInv
 
 			tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
 
+			fmt.Println("tItem:", tmp1) // remove this line after test
+
 			phipsOld[xi] = pp.PolyCNTTAdd(phipsOld[xi], tmp1)
 		}
+
+		fmt.Println("phips[xi] first:", phipsOld[xi]) // remove this line after test
 
 		phipsOld[xi] = pp.PolyCNTTAdd(
 			phipsOld[xi],
@@ -903,44 +918,58 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 		phipsOld[xi] = pp.PolyCNTTSub(
 			phipsOld[xi],
 			pp.PolyCNTTMul(sigma_chs[xi], consttermOld))
+
+		fmt.Println("phips[xi]:", phipsOld[xi]) // remove this line after test
 	}
 	//	old codes, remove them after test	end
 
+	fmt.Println("NEW phips in Verify::") // remove this line after test
+
 	phips := make([]*PolyCNTT, pp.paramK)
-	constterm := pp.PolyCNTTSub(pp.PolyCNTTAdd(phip, rpulppi.c_hat_g), rpulppi.phi)
+	constTerm := pp.PolyCNTTSub(pp.PolyCNTTAdd(phip, rpulppi.c_hat_g), rpulppi.phi)
 
 	for xi := 0; xi < pp.paramK; xi++ {
 		phips[xi] = pp.NewZeroPolyCNTT()
 
+		fmt.Println("xi:", xi) // remove this line after test
+
 		for t := 0; t < pp.paramK; t++ {
 
-			tmp1 := pp.NewZeroPolyCNTT()
+			fmt.Println("t:", t) // remove this line after test
+
+			jSum := pp.NewZeroPolyCNTTVec(pp.paramLC)
+
+			for j := uint8(0); j < n2; j++ {
+				jSum = pp.PolyCNTTVecAdd(
+					jSum,
+					pp.PolyCNTTVecScaleMul(p[t][j], pp.paramMatrixH[j+1], pp.paramLC),
+					pp.paramLC)
+			}
+
+			fmt.Println("jSum:", jSum) // remove this line after test
+
+			tauSum := pp.NewZeroPolyCNTT()
 			for tau := 0; tau < pp.paramK; tau++ {
-
-				tmp := pp.NewZeroPolyCNTTVec(pp.paramLC)
-
-				for j := uint8(0); j < n2; j++ {
-					tmp = pp.PolyCNTTVecAdd(
-						tmp,
-						pp.PolyCNTTVecScaleMul(p[t][j], pp.paramMatrixH[j+1], pp.paramLC),
-						pp.paramLC)
-				}
-
-				tmp1 = pp.PolyCNTTAdd(
-					tmp1,
+				tauSum = pp.PolyCNTTAdd(
+					tauSum,
 					pp.sigmaPowerPolyCNTT(
-						pp.PolyCNTTVecInnerProduct(tmp, zs_ntt[(xi-tau+pp.paramK)%pp.paramK], pp.paramLC),
+						pp.PolyCNTTVecInnerProduct(jSum, zs_ntt[(xi-tau+pp.paramK)%pp.paramK], pp.paramLC),
 						tau),
 				)
 			}
+			fmt.Println("tauSum:", tauSum) // remove this line after test
 
-			xt := pp.NewZeroPolyC()
-			xt.coeffs[t] = pp.paramKInv
+			xtPoly := pp.NewZeroPolyC()
+			xtPoly.coeffs[t] = pp.paramKInv
 
-			tmp1 = pp.PolyCNTTMul(pp.NTTPolyC(xt), tmp1)
+			tItem := pp.PolyCNTTMul(pp.NTTPolyC(xtPoly), tauSum)
 
-			phips[xi] = pp.PolyCNTTAdd(phips[xi], tmp1)
+			fmt.Println("tItem:", tItem) // remove this line after test
+
+			phips[xi] = pp.PolyCNTTAdd(phips[xi], tItem)
 		}
+
+		fmt.Println("phips[xi] first:", phips[xi]) // remove this line after test
 
 		phips[xi] = pp.PolyCNTTAdd(
 			phips[xi],
@@ -948,7 +977,9 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 		phips[xi] = pp.PolyCNTTSub(
 			phips[xi],
-			pp.PolyCNTTMul(sigma_chs[xi], constterm))
+			pp.PolyCNTTMul(sigma_chs[xi], constTerm))
+
+		fmt.Println("phips[xi]:", phips[xi]) // remove this line after test
 	}
 
 	//fmt.Printf("Verify\n")
