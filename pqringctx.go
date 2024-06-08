@@ -19,7 +19,7 @@ type AddressSecretKey struct {
 	*AddressSecretKeySn
 }
 
-func (ask *AddressSecretKey) checkMatchPublciKey(apk *AddressPublicKey, pp *PublicParameter) bool {
+func (ask *AddressSecretKey) checkMatchPublicKey(apk *AddressPublicKey, pp *PublicParameter) bool {
 	// t = A*s
 	s_ntt := pp.NTTPolyAVec(ask.s)
 	t := pp.PolyANTTMatrixMulVector(pp.paramMatrixA, s_ntt, pp.paramKA, pp.paramLA)
@@ -196,7 +196,7 @@ func (pp *PublicParameter) addressKeyGen(seed []byte) (apk *AddressPublicKey, as
 
 func (pp *PublicParameter) addressKeyVerify(apk *AddressPublicKey, ask *AddressSecretKey) (valid bool, hints string) {
 	//	verify the normal of ask.s
-	if !pp.isAddressSKspNormalInBound(ask.s) {
+	if !pp.isAddressSKspNormInBound(ask.s) {
 		return false, "the normal of AddressSecretKeySp is not in the expected bound"
 	}
 
@@ -1969,7 +1969,7 @@ func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs 
 			return nil, err
 		}
 
-		if asks[i].checkMatchPublciKey(inputDescItem.lgrTxoList[inputDescItem.sidx].txo.AddressPublicKey, pp) == false {
+		if asks[i].checkMatchPublicKey(inputDescItem.lgrTxoList[inputDescItem.sidx].txo.AddressPublicKey, pp) == false {
 			return nil, errors.New("the address secret key and corresponding public key does not match")
 		}
 
