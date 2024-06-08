@@ -400,7 +400,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 				inForRing += 1
 			} else {
 				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return nil, fmt.Errorf("TransferTxMLPGen: on the input side, the coins-to-spend with RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", i)
+				return nil, fmt.Errorf("TransferTxMLPGen: on the input side, the coins-to-spend with RingCT-Privacy should be at the first successive positions, but the %d -th one is not", i)
 			}
 
 			//	To spend a coin with RingCT-Privacy, none of the (coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey) could be nil.

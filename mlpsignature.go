@@ -7,8 +7,8 @@ import (
 
 type ElrSignatureMLP struct {
 	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
-	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
-	//	z_cs, z_cps, as the responses, need to have the infinite normal ina scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
+	//	z_as, as the responses, need to have the infinite norm in a scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
+	//	z_cs, z_cps, as the responses, need to have the infinite norm in a scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
 	//	That is why we use PolyAVec (resp. PolyCVec), rather than PolyANTTVec (resp. PolyCNTTVec).
 	z_as  []*PolyAVec   // length ringSize, each for a ring member. Each element lies in (S_{eta_a - beta_a})^{L_a}.
 	z_cs  [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
