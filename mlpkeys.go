@@ -769,7 +769,7 @@ func (pp *PublicParameter) DetectCoinAddress(coinAddress []byte, coinDetectorKey
 		return pp.CoinAddressForPKHSingleDetect(coinAddress, coinDetectorKey)
 
 	default:
-		return false, nil
+		return false, errors.New("unsupported coin address type")
 	}
 }
 
@@ -791,7 +791,7 @@ func (pp *PublicParameter) addressKeyForRingGen(coinSpendKeyRandSeed []byte, coi
 		return nil, nil, fmt.Errorf("AddressKeyForRingGen: the length of coinSpendKeyRandSeed (%d) is invalid", len(coinSpendKeyRandSeed))
 	}
 	localCoinSpendKeyRandSeed := make([]byte, pp.paramKeyGenSeedBytesLen)
-	if coinSpendKeyRandSeed == nil {
+	if len(coinSpendKeyRandSeed) == 0 {
 		localCoinSpendKeyRandSeed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 	} else {
 		copy(localCoinSpendKeyRandSeed, coinSpendKeyRandSeed)
@@ -801,7 +801,7 @@ func (pp *PublicParameter) addressKeyForRingGen(coinSpendKeyRandSeed []byte, coi
 		return nil, nil, fmt.Errorf("AddressKeyForRingGen: the length of coinSerialNumberKeyRandSeed (%d) is invalid", len(coinSerialNumberKeyRandSeed))
 	}
 	localCoinSerialNumberKeyRandSeed := make([]byte, pp.paramKeyGenSeedBytesLen)
-	if coinSerialNumberKeyRandSeed == nil {
+	if len(coinSerialNumberKeyRandSeed) == 0 {
 		localCoinSerialNumberKeyRandSeed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 	} else {
 		copy(localCoinSerialNumberKeyRandSeed, coinSerialNumberKeyRandSeed)
@@ -909,7 +909,7 @@ func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing,
 	}
 
 	//	verify the normal of ask.s
-	if !pp.isAddressSKspNormalInBound(ask.s) {
+	if !pp.isAddressSKspNormInBound(ask.s) {
 		return false, "addressKeyForRingVerify: the normal of AddressSecretKeySp is not in the expected bound"
 	}
 
@@ -993,7 +993,7 @@ func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSin
 		return false, "addressKeyForSingleVerify: there are nil points in the input (apk, ask)"
 	}
 	//	verify the normal of ask.s
-	if !pp.isAddressSKspNormalInBound(ask.s) {
+	if !pp.isAddressSKspNormInBound(ask.s) {
 		return false, "addressKeyForSingleVerify: the normal of AddressSecretKeySp is not in the expected bound"
 	}
 

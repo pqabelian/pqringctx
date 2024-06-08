@@ -575,7 +575,7 @@ func (pp *PublicParameter) expandAddressSKsp(seed []byte) (*PolyAVec, error) {
 	return rst, nil
 }
 
-func (pp *PublicParameter) isAddressSKspNormalInBound(addressSKsp *PolyAVec) (inBound bool) {
+func (pp *PublicParameter) isAddressSKspNormInBound(addressSKsp *PolyAVec) (inBound bool) {
 	if addressSKsp.infNorm() > 2 {
 		// 2 is consistent with the pp.randomPolyAinGammaA2(tmpSeed)
 		return false
