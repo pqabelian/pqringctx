@@ -472,54 +472,6 @@ func (pp *PublicParameter) randomPolyAinGammaA2(seed []byte) (*PolyA, error) {
 	return &PolyA{sampled}, nil
 }
 
-// This is a WRONG implementation.
-func (pp *PublicParameter) randomPolyAinGammaA2Wrong(seed []byte) (*PolyA, error) {
-
-	var seedUsed []byte
-	if seed == nil {
-		seedUsed = RandomBytes(RandSeedBytesLen)
-	} else {
-		seedUsed = make([]byte, len(seed))
-		copy(seedUsed, seed)
-	}
-
-	xof := sha3.NewShake128()
-	xof.Reset()
-	_, err := xof.Write(seedUsed)
-	if err != nil {
-		return nil, err
-	}
-	//	bound = 2, each 4 bits can be used to sample a number in [-2, 2], by using the hamming weight
-	buf := make([]byte, pp.paramDA/2)
-	_, err = xof.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	var lowWight, highWeight int8
-	coeffs := make([]int64, pp.paramDA)
-	t := 0
-	for i := 0; i < pp.paramDA/2; i++ {
-		lowWight = int8((buf[i] >> 0) & 1)
-		lowWight += int8((buf[i] >> 1) & 1)
-		highWeight = int8((buf[i] >> 2) & 1)
-		highWeight += int8((buf[i] >> 3) & 1)
-
-		coeffs[t] = int64(highWeight - lowWight)
-
-		lowWight = int8((buf[i] >> 4) & 1)
-		lowWight += int8((buf[i] >> 5) & 1)
-		highWeight = int8((buf[i] >> 6) & 1)
-		highWeight += int8((buf[i] >> 7) & 1)
-
-		coeffs[t+1] = int64(highWeight - lowWight)
-
-		t += 2
-	}
-
-	return &PolyA{coeffs}, nil
-}
-
 // expandValuePadRandomness() return pp.TxoValueBytesLen() bytes,
 // which will be used to encrypt the value-bytes.
 // pp.TxoValueBytesLen() is 7, which means we use XOF to generate 7*8 = 56 bits.
@@ -1129,26 +1081,6 @@ func expandBinaryMatrix(seed []byte, rownum int, colnum int) (binM [][]byte, err
 			return nil, err
 		}
 		copy(binM[i], buf)
-	}
-	return binM, nil
-}
-
-func expandBinaryMatrixOld(seed []byte, rownum int, colnum int) (binM [][]byte, err error) {
-	binM = make([][]byte, rownum)
-	XOF := sha3.NewShake128()
-	for i := 0; i < rownum; i++ {
-		buf := make([]byte, (colnum+7)/8)
-		binM[i] = make([]byte, (colnum+7)/8)
-		XOF.Reset()
-		_, err = XOF.Write(append(seed, byte(i)))
-		if err != nil {
-			return nil, err
-		}
-		_, err = XOF.Read(buf)
-		if err != nil {
-			return nil, err
-		}
-		binM[i] = buf
 	}
 	return binM, nil
 }

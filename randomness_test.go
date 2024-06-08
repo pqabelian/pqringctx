@@ -433,38 +433,6 @@ func TestNaive_randomPolyAinGammaA2(t *testing.T) {
 	}
 }
 
-func TestNaive_randomPolyAinGammaA2Wrong(t *testing.T) {
-	pp := Initialize(nil)
-	count := make([]int, 5)
-	for i := 0; i < 5; i++ {
-		count[i] = 0
-	}
-
-	for i := 0; i < 1000; i++ {
-		ployA, err := pp.randomPolyAinGammaA2Wrong(nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for j := 0; j < pp.paramDA; j++ {
-			coeff := ployA.coeffs[j]
-			if coeff < -2 || coeff > 2 {
-				log.Fatal("out bound")
-			}
-			count[coeff+2] = count[coeff+2] + 1
-		}
-	}
-
-	total := 0
-	for i := 0; i < 5; i++ {
-		total += count[i]
-	}
-
-	for i := 0; i < 5; i++ {
-		ratio := float64(count[i]) / float64(total)
-		fmt.Println("i-2:", i-2, "count:", count[i], "ratio:", ratio)
-	}
-}
-
 func TestPublicParameter_randomPolyCinDistributionChi(t *testing.T) {
 	pp := Initialize(nil)
 	tests := []struct {
