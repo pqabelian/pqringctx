@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,7 +38,7 @@ var valueKeySeeds = make([][]byte, 0, numRand)
 var valuePublicKeys = make([][]byte, 0, numRand)
 var valueSecretKeys = make([][]byte, 0, numRand)
 
-var numSingle = 10
+var numSingle = 120
 var coinSpendKeyRandSeedForSingles = make([][]byte, 0, numSingle)
 var detectorKeyForSingles = make([][]byte, 0, numSingle)
 var coinAddressForSingles = make([][]byte, 0, numSingle)
@@ -1432,21 +1433,56 @@ func InitialTxo(addressType CoinAddressType, addrIdxs []int, vin uint64, values 
 	return cbTx.txos
 }
 
-func GenerateInputDescMLPs(ringSize int, coinAddressType CoinAddressType, vin uint64) (txInputDescMLPs []*TxInputDescMLP) {
-	inputValues := make([]uint64, ringSize)
-	addrIndexes := make([]int, ringSize)
-	remainVin := vin
-	for i := 0; i < ringSize; i++ {
-		addrIndexes[i] = rand.Intn(numPre)
-		if i == ringSize-1 {
-			inputValues[ringSize-1] = remainVin
-		} else {
-			inputValues[i] = uint64(rand.Intn(int(remainVin)))
+// TxInputDescMLPRingRequest is used to generate a ring with GenerateInputDescMLPsRing
+type TxInputDescMLPRingRequest struct {
+	CoinAddressType CoinAddressType
+	RingSize        int
+	InputValues     []uint64
+	TotalValue      uint64
+}
+
+const appLayerRingSize = 7
+
+// GenerateInputDescMLPsRing generate txos form to ring and transfer each to a TxInputDescMLP
+func GenerateInputDescMLPsRing(req *TxInputDescMLPRingRequest) (txInputDescMLPs []*TxInputDescMLP) {
+	if len(req.InputValues) == 0 {
+		inputValues := make([]uint64, req.RingSize)
+		remainVin := req.TotalValue
+		for i := 0; i < req.RingSize; i++ {
+			if i == req.RingSize-1 {
+				inputValues[req.RingSize-1] = remainVin
+			} else {
+				inputValues[i] = uint64(rand.Intn(int(remainVin)))
+			}
+			remainVin -= inputValues[i]
 		}
-		remainVin -= inputValues[i]
+	} else if len(req.InputValues) != req.RingSize {
+		panic("wrong request")
+	}
+	ringSize := req.RingSize
+	inputValues := req.InputValues
+	coinAddressType := req.CoinAddressType
+	if coinAddressType == CoinAddressTypePublicKeyForRingPre || coinAddressType == CoinAddressTypePublicKeyForRing {
+		if ringSize > int(appLayerRingSize) {
+			panic("invalid ring size")
+		}
+	} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		if ringSize != 1 {
+			panic("invalid ring size")
+		}
+	} else {
+		panic("invalid coin address type")
 	}
 
-	txos := InitialTxo(coinAddressType, addrIndexes, vin, inputValues)
+	var txos []TxoMLP
+	addrIndexes := make([]int, ringSize)
+	vin := uint64(0)
+	for i := 0; i < ringSize; i++ {
+		addrIndexes[i] = rand.Intn(numPre)
+		vin += inputValues[i]
+
+		txos = append(txos, InitialTxo(coinAddressType, []int{addrIndexes[i]}, inputValues[i], []uint64{inputValues[i]})...) // one TXO one time
+	}
 
 	txInputDescMLPs = make([]*TxInputDescMLP, 0, ringSize)
 	lgrTxoList := make([]*LgrTxoMLP, 0, ringSize)
@@ -1479,26 +1515,9 @@ func GenerateInputDescMLPs(ringSize int, coinAddressType CoinAddressType, vin ui
 	return
 }
 
-func GenerateInputTXOs(total uint64, coinAddressType CoinAddressType) []*TxInputDescMLP {
-	var res []*TxInputDescMLP
-	ringSizeMax := 5
-	if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
-		ringSizeMax = 1
-	}
-	remain := total
-	for ringSize := 1; ringSize < ringSizeMax+1; ringSize++ {
-		currentValue := remain
-		if ringSize != ringSizeMax {
-			currentValue = uint64(rand.Intn(int(remain)))
-			remain -= currentValue
-		}
-		res = append(res, GenerateInputDescMLPs(ringSize, coinAddressType, currentValue)...)
-	}
-	return res
-}
-func SelectTxInputDescMLP(txInputRingDescMLPs []*TxInputDescMLP, count int) ([]*TxInputDescMLP, uint64, []uint64) {
+// GenerateInputDescMLPsRing select specified number TxInputDescMLP from result of GenerateInputDescMLPsRing
+func SelectTxInputDescMLPFromInputDescMLPsRing(txInputRingDescMLPs []*TxInputDescMLP, count int) ([]*TxInputDescMLP, uint64, []uint64) {
 	n := len(txInputRingDescMLPs)
-	// 使用洗牌算法打乱数组
 	randRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randRand.Shuffle(n, func(i, j int) {
 		txInputRingDescMLPs[i], txInputRingDescMLPs[j] = txInputRingDescMLPs[j], txInputRingDescMLPs[i]
@@ -1516,38 +1535,147 @@ func SelectTxInputDescMLP(txInputRingDescMLPs []*TxInputDescMLP, count int) ([]*
 
 	return res, totalInputValue, inputValues
 }
-func GenerateInput(inputRingPreSize int, inputRingSize int, inputSingleSize int) (res []*TxInputDescMLP, totalInputValue uint64, inputValues []uint64) {
-	vin := uint64(1)<<pp.paramN - 1
-	remain := vin
 
-	if inputRingPreSize != 0 {
-		ringPreValue := uint64(rand.Intn(int(remain)))
-		remain -= ringPreValue
-		txInputDescMLPRingPre, totalInputValuePre, inputValuesPre := SelectTxInputDescMLP(GenerateInputTXOs(ringPreValue, CoinAddressTypePublicKeyForRingPre), inputRingPreSize)
-		res = append(res, txInputDescMLPRingPre...)
-		totalInputValue += totalInputValuePre
-		inputValues = append(inputValues, inputValuesPre...)
+type InputRequest struct {
+	inputRingPreNum            int
+	inputRingPreRingSizes      []int
+	inputRingPreRingSelectNums []int
+	inputRingPreValues         [][]uint64
+	inputRingPreTotalValue     []uint64
+
+	inputRingRandNum        int
+	inputRingRandRingSizes  []int
+	inputRingRandSelectNums []int
+	inputRingRandValues     [][]uint64
+	inputRingRandTotalValue []uint64
+
+	inputSingleNum    int
+	inputSingleValues []uint64
+}
+
+func GenerateInputWithTypeSize(inputRingPreSize, inputRingRandSize, inputSingleSize int) (res []*TxInputDescMLP, totalInputValueForRing uint64, totalInputValueForSingle uint64, inputValues []uint64) {
+	total := rand.Intn((1<<pp.paramN)-1-inputSingleSize) + inputSingleSize
+	totalInputRingValue := uint64(rand.Intn(total - inputSingleSize))
+	totalInputSingleValue := uint64(total) - totalInputRingValue
+	req := &InputRequest{}
+
+	remain := totalInputRingValue
+
+	req.inputRingPreNum = inputRingPreSize
+	req.inputRingPreRingSizes = make([]int, req.inputRingPreNum)
+	req.inputRingPreRingSelectNums = make([]int, req.inputRingPreNum)
+	req.inputRingPreValues = make([][]uint64, req.inputRingPreNum)
+	req.inputRingPreTotalValue = make([]uint64, req.inputRingPreNum)
+	for i := 0; i < inputRingPreSize; i++ {
+		req.inputRingPreRingSizes[i] = rand.Intn(appLayerRingSize-1) + 1
+		req.inputRingPreRingSelectNums[i] = 1
+		req.inputRingPreValues[i] = make([]uint64, req.inputRingPreRingSizes[i])
+		for j := 0; j < req.inputRingPreRingSizes[i]; j++ {
+			req.inputRingPreValues[i][j] = uint64(rand.Intn(int(remain)))
+			remain -= req.inputRingPreValues[i][j]
+			req.inputRingPreTotalValue[i] += req.inputRingPreValues[i][j]
+		}
 	}
 
-	if inputRingSize != 0 {
-		ringValue := uint64(rand.Intn(int(remain)))
-		remain -= ringValue
-		txInputDescMLPRingRand, totalInputValueRand, inputValuesRand := SelectTxInputDescMLP(GenerateInputTXOs(ringValue, CoinAddressTypePublicKeyForRing), inputRingSize)
-		res = append(res, txInputDescMLPRingRand...)
-		totalInputValue += totalInputValueRand
-		inputValues = append(inputValues, inputValuesRand...)
+	req.inputRingRandNum = inputRingRandSize
+	req.inputRingRandRingSizes = make([]int, req.inputRingRandNum)
+	req.inputRingRandSelectNums = make([]int, req.inputRingRandNum)
+	req.inputRingRandValues = make([][]uint64, req.inputRingRandNum)
+	req.inputRingRandTotalValue = make([]uint64, req.inputRingRandNum)
+	for i := 0; i < inputRingRandSize; i++ {
+		req.inputRingRandRingSizes[i] = rand.Intn(appLayerRingSize-1) + 1
+		req.inputRingRandSelectNums[i] = 1
+		req.inputRingRandValues[i] = make([]uint64, req.inputRingRandRingSizes[i])
+		for j := 0; j < req.inputRingRandRingSizes[i]; j++ {
+			req.inputRingRandValues[i][j] = uint64(rand.Intn(int(remain)))
+			remain -= req.inputRingRandValues[i][j]
+			req.inputRingRandTotalValue[i] += req.inputRingRandValues[i][j]
+		}
 	}
 
-	if inputSingleSize != 0 {
-		singleValue := uint64(rand.Intn(int(remain)))
-		remain -= singleValue
-		txInputDescMLPSingle, totalInputValueSingle, inputValuesSingle := SelectTxInputDescMLP(GenerateInputTXOs(singleValue, CoinAddressTypePublicKeyHashForSingle), inputSingleSize)
-		res = append(res, txInputDescMLPSingle...)
-		totalInputValue += totalInputValueSingle
-		inputValues = append(inputValues, inputValuesSingle...)
+	remain = totalInputSingleValue
+	req.inputSingleNum = inputSingleSize
+	req.inputSingleValues = make([]uint64, req.inputSingleNum)
+	for i := 0; i < inputSingleSize; i++ {
+		req.inputSingleValues[i] = 1
+		remain -= req.inputSingleValues[i]
+	}
+	if remain < 0 {
+		panic("invalid input single num")
+	}
+	//req.inputSingleNum = inputSingleSize
+	//req.inputSingleValues = make([]uint64, req.inputSingleNum)
+	for i := 0; i < inputSingleSize; i++ {
+		if remain != 0 {
+			req.inputSingleValues[i] += uint64(rand.Intn(int(remain)))
+			remain -= req.inputSingleValues[i]
+		}
 	}
 
-	return res, totalInputValue, inputValues
+	return GenerateInput(req)
+}
+func GenerateInput(req *InputRequest) (res []*TxInputDescMLP, totalInputValueForRing uint64, totalInputValueForSingle uint64, inputValues []uint64) {
+	res = make([]*TxInputDescMLP, 0, req.inputRingPreNum+req.inputRingRandNum+req.inputSingleNum)
+	totalInputValueForRing = 0
+	totalInputValueForSingle = 0
+	inputValues = make([]uint64, 0, req.inputRingPreNum+req.inputRingRandNum+req.inputSingleNum)
+	if req.inputRingPreNum != 0 {
+		for i := 0; i < req.inputRingPreNum; i++ {
+			inputRingPreRingSize := req.inputRingPreRingSizes[i]
+			inputRingPreValues := req.inputRingPreValues[i]
+			inputRingPreTotalValue := req.inputRingPreTotalValue[i]
+			txInputDescMLPs := GenerateInputDescMLPsRing(&TxInputDescMLPRingRequest{
+				CoinAddressType: CoinAddressTypePublicKeyForRingPre,
+				RingSize:        inputRingPreRingSize,
+				InputValues:     inputRingPreValues,
+				TotalValue:      inputRingPreTotalValue,
+			})
+
+			selectNum := req.inputRingPreRingSelectNums[i]
+			txInputDescMLPRingPre, totalInputValuePre, inputValuesPre := SelectTxInputDescMLPFromInputDescMLPsRing(txInputDescMLPs, selectNum)
+			res = append(res, txInputDescMLPRingPre...)
+			totalInputValueForRing += totalInputValuePre
+			inputValues = append(inputValues, inputValuesPre...)
+		}
+	}
+
+	if req.inputRingRandNum != 0 {
+		for i := 0; i < req.inputRingRandNum; i++ {
+			inputRingRandRingSize := req.inputRingRandRingSizes[i]
+			inputRingRandValues := req.inputRingRandValues[i]
+			inputRingRandTotalValue := req.inputRingRandTotalValue[i]
+			txInputDescMLPs := GenerateInputDescMLPsRing(&TxInputDescMLPRingRequest{
+				CoinAddressType: CoinAddressTypePublicKeyForRing,
+				RingSize:        inputRingRandRingSize,
+				InputValues:     inputRingRandValues,
+				TotalValue:      inputRingRandTotalValue,
+			})
+
+			selectNum := req.inputRingRandSelectNums[i]
+			txInputDescMLPRingRand, totalInputValueRand, inputValuesRand := SelectTxInputDescMLPFromInputDescMLPsRing(txInputDescMLPs, selectNum)
+			res = append(res, txInputDescMLPRingRand...)
+			totalInputValueForRing += totalInputValueRand
+			inputValues = append(inputValues, inputValuesRand...)
+		}
+	}
+
+	if req.inputSingleNum != 0 {
+		for i := 0; i < req.inputSingleNum; i++ {
+			inputSingleValues := req.inputSingleValues[i]
+			txInputDescMLPs := GenerateInputDescMLPsRing(&TxInputDescMLPRingRequest{
+				CoinAddressType: CoinAddressTypePublicKeyHashForSingle,
+				RingSize:        1,
+				InputValues:     []uint64{inputSingleValues},
+				TotalValue:      inputSingleValues,
+			})
+			txInputDescMLPSingle, totalInputValueRand, inputValuesRand := SelectTxInputDescMLPFromInputDescMLPsRing(txInputDescMLPs, 1)
+			res = append(res, txInputDescMLPSingle...)
+			totalInputValueForSingle += totalInputValueRand
+			inputValues = append(inputValues, inputValuesRand...)
+		}
+	}
+
+	return res, totalInputValueForRing, totalInputValueForSingle, inputValues
 }
 func generateNWithBound(count int, bound int) []int {
 	res := make([]int, 0, bound)
@@ -1579,60 +1707,63 @@ func SplitNum(total uint64, num int) []uint64 {
 	}
 	return outputValues
 }
-func GenerateOutput(totalOutput uint64, outputRingPreSize int, outputRingSize int, outputSingleSize int) (txOutputDescMLPS []*TxOutputDescMLP, outputValues []uint64) {
-	outputValues = SplitNum(totalOutput, outputRingPreSize+outputRingSize+outputSingleSize)
-
-	if outputRingPreSize != 0 {
-		outputValuesPre := outputValues[:outputRingPreSize]
-		nOutPres := generateNWithBound(outputRingPreSize, numPre)
+func GenerateOutputWithValues(outputRingPreValues []uint64, outputRingRandValues []uint64, outputSingleValues []uint64) (txOutputDescMLPS []*TxOutputDescMLP) {
+	if len(outputRingPreValues) != 0 {
+		nOutPres := generateNWithBound(len(outputRingPreValues), numPre)
 		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyForRingPre]
 		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyForRingPre]
-		for i := 0; i < outputRingPreSize; i++ {
+		for i := 0; i < len(outputRingPreValues); i++ {
 			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
 				coinAddress:        outputCoinAddressMap[nOutPres[i]],
 				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutPres[i]],
-				value:              outputValuesPre[i],
+				value:              outputRingPreValues[i],
 			})
 		}
 	}
 
-	if outputRingSize != 0 {
-		outputValuesRand := outputValues[outputRingPreSize : outputRingPreSize+outputRingSize]
-		nOutRand := generateNWithBound(outputRingSize, numRand)
+	if len(outputRingRandValues) != 0 {
+		nOutRands := generateNWithBound(len(outputRingRandValues), numRand)
 		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyForRing]
 		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyForRing]
-		for i := 0; i < outputRingSize; i++ {
+		for i := 0; i < len(outputRingRandValues); i++ {
 			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
-				coinAddress:        outputCoinAddressMap[nOutRand[i]],
-				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutRand[i]],
-				value:              outputValuesRand[i],
+				coinAddress:        outputCoinAddressMap[nOutRands[i]],
+				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutRands[i]],
+				value:              outputRingRandValues[i],
 			})
+
 		}
 	}
 
-	if outputSingleSize != 0 {
-		outputValuesSingle := outputValues[outputRingPreSize+outputRingSize:]
-
-		nOutSingle := generateNWithBound(outputSingleSize, numSingle)
+	if len(outputSingleValues) != 0 {
+		nOutSingle := generateNWithBound(len(outputSingleValues), numSingle)
 		outputCoinAddressMap := coinAddressMapping[CoinAddressTypePublicKeyHashForSingle]
 		outputCoinValuePublicKeyMap := coinValuePublicKeyMap[CoinAddressTypePublicKeyHashForSingle]
-		for i := 0; i < outputRingSize; i++ {
+		for i := 0; i < len(outputSingleValues); i++ {
 			txOutputDescMLPS = append(txOutputDescMLPS, &TxOutputDescMLP{
 				coinAddress:        outputCoinAddressMap[nOutSingle[i]],
 				coinValuePublicKey: outputCoinValuePublicKeyMap[nOutSingle[i]],
-				value:              outputValuesSingle[i],
+				value:              outputSingleValues[i],
 			})
 		}
 	}
 
+	return txOutputDescMLPS
+
+}
+func GenerateOutput(totalRingValue uint64, totalSingleValue uint64, outputRingPreNum int, outputRingNum int, outputSingleNum int) (txOutputDescMLPS []*TxOutputDescMLP, outputValues []uint64) {
+	outputValues = SplitNum(totalRingValue, outputRingPreNum+outputRingNum)
+	outputValues = append(outputValues, SplitNum(totalSingleValue, outputSingleNum)...)
+	txOutputDescMLPS = GenerateOutputWithValues(outputValues[:outputRingPreNum], outputValues[outputRingPreNum:outputRingPreNum+outputRingNum], outputValues[outputRingPreNum+outputRingNum:])
 	return txOutputDescMLPS, outputValues
 }
 
 func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
 	InitialAddress()
-	inputRingPreSize := 1
-	inputRingRandSize := 0
-	inputSingleSize := 0
+	// for all witness type
+	inputRingPreSize := 0
+	inputRingRandSize := 5
+	inputSingleSize := 100
 
 	outputRingPreSize := 1
 	outputRingRandSize := 1
@@ -1640,13 +1771,17 @@ func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
 
 	testCaseName := fmt.Sprintf("Input[%d][%d][%d] -> Output[%d][%d][%d]", inputRingPreSize, inputRingRandSize, inputSingleSize, outputRingPreSize, outputRingRandSize, outputSingleSize)
 	t.Run(testCaseName, func(t *testing.T) {
-		txInputDescMLPs, totalInputValue, inputValues := GenerateInput(inputRingPreSize, inputRingRandSize, inputSingleSize)
-		fee := uint64(rand.Intn(int(totalInputValue)))
-		totalOutputValue := totalInputValue - fee
-		txOutputDescMLPs, outputValues := GenerateOutput(totalOutputValue, outputRingPreSize, outputRingRandSize, outputSingleSize)
+		txInputDescMLPs, totalInputValueForRing, totalInputValueForSingle, inputValues := GenerateInputWithTypeSize(inputRingPreSize, inputRingRandSize, inputSingleSize)
+		fee := uint64(rand.Intn(int(totalInputValueForRing + totalInputValueForSingle)))
+		totalOutputValue := totalInputValueForRing + totalInputValueForSingle - fee
+
+		outputValueForRing := uint64(rand.Intn(int(totalOutputValue) - outputSingleSize))
+		outputValueForSingle := totalOutputValue - (outputValueForRing)
+
+		txOutputDescMLPs, outputValues := GenerateOutput(outputValueForRing, outputValueForSingle, outputRingPreSize, outputRingRandSize, outputSingleSize)
 
 		t.Logf("TestCase:%s", testCaseName)
-		t.Logf("inputValues = %v", inputValues)
+		t.Logf("InputValues = %v", inputValues)
 		t.Logf("outputValues = %v", outputValues)
 		t.Logf("fee = %v", fee)
 
@@ -1672,4 +1807,296 @@ func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify(t *testing.T) {
 			return
 		}
 	})
+}
+
+func TestPublicParameter_TransferTxMLPGen_TransferTxMLPVerify_For_All_Witness_Type_Case(t *testing.T) {
+	InitialAddress()
+
+	tests := []struct {
+		name              string
+		inputRingPreSize  int
+		inputRingRandSize int
+		inputSingleSize   int
+
+		outputRingPreSize  int
+		outputRingRandSize int
+		outputSingleSize   int
+
+		expectedWitnessCase TxWitnessTrTxCase
+	}{
+		{
+			name: "I0C0",
+			// ensure  inputRingPreSize +  inputRingRandSize = 0
+			inputRingPreSize:  0,
+			inputRingRandSize: 0,
+			inputSingleSize:   100,
+
+			// ensure  outputRingPreSize +  outputRingRandSize = 0
+			outputRingPreSize:   0,
+			outputRingRandSize:  0,
+			outputSingleSize:    100,
+			expectedWitnessCase: TxWitnessTrTxCaseI0C0,
+		},
+		{
+			name: "I0C1",
+			// ensure  inputRingPreSize +  inputRingRandSize = 0
+			inputRingPreSize:  0,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+
+			// ensure  outputRingPreSize +  outputRingRandSize = 1
+			outputRingPreSize:   0,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI0C1,
+		},
+		{
+			name: "I0Cn",
+			// ensure  inputRingPreSize +  inputRingRandSize = 0
+			inputRingPreSize:  0,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >= 2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI0Cn,
+		},
+		{
+			name: "I1C0",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize = 0
+			outputRingPreSize:   0,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1C0,
+		},
+		{
+			name: "I1C10",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+
+			// ensure  outputRingPreSize +  outputRingRandSize = 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1C1Exact,
+		},
+
+		{
+			name: "I1C1+",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize = 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1C1CAdd,
+		},
+		{
+			name: "I1C1-",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize = 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1C1IAdd,
+		},
+		{
+			name: "I1Cn0",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >= 2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1CnExact,
+		},
+		{
+			name: "I1Cn+",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >=2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1CnCAdd,
+		},
+		{
+			name: "I1Cn-",
+			// ensure  inputRingPreSize +  inputRingRandSize = 1
+			inputRingPreSize:  1,
+			inputRingRandSize: 0,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >=2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseI1CnIAdd,
+		},
+		{
+			name: "ImC0",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize == 0
+			outputRingPreSize:   0,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImC0,
+		},
+		{
+			name: "ImC10",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize == 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImC1Exact,
+		},
+		{
+			name: "ImC1+",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize == 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImC1CAdd,
+		},
+		{
+			name: "ImC1-",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize == 1
+			outputRingPreSize:   1,
+			outputRingRandSize:  0,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImC1IAdd,
+		},
+		{
+			name: "ImCn0",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >= 2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImCnExact,
+		},
+		{
+			name: "ImCn+",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >= 2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImCnCAdd,
+		},
+		{
+			name: "ImCn-",
+			// ensure  inputRingPreSize +  inputRingRandSize >= 2
+			inputRingPreSize:  1,
+			inputRingRandSize: 1,
+			inputSingleSize:   2,
+			// ensure  outputRingPreSize +  outputRingRandSize >= 2
+			outputRingPreSize:   1,
+			outputRingRandSize:  1,
+			outputSingleSize:    10,
+			expectedWitnessCase: TxWitnessTrTxCaseImCnIAdd,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("TestCase:%s", fmt.Sprintf("Input[%d][%d][%d] -> Output[%d][%d][%d]", tt.inputRingPreSize, tt.inputRingRandSize, tt.inputSingleSize, tt.outputRingPreSize, tt.outputRingRandSize, tt.outputSingleSize))
+			txInputDescMLPs, totalInputValueForRing, totalInputValueForSingle, inputValues := GenerateInputWithTypeSize(tt.inputRingPreSize, tt.inputRingRandSize, tt.inputSingleSize)
+			t.Logf("InputValues = %v, totalInputValueForRing = %v, totalInputValueForSingle = %v", inputValues, totalInputValueForRing, totalInputValueForSingle)
+
+			var fee uint64
+			var totalOutputValueForSingle uint64
+			if strings.HasSuffix(txWitnessTrTxCaseMapping[tt.expectedWitnessCase], "Exact") {
+				// tt.outputRingPreSize + tt.outputRingRandSize >= 1
+
+				// fee +  totalOutputValueForSingle  ==  totalInputValueForSingle
+				fee = uint64(rand.Intn(int(totalInputValueForSingle)))
+				totalOutputValueForSingle = totalInputValueForSingle - fee
+			} else if strings.HasSuffix(txWitnessTrTxCaseMapping[tt.expectedWitnessCase], "IAdd") {
+				// tt.outputRingPreSize + tt.outputRingRandSize >= 1
+
+				// fee +  totalOutputValueForSingle  <  totalInputValueForSingle
+				feeAndTotalOutputValueForSingle := uint64(rand.Intn(int(totalInputValueForSingle) - tt.outputSingleSize))
+				fee = uint64(rand.Intn(int(feeAndTotalOutputValueForSingle)))
+				totalOutputValueForSingle = feeAndTotalOutputValueForSingle - fee // ensure totalOutputValueForSingle > tt.outputSingleSize
+			} else if strings.HasSuffix(txWitnessTrTxCaseMapping[tt.expectedWitnessCase], "CAdd") {
+				// tt.outputRingPreSize + tt.outputRingRandSize >= 1
+
+				// fee +  totalOutputValueForSingle  >  totalInputValueForSingle
+				feeAndTotalOutputValueForSingle := uint64(rand.Intn(int(totalInputValueForRing))) + totalInputValueForSingle
+				fee = uint64(rand.Intn(int(feeAndTotalOutputValueForSingle)))
+				totalOutputValueForSingle = feeAndTotalOutputValueForSingle - fee
+			} else {
+				fee = uint64(rand.Intn(int(totalInputValueForRing+totalInputValueForSingle) - tt.outputSingleSize))
+				totalOutputValueForSingle = uint64(rand.Intn(int(totalInputValueForRing+totalInputValueForSingle-fee))) + uint64(tt.outputSingleSize)
+				if tt.outputRingPreSize+tt.outputRingRandSize == 0 {
+					totalOutputValueForSingle = totalInputValueForRing + totalInputValueForSingle - fee
+				}
+			}
+			totalOutputValueForRing := totalInputValueForRing + totalInputValueForSingle - fee - totalOutputValueForSingle
+			txOutputDescMLPs, outputValues := GenerateOutput(totalOutputValueForRing, totalOutputValueForSingle, tt.outputRingPreSize, tt.outputRingRandSize, tt.outputSingleSize)
+			t.Logf("outputValues = %v, totalOutputValueForRing = %v, totalInputValueForRing = %v", outputValues, totalOutputValueForRing, totalInputValueForRing)
+			t.Logf("fee = %v", fee)
+
+			trTx, err := pp.TransferTxMLPGen(
+				txInputDescMLPs,
+				txOutputDescMLPs,
+				fee,
+				RandomBytes(10))
+			if err != nil {
+				t.Errorf("TransferTxMLPGen() error = %v, wantErr %v", err, false)
+				return
+			}
+			if trTx == nil {
+				t.Errorf("TransferTxMLPGen() error = %v, want %v", err, true)
+				return
+			}
+
+			t.Logf("Transfer Witness Case:%s", txWitnessTrTxCaseMapping[trTx.txWitness.TxCase()])
+			if trTx.txWitness.TxCase() != tt.expectedWitnessCase {
+				t.Errorf("expect witness case %s, but got %s", txWitnessTrTxCaseMapping[tt.expectedWitnessCase], txWitnessTrTxCaseMapping[trTx.txWitness.TxCase()])
+			}
+
+			err = pp.TransferTxMLPVerify(trTx)
+			if err != nil {
+				t.Errorf("TransferTxMLPVerify() error = %v, wantVerifyErr %v", err, true)
+				return
+			}
+		})
+	}
 }
