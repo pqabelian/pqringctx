@@ -51,7 +51,7 @@ type Txo struct {
 //}
 
 type ValueCommitment struct {
-	b *PolyCNTTVec //	binding vector
+	b *PolyCNTTVec //	binding vector with length PublicParameter.paramKC
 	c *PolyCNTT    //	commitment
 }
 

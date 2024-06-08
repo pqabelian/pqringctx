@@ -501,6 +501,7 @@ func (pp *PublicParameter) expandValuePadRandomness(seed []byte) ([]byte, error)
 
 // expandAddressSKsp() expand s \in (S_{\gamma_a})^{L_a} from input seed.
 // To be self-completed, this function append 'ASKSP' before seed to form the real used seed.
+// vector length PublicParameter.paramLA
 func (pp *PublicParameter) expandAddressSKsp(seed []byte) (*PolyAVec, error) {
 	if len(seed) == 0 {
 		//	for such an expand function, the seed should not be empty.
@@ -556,6 +557,7 @@ func (pp *PublicParameter) expandAddressSKsn(seed []byte) (*PolyANTT, error) {
 // review done 0413
 // expandValueCmtRandomness() expand r \in (\chi^{d_c})^{L_c} from a given seed.
 // \chi^{d_c} is regarded as a polyC, and r is regarded as a PolyCVec
+// vector length PublicParameter.paramLC
 func (pp *PublicParameter) expandValueCmtRandomness(seed []byte) (*PolyCVec, error) {
 	if len(seed) == 0 {
 		return nil, ErrLength
@@ -580,6 +582,7 @@ func (pp *PublicParameter) expandValueCmtRandomness(seed []byte) (*PolyCVec, err
 
 // sampleValueCmtRandomness() return a random r \in (\chi^{d_c})^{L_c}.
 // \chi^{d_c} is regarded as a polyC, and r is regarded as a PolyCVec
+// vector length PublicParameter.paramLC
 func (pp *PublicParameter) sampleValueCmtRandomness() (*PolyCVec, error) {
 	var err error
 	rst := pp.NewPolyCVec(pp.paramLC)
@@ -649,6 +652,7 @@ func (pp *PublicParameter) randomPolyCinDistributionChi(seed []byte) (*PolyC, er
 }
 
 // sampleMaskingVecA() returns a masking vector y \in (S_{eta_a})^{L_a}.
+// vector length PublicParameter.paramLA
 func (pp *PublicParameter) sampleMaskingVecA() (*PolyAVec, error) {
 	rst := pp.NewPolyAVec(pp.paramLA)
 
@@ -663,6 +667,7 @@ func (pp *PublicParameter) sampleMaskingVecA() (*PolyAVec, error) {
 }
 
 // sampleMaskingVecC() returns a masking vector y \in (S_{eta_c})^{L_c}
+// vector length PublicParameter.paramLC
 func (pp *PublicParameter) sampleMaskingVecC() (*PolyCVec, error) {
 	// etaC
 	var err error
@@ -684,6 +689,7 @@ func (pp *PublicParameter) sampleMaskingVecC() (*PolyCVec, error) {
 
 // sampleResponseA() returns a PolyAVec with length paramLa,
 // where each coefficient lies in [-(eta_a-beta_a), (eta_a-beta_a)], where eta_a = 2^{19}-1, beta_a = 300
+// vector length PublicParameter.paramLA
 func (pp *PublicParameter) sampleResponseA() (*PolyAVec, error) {
 	rst := pp.NewPolyAVec(pp.paramLA)
 
@@ -700,6 +706,7 @@ func (pp *PublicParameter) sampleResponseA() (*PolyAVec, error) {
 
 // sampleResponseC() returns a PolyCVec with length paramLc,
 // where each coefficient lies in [-(eta_c - beta_c), (eta_c - beta_c)]
+// vector length PublicParameter.paramLC
 func (pp *PublicParameter) sampleResponseC() (*PolyCVec, error) {
 	rst := pp.NewPolyCVec(pp.paramLC)
 
@@ -714,7 +721,7 @@ func (pp *PublicParameter) sampleResponseC() (*PolyCVec, error) {
 }
 
 // 9007199254746113 = 0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_0100_0000_0001
-// 4503599627373056 = 0001_0000_0000_0000_0000_0000_0000_0000_0000_0000_000_1010_0000_0000
+// 4503599627373056 = 0001_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1010_0000_0000
 //
 //	randomDcIntegersInQc() outputs Dc int64,  by sampling uniformly (when seed is nil) or expanding from a seed (when seed is not nil)
 //	Each integer lies in [-(Q_c-1)/2, (Q_c-2)/2].
@@ -1031,6 +1038,10 @@ func (pp *PublicParameter) expandChallengeC(seed []byte) (*PolyC, error) {
 	return rst, nil
 }
 
+// samplePloyCWithLowZeros would generate [0,0,...0,x,...,x]
+// *                                                ^
+// *                                                |
+// *                                      PublicParameter.paramK
 func (pp *PublicParameter) samplePloyCWithLowZeros() (*PolyC, error) {
 
 	coeffs, err := pp.randomDcIntegersInQc(nil)
@@ -1071,6 +1082,7 @@ func (pp *PublicParameter) samplePloyCWithLowZeros() (*PolyC, error) {
 //	return rst
 //}
 
+// expandBinaryMatrix expand from seed, matrix would have binary element
 func expandBinaryMatrix(seed []byte, rownum int, colnum int) (binM [][]byte, err error) {
 	if len(seed) == 0 {
 		//	for such an expand function, the seed should not be empty.

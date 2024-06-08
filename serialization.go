@@ -149,7 +149,7 @@ func (pp *PublicParameter) readPolyANTTVec(r io.Reader) (*PolyANTTVec, error) {
 	return &PolyANTTVec{polyANTTs: res}, nil
 }
 
-// PolyASerializeSizeEta() returns the serialize size of a PolyA in S_{eta_a - beta_a},
+// PolyASerializeSizeEta returns the serialize size of a PolyA in S_{eta_a - beta_a},
 // where eta_a = 2^19 -1 is a 19-bits number.
 // For each coefficient is in [-(eta_a - beta_a), (eta_a - beta_a)],
 // we use 20-bits (19 bits for absolute and 1 bit for signal) to serialize/encode it.
@@ -169,7 +169,7 @@ func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 	tmp := make([]byte, 5)
 	for i := 0; i < pp.paramDA; i = i + 2 {
 		lowCoeff = a.coeffs[i]
-		highCoeff = a.coeffs[i+1]
+		highCoeff = a.coeffs[i+1] // assume paramDA is even, otherwise would panic here
 
 		tmp[0] = byte(lowCoeff >> 0)
 		tmp[1] = byte(lowCoeff >> 8)
@@ -630,7 +630,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	return rst, nil
 }
 
-// PolyCVecSerializeSizeEtaByVecLen can compute the seralized size for a PolyCVec with vecLen.
+// PolyCVecSerializeSizeEtaByVecLen can compute the serialized size for a PolyCVec with vecLen.
 // reviewed on 2023.12.05
 func (pp *PublicParameter) PolyCVecSerializeSizeEtaByVecLen(vecLen int) int {
 	if vecLen <= 0 {

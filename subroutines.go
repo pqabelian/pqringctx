@@ -255,7 +255,7 @@ func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m u
 		return nil, nil, nil, errors.New("expandCombChallengeInRpulp: seed is empty")
 	}
 
-	// alpha
+	// alpha with length n1
 	alphas = make([]*PolyCNTT, n1)
 
 	alphaSeed := append([]byte{'A'}, seed...)
@@ -273,7 +273,7 @@ func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m u
 		alphas[i] = &PolyCNTT{coeffs}
 	}
 
-	// betas
+	// betas with length paramK
 	betas = make([]*PolyCNTT, pp.paramK)
 
 	betaSeed := append([]byte{'B'}, seed...)
@@ -290,13 +290,13 @@ func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m u
 		betas[i] = &PolyCNTT{coeffs}
 	}
 
-	// gammas
+	// gammas with paramK x m
 	gammas = make([][][]int64, pp.paramK)
 
 	gammaSeed := append([]byte{'G'}, seed...)
 	tmpSeedLen = len(gammaSeed) + 2 //	1 byte for index in [0, paramK], 1 byte for index in [0, m-1]
 	tmpSeed = make([]byte, tmpSeedLen)
-	for i := 0; i < pp.paramK; i++ {
+	for i := 0; i < pp.paramK; i++ { // assume paramK < 256
 		gammas[i] = make([][]int64, m)
 		for j := uint8(0); j < m; j++ {
 			copy(tmpSeed, gammaSeed)
