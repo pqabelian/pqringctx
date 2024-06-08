@@ -939,12 +939,18 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 
 	xof := sha3.NewShake128()
 	xof.Reset()
-	xof.Write(tmpSeed)
+	_, err := xof.Write(tmpSeed)
+	if err != nil {
+		return nil, err
+	}
 	// because the ThetaA must less than DA, so there would use the
 	// 8-th binary for Setting and 0-th to 7-th for Shuffling.
 	// Setting
 	buf := make([]byte, (pp.paramThetaA+7)/8)
-	xof.Read(buf)
+	_, err = xof.Read(buf)
+	if err != nil {
+		return nil, err
+	}
 	signs := uint64(0)
 	for i := 0; i < 8; i++ {
 		signs |= uint64(buf[i]) << (8 * i)
@@ -953,14 +959,20 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 	coeffs := make([]int64, pp.paramDA)
 	buf = make([]byte, pp.paramDA)
 	pos := 0
-	xof.Read(buf)
+	_, err = xof.Read(buf)
+	if err != nil {
+		return nil, err
+	}
 	for i := int64(pp.paramDA - pp.paramThetaA); i < int64(pp.paramDA); i++ {
 		b := int64(pp.paramDA)
 		for b > i && pos < len(buf) {
 			b = int64(buf[pos])
 			pos++
 			if pos == len(buf) {
-				xof.Read(buf)
+				_, err = xof.Read(buf)
+				if err != nil {
+					return nil, err
+				}
 				pos = 0
 			}
 		}
