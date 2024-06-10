@@ -2,6 +2,7 @@ package pqringctx
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 )
 
@@ -283,6 +284,9 @@ func (pp *PublicParameter) NTTInvPolyCVec(polyCNTTVec *PolyCNTTVec) (polyCVec *P
 }
 
 func (pp *PublicParameter) PolyCNTTAdd(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
+	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
+		log.Panic("the length of the input polyCNTT is not paramDC")
+	}
 	rst := pp.NewPolyCNTT()
 	//	var tmp, tmp1, tmp2 big.Int
 	for i := 0; i < pp.paramDC; i++ {
@@ -296,6 +300,9 @@ func (pp *PublicParameter) PolyCNTTAdd(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 }
 
 func (pp *PublicParameter) PolyCNTTSub(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
+	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
+		log.Panic("the length of the input polyCNTT is not paramDC")
+	}
 	rst := pp.NewPolyCNTT()
 	//	var tmp, tmp1, tmp2 big.Int
 	for i := 0; i < pp.paramDC; i++ {
@@ -309,6 +316,10 @@ func (pp *PublicParameter) PolyCNTTSub(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 }
 
 func (pp *PublicParameter) PolyCNTTMul(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
+	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
+		log.Panic("PolyCNTTMul: the length of the input polyCNTT is not paramDC")
+	}
+
 	bigQc := new(big.Int).SetInt64(pp.paramQC)
 
 	rst := pp.NewPolyCNTT()
@@ -325,6 +336,9 @@ func (pp *PublicParameter) PolyCNTTMul(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 }
 
 func (pp *PublicParameter) PolyCNTTVecAdd(a *PolyCNTTVec, b *PolyCNTTVec, vecLen int) (r *PolyCNTTVec) {
+	if len(a.polyCNTTs) != vecLen || len(b.polyCNTTs) != vecLen {
+		log.Panic("PolyCNTTVecAdd: the length of the input polyCNTT should be specific length")
+	}
 	var rst = pp.NewPolyCNTTVec(vecLen)
 	for i := 0; i < vecLen; i++ {
 		rst.polyCNTTs[i] = pp.PolyCNTTAdd(a.polyCNTTs[i], b.polyCNTTs[i])
@@ -333,6 +347,9 @@ func (pp *PublicParameter) PolyCNTTVecAdd(a *PolyCNTTVec, b *PolyCNTTVec, vecLen
 }
 
 func (pp *PublicParameter) PolyCNTTVecSub(a *PolyCNTTVec, b *PolyCNTTVec, vecLen int) (r *PolyCNTTVec) {
+	if len(a.polyCNTTs) != vecLen || len(b.polyCNTTs) != vecLen {
+		log.Panic("PolyCNTTVecSub: the length of the input polyCNTT should be specific length")
+	}
 	var rst = pp.NewPolyCNTTVec(vecLen)
 	for i := 0; i < vecLen; i++ {
 		rst.polyCNTTs[i] = pp.PolyCNTTSub(a.polyCNTTs[i], b.polyCNTTs[i])
@@ -341,6 +358,9 @@ func (pp *PublicParameter) PolyCNTTVecSub(a *PolyCNTTVec, b *PolyCNTTVec, vecLen
 }
 
 func (pp *PublicParameter) PolyCNTTVecInnerProduct(a *PolyCNTTVec, b *PolyCNTTVec, vecLen int) (r *PolyCNTT) {
+	if len(a.polyCNTTs) != vecLen || len(b.polyCNTTs) != vecLen {
+		log.Panic("PolyCNTTVecInnerProduct: the length of the input polyCNTT should be specific length")
+	}
 	var rst = pp.NewZeroPolyCNTT()
 	for i := 0; i < vecLen; i++ {
 		tmp := pp.PolyCNTTMul(a.polyCNTTs[i], b.polyCNTTs[i])
@@ -350,6 +370,9 @@ func (pp *PublicParameter) PolyCNTTVecInnerProduct(a *PolyCNTTVec, b *PolyCNTTVe
 }
 
 func (pp *PublicParameter) PolyCNTTMatrixMulVector(M []*PolyCNTTVec, vec *PolyCNTTVec, rowNum int, vecLen int) (r *PolyCNTTVec) {
+	if len(M) != rowNum {
+		log.Panic("PolyCNTTMatrixMulVector: the length of the input matrix and vector should be specific lengths")
+	}
 	rst := pp.NewPolyCNTTVec(rowNum)
 	for i := 0; i < rowNum; i++ {
 		rst.polyCNTTs[i] = pp.PolyCNTTVecInnerProduct(M[i], vec, vecLen)
@@ -360,6 +383,9 @@ func (pp *PublicParameter) PolyCNTTMatrixMulVector(M []*PolyCNTTVec, vec *PolyCN
 func (pp *PublicParameter) PolyCNTTVecScaleMul(polyCNTTScale *PolyCNTT, polyCNTTVec *PolyCNTTVec, vecLen int) (r *PolyCNTTVec) {
 	if polyCNTTScale == nil || polyCNTTVec == nil {
 		return nil
+	}
+	if vecLen > len(polyCNTTVec.polyCNTTs) {
+		log.Panic("PolyCNTTVecScaleMul: vecLen is bigger than the length of polyCNTTVec")
 	}
 
 	rst := pp.NewPolyCNTTVec(vecLen)
