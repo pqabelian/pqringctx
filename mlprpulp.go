@@ -342,30 +342,30 @@ rpUlpProveMLPRestart:
 
 			//			fmt.Println("t:", t) //	remove this line after test
 
-			//	remove after test	begin
-			jSum := pp.NewZeroPolyCNTTVec(pp.paramLC)
-			for j := uint8(0); j < n2; j++ {
-				jSum = pp.PolyCNTTVecAdd(
-					jSum,
-					pp.PolyCNTTVecScaleMul(p[t][j], pp.paramMatrixH[j+1], pp.paramLC),
-					pp.paramLC)
-			}
-
-			//			fmt.Println("jSum:", jSum) //	remove this line after test
-
-			tauSumOld := pp.NewZeroPolyCNTT()
-			for tau := 0; tau < pp.paramK; tau++ {
-				tauSumOld = pp.PolyCNTTAdd(
-					tauSumOld,
-					pp.sigmaPowerPolyCNTT(
-						pp.PolyCNTTVecInnerProduct(jSum, ys[(xi-tau+pp.paramK)%pp.paramK], pp.paramLC),
-						tau),
-				)
-			}
-			fmt.Println("xi, t, jSum :", xi, t, jSum)
-			fmt.Println("xi, t, jSums:", xi, t, jSums[t])
-			fmt.Println("tauSumByJSum:", tauSumOld)
-			//	remove after test	end
+			////	remove after test	begin
+			//jSum := pp.NewZeroPolyCNTTVec(pp.paramLC)
+			//for j := uint8(0); j < n2; j++ {
+			//	jSum = pp.PolyCNTTVecAdd(
+			//		jSum,
+			//		pp.PolyCNTTVecScaleMul(p[t][j], pp.paramMatrixH[j+1], pp.paramLC),
+			//		pp.paramLC)
+			//}
+			//
+			////			fmt.Println("jSum:", jSum) //	remove this line after test
+			//
+			//tauSumOld := pp.NewZeroPolyCNTT()
+			//for tau := 0; tau < pp.paramK; tau++ {
+			//	tauSumOld = pp.PolyCNTTAdd(
+			//		tauSumOld,
+			//		pp.sigmaPowerPolyCNTT(
+			//			pp.PolyCNTTVecInnerProduct(jSum, ys[(xi-tau+pp.paramK)%pp.paramK], pp.paramLC),
+			//			tau),
+			//	)
+			//}
+			//fmt.Println("xi, t, jSum :", xi, t, jSum)
+			//fmt.Println("xi, t, jSums:", xi, t, jSums[t])
+			//fmt.Println("tauSumByJSum:", tauSumOld)
+			////	remove after test	end
 
 			tauSum := pp.NewZeroPolyCNTT()
 			for tau := 0; tau < pp.paramK; tau++ {
@@ -376,7 +376,7 @@ rpUlpProveMLPRestart:
 						tau),
 				)
 			}
-			fmt.Println("tauSumByJSums:", tauSum) // remove this line after test
+			//fmt.Println("tauSumByJSums:", tauSum) // remove this line after test
 
 			//			fmt.Println("tauSum:", tauSum)
 
@@ -965,7 +965,7 @@ func (pp *PublicParameter) rpulpVerifyMLP(message []byte,
 
 		for t := 0; t < pp.paramK; t++ {
 
-			fmt.Println("t:", t) // remove this line after test
+			//fmt.Println("t:", t) // remove this line after test
 
 			jSum := pp.NewZeroPolyCNTTVec(pp.paramLC)
 
