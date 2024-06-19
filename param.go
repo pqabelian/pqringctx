@@ -189,7 +189,7 @@ func NewPublicParameter(
 }
 
 type PublicParameter struct {
-	// Paramter for Address
+	// Parameter for Address
 	paramDA int
 	paramQA int64
 	// For challenge
@@ -255,7 +255,7 @@ type PublicParameter struct {
 	// where \zeta is a primitive 2d-th root of unity in Z_q^*.
 	// For efficiency, q is expected to small. Considering the security, q (approx.)= 2^32 is fine.
 	// For uint32, q lies in [0, 2^32-1], and Z_q = [-(q-1)/2, (q-1)/1], int32 will be fine to denote the values in Z_q.
-	// q_m = (q-1)/2, as this value will be often used in computation, we define it as a parameter, rather than compute it each time.
+	// q_m = (q-1)/2, as this value will often be used in computation, we define it as a parameter, rather than compute it each time.
 	paramQC int64
 	// paramK is a power of two such that k|d and q^{-k} is negligible.
 	// As we will also loop for k, we define it with 'int' type.
@@ -283,7 +283,7 @@ type PublicParameter struct {
 	paramKeyGenPublicRandBytesLen int
 
 	// Some Helpful parameter
-	/*	// paramQCm = (q_c -1)/2, as this value will be often used in computation, we define it as a parameter, rather than compute it each time.
+	/*	// paramQCm = (q_c -1)/2, as this value will often be used in computation, we define it as a parameter, rather than compute it each time.
 		paramQCm int64*/
 	//paramDCInv = d_c^{-1} mod q_c
 	paramDCInv int64
@@ -313,9 +313,9 @@ type PublicParameter struct {
 
 	// paramMatrixA expands from paramParameterSeedString, with size k_a(paramKA) rows, each row with size l_a(paramLA)
 	//
-	//*                 paramKA
-	// *                    |
-	// *                    v
+	//*                 paramKA			paramKA+(1+paramLAMBDA)
+	// *                    |			 |
+	// *                    v			v
 	// * [ unit    0  ...   0   x ... x ]
 	// * [   0   unit ...   0   x ... x ]
 	// * ...
@@ -324,10 +324,10 @@ type PublicParameter struct {
 
 	// paramVectorA expands from paramParameterSeedString, with size l_a (paramLA)
 	//
-	// *             paramKA
-	// *                |
-	// *                v
-	// * [ 0 0  ... 0 unit  x ... x ]
+	// *            paramKA 	paramKA+1	paramKA+(1+paramLAMBDA)
+	// *              |  		|			|
+	// *              v  		v			v
+	// * [ 0 0  ... 0 			unit  x ... x ]
 	paramVectorA *PolyANTTVec
 
 	//paramMatrixB expands from paramParameterSeedString, with size k_c(paramKC) rows, each row with size l_c(paramLC)
@@ -384,6 +384,7 @@ type PublicParameter struct {
 // * ...
 // * [   0     0  ... unit  x ... x ]
 // For ease of use, the returned representation will be the NTT representation instead of the original representation
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) expandPubMatrixA(seed []byte) ([]*PolyANTTVec, error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixA: the seed is empty")
@@ -426,11 +427,12 @@ func (pp *PublicParameter) expandPubMatrixA(seed []byte) ([]*PolyANTTVec, error)
 // unit = [1,0,...,0] in S_{q_a}^{d_a}
 // 0 is zero element in  S_{q_a}^{d_a}
 // x is random element in S_{q_a}^{d_a}
-// *         PublicParameter.paramKA
+// *         PublicParameter.paramKA+1
 // *                |
 // *                v
 // * [ 0 0  ... 0 unit  x ... x ]
 // For ease of use, the returned representation will be the NTT representation instead of the original representation
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) expandPubVectorA(seed []byte) (*PolyANTTVec, error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubVectorA: the seed is empty")
@@ -472,6 +474,7 @@ func (pp *PublicParameter) expandPubVectorA(seed []byte) (*PolyANTTVec, error) {
 // * ...
 // * [   0     0  ... unit  y ... y ]
 // For ease of use, the returned representation will be the NTT representation instead of the original representation
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec, err error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixB: the seed is empty")
@@ -517,11 +520,12 @@ func (pp *PublicParameter) expandPubMatrixB(seed []byte) (matrixB []*PolyCNTTVec
 // *    PublicParameter.paramKC       |
 // *                |                 |
 // *                v                 v
-// * [   0  0  ...  0 unit   0  ...   0    y ... y ]
-// * [   0  0  ...  0   0  unit ...   0    y ... y ]
+// * [   0  0  ...  0 unit   0  ...   0    y ... y ]		h
+// * [   0  0  ...  0   0  unit ...   0    y ... y ]		h_1
 // * ...
-// * [   0  0  ...  0   0    0  ... unit   y ... y ]
+// * [   0  0  ...  0   0    0  ... unit   y ... y ]		h_{Imax+Jmax+6}
 // For ease of use, the returned representation will be the NTT representation instead of the original representation
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec, err error) {
 	if len(seed) == 0 {
 		return nil, errors.New("expandPubMatrixH: the seed is empty")
@@ -557,6 +561,7 @@ func (pp *PublicParameter) expandPubMatrixH(seed []byte) (matrixH []*PolyCNTTVec
 }
 
 // Initialize is the init function, it must be called explicitly when using this package
+// reviewed by Alice, 2024.06.18
 func Initialize(parameterSeedString []byte) *PublicParameter {
 	var err error
 	var defaultPP *PublicParameter
@@ -650,6 +655,8 @@ func Initialize(parameterSeedString []byte) *PublicParameter {
 	return defaultPP
 }
 
+// GetParamSeedBytesLen
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetParamSeedBytesLen() int {
 	return pp.paramKeyGenSeedBytesLen
 }
@@ -666,37 +673,43 @@ func (pp *PublicParameter) GetParamMACKeyBytesLen() int {
 	return MACKeyBytesLen
 }
 
-// todo: review
+// GetParamMACOutputBytesLen
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetParamMACOutputBytesLen() int {
 	return MACOutputBytesLen
 }
 
 // GetTxInputMaxNumForRing returns the allowed maximum number of Inputs for Ring.
 // reviewed on 2024.01.01, by Alice
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetTxInputMaxNumForRing() uint8 {
 	return pp.paramI
 }
 
 // GetTxInputMaxNumForSingle returns the allowed maximum number of Inputs for Single.
 // reviewed on 2024.01.01, by Alice
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetTxInputMaxNumForSingle() uint8 {
 	return pp.paramISingle
 }
 
 // GetTxInputMaxNumForSingleDistinct returns the allowed maximum number of Inputs for Single with different coinAddresses.
 // reviewed on 2024.01.01, by Alice
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetTxInputMaxNumForSingleDistinct() uint8 {
 	return pp.paramISingleDistinct
 }
 
 // GetTxOutputMaxNumForRing returns the allowed maximum number of Outputs for Ring.
 // reviewed on 2024.01.01, by Alice
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetTxOutputMaxNumForRing() uint8 {
 	return pp.paramJ
 }
 
 // GetTxOutputMaxNumForSingle returns the allowed maximum number of Outputs for Single.
 // reviewed on 2024.01.01, by Alice
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) GetTxOutputMaxNumForSingle() uint8 {
 	return pp.paramJSingle
 }
