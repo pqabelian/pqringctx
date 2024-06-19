@@ -134,6 +134,8 @@ func (pp *PublicParameter) NTTPolyC(polyC *PolyC) *PolyCNTT {
 				tmp2.SetInt64(coeffs[k*segLen+i])
 				tmp1.Sub(&tmp1, &tmp)
 				tmp2.Add(&tmp2, &tmp)
+				tmp1.Mod(&tmp1, &qcBig)
+				tmp2.Mod(&tmp2, &qcBig)
 
 				//				coeffs[k*segLen+i] = tmp1
 				//				coeffs[k*segLen+i+segLenHalf] = tmp2
@@ -317,13 +319,13 @@ func (pp *PublicParameter) PolyCNTTAdd(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 		log.Panic("the length of the input polyCNTT is not paramDC")
 	}
 
-	bigQc := new(big.Int).SetInt64(pp.paramQC)
+	bigQc := big.NewInt(pp.paramQC)
 
 	rst := pp.NewPolyCNTT()
 
-	tmp := new(big.Int).SetInt64(1)
-	tmp1 := new(big.Int).SetInt64(1)
-	tmp2 := new(big.Int).SetInt64(1)
+	tmp := big.NewInt(1)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
 	for i := 0; i < pp.paramDC; i++ {
 		tmp1.SetInt64(a.coeffs[i])
 		tmp2.SetInt64(b.coeffs[i])
@@ -343,13 +345,13 @@ func (pp *PublicParameter) PolyCNTTSub(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 		log.Panic("the length of the input polyCNTT is not paramDC")
 	}
 
-	bigQc := new(big.Int).SetInt64(pp.paramQC)
+	bigQc := big.NewInt(pp.paramQC)
 
 	rst := pp.NewPolyCNTT()
 
-	tmp := new(big.Int).SetInt64(1)
-	tmp1 := new(big.Int).SetInt64(1)
-	tmp2 := new(big.Int).SetInt64(1)
+	tmp := big.NewInt(1)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
 	for i := 0; i < pp.paramDC; i++ {
 		tmp1.SetInt64(a.coeffs[i])
 		tmp2.SetInt64(b.coeffs[i])
@@ -369,12 +371,12 @@ func (pp *PublicParameter) PolyCNTTMul(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 		log.Panic("PolyCNTTMul: the length of the input polyCNTT is not paramDC")
 	}
 
-	bigQc := new(big.Int).SetInt64(pp.paramQC)
+	bigQc := big.NewInt(pp.paramQC)
 
 	rst := pp.NewPolyCNTT()
-	tmp := new(big.Int).SetInt64(1)
-	tmp1 := new(big.Int).SetInt64(1)
-	tmp2 := new(big.Int).SetInt64(1)
+	tmp := big.NewInt(1)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
 	for i := 0; i < pp.paramDC; i++ {
 		tmp1.SetInt64(a.coeffs[i])
 		tmp2.SetInt64(b.coeffs[i])
