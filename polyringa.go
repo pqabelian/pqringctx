@@ -112,6 +112,8 @@ func (pp *PublicParameter) NTTPolyA(polyA *PolyA) *PolyANTT {
 				tmp2.SetInt64(coeffs[k*segLen+i])
 				tmp1.Sub(&tmp1, &tmp)
 				tmp2.Add(&tmp2, &tmp)
+				tmp1.Mod(&tmp1, &qaBig)
+				tmp2.Mod(&tmp2, &qaBig)
 				//				coeffs[k*segLen+i] = tmp1
 				//				coeffs[k*segLen+i+segLenHalf] = tmp2
 				coeffs[k*segLen+i] = reduceInt64(tmp1.Int64(), pp.paramQA)
@@ -281,38 +283,52 @@ func (pp *PublicParameter) NTTInvPolyAVec(polyANTTVec *PolyANTTVec) (polyAVec *P
 
 // PolyANTTAdd
 // reviewed by Alice, 2024.06.18
+// todo: review
 func (pp *PublicParameter) PolyANTTAdd(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
 		log.Panic("PolyANTTAdd: the length of the input polyANTT is not paramDA")
 	}
 
+	bigQA := big.NewInt(pp.paramQA)
+
 	rst := pp.NewPolyANTT()
-	//	var tmp, tmp1, tmp2 big.Int
+
+	tmp := big.NewInt(1)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
 	for i := 0; i < pp.paramDA; i++ {
-		/*		tmp1.SetInt64(a.coeffs[i])
-				tmp2.SetInt64(b.coeffs[i])
-				tmp.Add(&tmp1, &tmp2)
-				rst.coeffs[i] = reduceBigInt(&tmp, pp.paramQA)*/
-		rst.coeffs[i] = reduceInt64(a.coeffs[i]+b.coeffs[i], pp.paramQA)
+		tmp1.SetInt64(a.coeffs[i])
+		tmp2.SetInt64(b.coeffs[i])
+		tmp.Add(tmp1, tmp2)
+		tmp.Mod(tmp, bigQA)
+
+		rst.coeffs[i] = reduceInt64(tmp.Int64(), pp.paramQA)
 	}
 	return rst
 }
 
 // PolyANTTSub
 // reviewed by Alice, 2024.06.18
+// todo: review
 func (pp *PublicParameter) PolyANTTSub(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
 		log.Panic("PolyANTTSub: the length of the input polyANTT is not paramDA")
 	}
 
+	bigQA := big.NewInt(pp.paramQA)
+
 	rst := pp.NewPolyANTT()
-	//	var tmp, tmp1, tmp2 big.Int
+
+	tmp := big.NewInt(1)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
 	for i := 0; i < pp.paramDA; i++ {
-		/*		tmp1.SetInt64(a.coeffs[i])
-				tmp2.SetInt64(b.coeffs[i])
-				tmp.Sub(&tmp1, &tmp2)
-				rst.coeffs[i] = reduceBigInt(&tmp, pp.paramQA)*/
-		rst.coeffs[i] = reduceInt64(a.coeffs[i]-b.coeffs[i], pp.paramQA)
+		tmp1.SetInt64(a.coeffs[i])
+		tmp2.SetInt64(b.coeffs[i])
+		tmp.Sub(tmp1, tmp2)
+		tmp.Mod(tmp, bigQA)
+
+		rst.coeffs[i] = reduceInt64(tmp.Int64(), pp.paramQA)
 	}
 	return rst
 }
