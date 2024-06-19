@@ -311,42 +311,59 @@ func (pp *PublicParameter) NTTInvPolyCVec(polyCNTTVec *PolyCNTTVec) (polyCVec *P
 
 // PolyCNTTAdd
 // reviewed by Alice, 2024.06.18
+// todo: review
 func (pp *PublicParameter) PolyCNTTAdd(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
 		log.Panic("the length of the input polyCNTT is not paramDC")
 	}
+
+	bigQc := new(big.Int).SetInt64(pp.paramQC)
+
 	rst := pp.NewPolyCNTT()
-	//	var tmp, tmp1, tmp2 big.Int
+
+	tmp := new(big.Int).SetInt64(1)
+	tmp1 := new(big.Int).SetInt64(1)
+	tmp2 := new(big.Int).SetInt64(1)
 	for i := 0; i < pp.paramDC; i++ {
-		/*		tmp1.SetInt64(a.coeffs[i])
-				tmp2.SetInt64(b.coeffs[i])
-				tmp.Add(&tmp1, &tmp2)
-				rst.coeffs[i] = reduceBigInt(&tmp, pp.paramQC)*/
-		rst.coeffs[i] = reduceInt64(a.coeffs[i]+b.coeffs[i], pp.paramQC)
+		tmp1.SetInt64(a.coeffs[i])
+		tmp2.SetInt64(b.coeffs[i])
+		tmp.Add(tmp1, tmp2)
+		tmp.Mod(tmp, bigQc)
+
+		rst.coeffs[i] = reduceInt64(tmp.Int64(), pp.paramQC)
 	}
 	return rst
 }
 
 // PolyCNTTSub
 // reviewed by Alice, 2024.06.18
+// todo: review
 func (pp *PublicParameter) PolyCNTTSub(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
 		log.Panic("the length of the input polyCNTT is not paramDC")
 	}
+
+	bigQc := new(big.Int).SetInt64(pp.paramQC)
+
 	rst := pp.NewPolyCNTT()
-	//	var tmp, tmp1, tmp2 big.Int
+
+	tmp := new(big.Int).SetInt64(1)
+	tmp1 := new(big.Int).SetInt64(1)
+	tmp2 := new(big.Int).SetInt64(1)
 	for i := 0; i < pp.paramDC; i++ {
-		/*		tmp1.SetInt64(a.coeffs[i])
-				tmp2.SetInt64(b.coeffs[i])
-				tmp.Sub(&tmp1, &tmp2)
-				rst.coeffs[i] = reduceBigInt(&tmp, pp.paramQC)*/
-		rst.coeffs[i] = reduceInt64(a.coeffs[i]-b.coeffs[i], pp.paramQC)
+		tmp1.SetInt64(a.coeffs[i])
+		tmp2.SetInt64(b.coeffs[i])
+		tmp.Sub(tmp1, tmp2)
+		tmp.Mod(tmp, bigQc)
+
+		rst.coeffs[i] = reduceInt64(tmp.Int64(), pp.paramQC)
 	}
 	return rst
 }
 
 // PolyCNTTMul
 // reviewed by Alice, 2024.06.18
+// todo: review
 func (pp *PublicParameter) PolyCNTTMul(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 	if len(a.coeffs) != pp.paramDC || len(b.coeffs) != pp.paramDC {
 		log.Panic("PolyCNTTMul: the length of the input polyCNTT is not paramDC")
@@ -355,13 +372,16 @@ func (pp *PublicParameter) PolyCNTTMul(a *PolyCNTT, b *PolyCNTT) (r *PolyCNTT) {
 	bigQc := new(big.Int).SetInt64(pp.paramQC)
 
 	rst := pp.NewPolyCNTT()
-	var tmp, tmp1, tmp2 big.Int
+	tmp := new(big.Int).SetInt64(1)
+	tmp1 := new(big.Int).SetInt64(1)
+	tmp2 := new(big.Int).SetInt64(1)
 	for i := 0; i < pp.paramDC; i++ {
 		tmp1.SetInt64(a.coeffs[i])
 		tmp2.SetInt64(b.coeffs[i])
-		tmp.Mul(&tmp1, &tmp2)
+		tmp.Mul(tmp1, tmp2)
 		//		rst.coeffs[i] = reduceBigInt(&tmp, pp.paramQC)
-		tmp.Mod(&tmp, bigQc)
+		tmp.Mod(tmp, bigQc)
+
 		rst.coeffs[i] = reduceInt64(tmp.Int64(), pp.paramQC)
 	}
 	return rst
