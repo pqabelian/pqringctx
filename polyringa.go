@@ -19,9 +19,14 @@ type PolyANTTVec struct {
 	polyANTTs []*PolyANTT
 }
 
+// NewPolyA
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewPolyA() *PolyA {
 	return &PolyA{coeffs: make([]int64, pp.paramDA)}
 }
+
+// NewZeroPolyA
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewZeroPolyA() *PolyA {
 	rst := &PolyA{coeffs: make([]int64, pp.paramDA)}
 	for i := 0; i < pp.paramDA; i++ {
@@ -29,9 +34,15 @@ func (pp *PublicParameter) NewZeroPolyA() *PolyA {
 	}
 	return rst
 }
+
+// NewPolyANTT
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewPolyANTT() *PolyANTT {
 	return &PolyANTT{coeffs: make([]int64, pp.paramDA)}
 }
+
+// NewZeroPolyANTT
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewZeroPolyANTT() *PolyANTT {
 	rst := &PolyANTT{coeffs: make([]int64, pp.paramDA)}
 	for i := 0; i < pp.paramDA; i++ {
@@ -40,6 +51,8 @@ func (pp *PublicParameter) NewZeroPolyANTT() *PolyANTT {
 	return rst
 }
 
+// infNorm
+// reviewed by Alice, 2024.06.18
 func (polyA *PolyA) infNorm() (infNorm int64) {
 	rst := int64(0)
 	for _, coeff := range polyA.coeffs {
@@ -52,6 +65,8 @@ func (polyA *PolyA) infNorm() (infNorm int64) {
 	return rst
 }
 
+// infNorm
+// reviewed by Alice, 2024.06.18
 func (polyAVec *PolyAVec) infNorm() (infNorm int64) {
 	rst := int64(0)
 	for _, polyA := range polyAVec.polyAs {
@@ -202,6 +217,8 @@ func (pp *PublicParameter) NTTInvPolyA(polyANTT *PolyANTT) (polyA *PolyA) {
 	return &PolyA{nttCoeffs}
 }
 
+// NewPolyAVec
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewPolyAVec(vecLen int) *PolyAVec {
 	polys := make([]*PolyA, vecLen)
 	for i := 0; i < vecLen; i++ {
@@ -210,6 +227,8 @@ func (pp *PublicParameter) NewPolyAVec(vecLen int) *PolyAVec {
 	return &PolyAVec{polyAs: polys}
 }
 
+// NewPolyANTTVec
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewPolyANTTVec(vecLen int) *PolyANTTVec {
 	polyNTTs := make([]*PolyANTT, vecLen)
 	for i := 0; i < vecLen; i++ {
@@ -218,6 +237,8 @@ func (pp *PublicParameter) NewPolyANTTVec(vecLen int) *PolyANTTVec {
 	return &PolyANTTVec{polyANTTs: polyNTTs}
 }
 
+// NewZeroPolyANTTVec
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NewZeroPolyANTTVec(vecLen int) *PolyANTTVec {
 	polyANTTs := make([]*PolyANTT, vecLen)
 	for i := 0; i < vecLen; i++ {
@@ -226,6 +247,8 @@ func (pp *PublicParameter) NewZeroPolyANTTVec(vecLen int) *PolyANTTVec {
 	return &PolyANTTVec{polyANTTs}
 }
 
+// NTTPolyAVec
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NTTPolyAVec(polyAVec *PolyAVec) *PolyANTTVec {
 	if polyAVec == nil {
 		return nil
@@ -240,6 +263,8 @@ func (pp *PublicParameter) NTTPolyAVec(polyAVec *PolyAVec) *PolyANTTVec {
 	return rst
 }
 
+// NTTInvPolyAVec
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) NTTInvPolyAVec(polyANTTVec *PolyANTTVec) (polyAVec *PolyAVec) {
 	if polyANTTVec == nil {
 		return nil
@@ -254,6 +279,8 @@ func (pp *PublicParameter) NTTInvPolyAVec(polyANTTVec *PolyANTTVec) (polyAVec *P
 	return rst
 }
 
+// PolyANTTAdd
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTAdd(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
 		log.Panic("PolyANTTAdd: the length of the input polyANTT is not paramDA")
@@ -271,6 +298,8 @@ func (pp *PublicParameter) PolyANTTAdd(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	return rst
 }
 
+// PolyANTTSub
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTSub(a *PolyANTT, b *PolyANTT) (r *PolyANTT) {
 	if len(a.coeffs) != pp.paramDA || len(b.coeffs) != pp.paramDA {
 		log.Panic("PolyANTTSub: the length of the input polyANTT is not paramDA")
@@ -328,6 +357,8 @@ func (pp *PublicParameter) PolyANTTMul(a *PolyANTT, b *PolyANTT) *PolyANTT {
 	return rst
 }
 
+// PolyANTTVecAdd
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTVecAdd(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTTVec) {
 	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
 		log.Panic("PolyANTTVecAdd: the length of the input vector not equal to specific length")
@@ -339,6 +370,8 @@ func (pp *PublicParameter) PolyANTTVecAdd(a *PolyANTTVec, b *PolyANTTVec, vecLen
 	return rst
 }
 
+// PolyANTTVecSub
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTVecSub(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTTVec) {
 	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
 		log.Panic("PolyANTTVecSub: the length of the input vector not equal to specific length")
@@ -350,6 +383,8 @@ func (pp *PublicParameter) PolyANTTVecSub(a *PolyANTTVec, b *PolyANTTVec, vecLen
 	return rst
 }
 
+// PolyANTTVecInnerProduct
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTVecInnerProduct(a *PolyANTTVec, b *PolyANTTVec, vecLen int) (r *PolyANTT) {
 	if len(a.polyANTTs) != vecLen || len(b.polyANTTs) != vecLen {
 		log.Panic("PolyANTTVecInnerProduct: the length of the input vector not equal to specific length")
@@ -362,6 +397,8 @@ func (pp *PublicParameter) PolyANTTVecInnerProduct(a *PolyANTTVec, b *PolyANTTVe
 	return rst
 }
 
+// PolyANTTMatrixMulVector
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTMatrixMulVector(M []*PolyANTTVec, vec *PolyANTTVec, rowNum int, vecLen int) (r *PolyANTTVec) {
 	if len(M) != rowNum {
 		log.Panic("PolyANTTMatrixMulVector: the row length of the input matrix not equal to specific length")
@@ -375,6 +412,8 @@ func (pp *PublicParameter) PolyANTTMatrixMulVector(M []*PolyANTTVec, vec *PolyAN
 	return rst
 }
 
+// PolyANTTVecScaleMul
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTVecScaleMul(polyANTTScale *PolyANTT, polyANTTVec *PolyANTTVec, vecLen int) (r *PolyANTTVec) {
 	if polyANTTScale == nil || polyANTTVec == nil {
 		return nil
@@ -471,6 +510,9 @@ func (pp *PublicParameter) MulKaratsuba(a, b []int64, n int) []int64 {
 	}
 	return res
 }
+
+// PolyANTTVecEqualCheck
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTVecEqualCheck(a *PolyANTTVec, b *PolyANTTVec) (eq bool) {
 	if a == nil || b == nil {
 		return false
@@ -493,6 +535,8 @@ func (pp *PublicParameter) PolyANTTVecEqualCheck(a *PolyANTTVec, b *PolyANTTVec)
 	return true
 }
 
+// PolyANTTEqualCheck
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool) {
 	if a == nil || b == nil {
 		return false
