@@ -6,8 +6,10 @@ import (
 )
 
 // RpUlpType is the type for difference transaction
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.20
 type RpUlpType uint8
 
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.20
 const (
 	RpUlpTypeCbTx1 RpUlpType = 0
 	RpUlpTypeCbTx2 RpUlpType = 1
@@ -16,6 +18,7 @@ const (
 )
 
 // generatePolyCNTTMatrix generate a matrix with rowLength * colLength, and the element in matrix is length
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) generatePolyCNTTMatrix(seed []byte, rowLength int, colLength int) ([]*PolyCNTTVec, error) {
 	// check the length of seed
 
@@ -43,6 +46,7 @@ func (pp *PublicParameter) generatePolyCNTTMatrix(seed []byte, rowLength int, co
 }
 
 // generatePolyANTTMatrix() expands the seed to a polyANTT matrix.
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) generatePolyANTTMatrix(seed []byte, rowLength int, colLength int) ([]*PolyANTTVec, error) {
 	// check the length of seed
 	tmpSeedLen := len(seed) + 2
@@ -67,6 +71,7 @@ func (pp *PublicParameter) generatePolyANTTMatrix(seed []byte, rowLength int, co
 	return rst, nil
 }
 
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.20
 func (pp *PublicParameter) collectBytesForRPULP1(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpType, binMatrixB [][]byte, I uint8, J uint8, m uint8, u_hats [][]int64,
@@ -208,6 +213,7 @@ func (pp *PublicParameter) collectBytesForRPULP1(message []byte, cmts []*ValueCo
 }
 
 // collectBytesForRPULP2 is an auxiliary function for rpulpProve and rpulpVerify to collect some information into a byte slice
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.20
 func (pp *PublicParameter) collectBytesForRPULP2(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
@@ -248,6 +254,7 @@ func (pp *PublicParameter) collectBytesForRPULP2(
 }
 
 // expandCombChallengeInRpulp() outputs n1 *PolyCNTT, paramK *PolyCNTT, paramK [m][paramDc]int64
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m uint8) (alphas []*PolyCNTT, betas []*PolyCNTT, gammas [][][]int64, err error) {
 
 	// check the length of seed
@@ -265,8 +272,8 @@ func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m u
 		copy(tmpSeed, alphaSeed)
 		tmpSeed[tmpSeedLen-1] = i
 		//tmpSeed = append(tmpSeed, byte(i))
-		var coeffs []int64
-		coeffs, err = pp.randomDcIntegersInQc(tmpSeed)
+		//		var coeffs []int64
+		coeffs, err := pp.randomDcIntegersInQc(tmpSeed)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -314,6 +321,8 @@ func (pp *PublicParameter) expandCombChallengeInRpulp(seed []byte, n1 uint8, m u
 	return alphas, betas, gammas, nil
 }
 
+// sigmaInvPolyCNTT
+// todo: review, 2024.06.20
 func (pp *PublicParameter) sigmaInvPolyCNTT(polyCNTT *PolyCNTT, t int) (r *PolyCNTT) {
 	coeffs := make([]int64, pp.paramDC)
 	for i := 0; i < pp.paramDC; i++ {
@@ -322,6 +331,7 @@ func (pp *PublicParameter) sigmaInvPolyCNTT(polyCNTT *PolyCNTT, t int) (r *PolyC
 	return &PolyCNTT{coeffs: coeffs}
 }
 
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.20
 func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]byte, I uint8, J uint8, gammas [][][]int64) (ps [][]*PolyCNTT) {
 	p := make([][]*PolyCNTT, pp.paramK)
 	//	var tmp1, tmp2 big.Int
@@ -579,37 +589,44 @@ func (pp *PublicParameter) genUlpPolyCNTTs(rpulpType RpUlpType, binMatrixB [][]b
 	return p
 }
 
+// intVecInnerProductWithReductionQc
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) intVecInnerProductWithReductionQc(a []int64, b []int64, vecLen int) (r int64) {
-	var tmp1, tmp2 big.Int
-	bigQc := new(big.Int).SetInt64(pp.paramQC)
 
-	rst := new(big.Int).SetInt64(0)
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
+	bigQc := big.NewInt(pp.paramQC)
+
+	rst := big.NewInt(0)
 	for i := 0; i < vecLen; i++ {
 		tmp1.SetInt64(a[i])
 		tmp2.SetInt64(b[i])
-		tmp1.Mul(&tmp1, &tmp2)
-		tmp1.Mod(&tmp1, bigQc)
+		tmp1.Mul(tmp1, tmp2)
+		tmp1.Mod(tmp1, bigQc)
 
-		rst.Add(rst, &tmp1)
+		rst.Add(rst, tmp1)
 		rst.Mod(rst, bigQc)
 	}
 
 	return reduceInt64(rst.Int64(), pp.paramQC)
 }
 
+// intMatrixInnerProductWithReductionQc
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) intMatrixInnerProductWithReductionQc(a [][]int64, b [][]int64, rowNum int, colNum int) (r int64) {
-	var tmp1, tmp2 big.Int
+	tmp1 := big.NewInt(1)
+	tmp2 := big.NewInt(1)
+	bigQc := big.NewInt(pp.paramQC)
 
-	rst := new(big.Int).SetInt64(0)
-	bigQc := new(big.Int).SetInt64(pp.paramQC)
+	rst := big.NewInt(0)
 	for i := 0; i < rowNum; i++ {
 		for j := 0; j < colNum; j++ {
 			tmp1.SetInt64(a[i][j])
 			tmp2.SetInt64(b[i][j])
-			tmp1.Mul(&tmp1, &tmp2)
-			tmp1.Mod(&tmp1, bigQc)
+			tmp1.Mul(tmp1, tmp2)
+			tmp1.Mod(tmp1, bigQc)
 
-			rst.Add(rst, &tmp1)
+			rst.Add(rst, tmp1)
 			rst.Mod(rst, bigQc)
 		}
 	}
@@ -617,9 +634,10 @@ func (pp *PublicParameter) intMatrixInnerProductWithReductionQc(a [][]int64, b [
 	return reduceInt64(rst.Int64(), pp.paramQC)
 }
 
+// reduceInt64
 // q is assumed to be an odd number
-//
-//	applied to q_a and q_c
+// applied to q_a and q_c
+// reviewed by Alice, 2024.06.20
 func reduceInt64(a int64, q int64) int64 {
 	r := a % q
 
@@ -636,6 +654,7 @@ func reduceInt64(a int64, q int64) int64 {
 }
 
 // intToBinary() returns the bit representation of v, supposing paramDc >= 64
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) intToBinary(v uint64) (bits []int64) {
 	rstBits := make([]int64, pp.paramDC)
 	for i := 0; i < pp.paramDC; i++ {
@@ -644,6 +663,9 @@ func (pp *PublicParameter) intToBinary(v uint64) (bits []int64) {
 	return rstBits
 }
 
+// getMatrixColumn
+// reviewed by Alice, 2024.06.20
+// todo: rename the function to be accurate; commented by Alice, 2024.06.20
 func getMatrixColumn(matrix [][]byte, rowNum int, j int) (col []int64) {
 	retcol := make([]int64, rowNum)
 	for i := 0; i < rowNum; i++ {
