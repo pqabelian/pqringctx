@@ -16,6 +16,7 @@ const RandSeedBytesLen = 64 // 512-bits
 
 // filterWithBound() returns numbers in [0, bound], where bound is assumed to < 2^{63}-1。
 // i.e., it is assumed that bitNumPerSample <= 63
+// reviewed by Alice, 2024.06.19
 func filterWithBound(buf []byte, expectedCount int, bitNumPerSample int, positiveBound int64) []int64 {
 	rst := make([]int64, 0, expectedCount)
 
@@ -73,6 +74,7 @@ func filterWithBound(buf []byte, expectedCount int, bitNumPerSample int, positiv
 }
 
 // RandomBytes returns a byte array with given length from crypto/rand.Reader
+// reviewed by Alice, 2024.06.19
 func RandomBytes(length int) []byte {
 	res := make([]byte, 0, length)
 
@@ -94,6 +96,7 @@ func RandomBytes(length int) []byte {
 // 523987 = 0111_1111_1110_1101_0011
 // randomPolyAForResponseA() returns a PolyA, where each coefficient lies in [-(eta_a - beta_a), (eta_a - beta_a)],
 // where eta_a = 2^{19}-1 and beta=120
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyAForResponseA() (*PolyA, error) {
 	seed := RandomBytes(RandSeedBytesLen)
 
@@ -174,6 +177,7 @@ func (pp *PublicParameter) randomPolyAForResponseA() (*PolyA, error) {
 }
 
 // randomPolyAinEtaA() outputs a PolyA, where each coefficient lies in [-eta_a, eta_a].
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyAinEtaA() (*PolyA, error) {
 
 	seed := RandomBytes(RandSeedBytesLen)
@@ -258,6 +262,7 @@ func (pp *PublicParameter) randomPolyAinEtaA() (*PolyA, error) {
 // 16777087 = 1111_1111_1111_1111_0111_1111
 // randomPolyCForResponseC() returns a PolyC, where each coefficient lies in [-(eta_c - beta_c), (eta_c - beta_c)],
 // where eta_c = 2^{24}-1 and beta_c=128
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyCForResponseC() (*PolyC, error) {
 	seed := RandomBytes(RandSeedBytesLen)
 
@@ -339,9 +344,9 @@ func (pp *PublicParameter) randomPolyCForResponseC() (*PolyC, error) {
 }
 
 // 2^24-1= 1111_1111_1111_1111_1111_1111
-//
-//	randomPolyCinEtaC() outputs a PolyC, where each coefficient lies in [-eta_c, eta_c].
-//	eta_c = 2^{24}-1, so that each coefficient needs 3 bytes (for absolute) and 1 bit (for signal)
+// randomPolyCinEtaC() outputs a PolyC, where each coefficient lies in [-eta_c, eta_c].
+// eta_c = 2^{24}-1, so that each coefficient needs 3 bytes (for absolute) and 1 bit (for signal)
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyCinEtaC() (*PolyC, error) {
 
 	seed := RandomBytes(RandSeedBytesLen)
@@ -424,11 +429,13 @@ func (pp *PublicParameter) randomPolyCinEtaC() (*PolyC, error) {
 	//return &PolyC{coeffs}, nil
 }
 
+// randomPolyAinGammaA2
 // [-2,2]
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyAinGammaA2(seed []byte) (*PolyA, error) {
 
 	var seedUsed []byte
-	if seed == nil {
+	if len(seed) == 0 {
 		seedUsed = RandomBytes(RandSeedBytesLen)
 	} else {
 		seedUsed = make([]byte, len(seed))
@@ -477,6 +484,7 @@ func (pp *PublicParameter) randomPolyAinGammaA2(seed []byte) (*PolyA, error) {
 // pp.TxoValueBytesLen() is 7, which means we use XOF to generate 7*8 = 56 bits.
 // For security, the length of output does not matter,
 // since the seed (KEM-generated key) is used only once.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) expandValuePadRandomness(seed []byte) ([]byte, error) {
 	if len(seed) == 0 {
 		//	for such an expand function, the seed should not be empty.
@@ -502,6 +510,7 @@ func (pp *PublicParameter) expandValuePadRandomness(seed []byte) ([]byte, error)
 // expandAddressSKsp() expand s \in (S_{\gamma_a})^{L_a} from input seed.
 // To be self-completed, this function append 'ASKSP' before seed to form the real used seed.
 // vector length PublicParameter.paramLA
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) expandAddressSKsp(seed []byte) (*PolyAVec, error) {
 	if len(seed) == 0 {
 		//	for such an expand function, the seed should not be empty.
@@ -514,20 +523,25 @@ func (pp *PublicParameter) expandAddressSKsp(seed []byte) (*PolyAVec, error) {
 	tmpSeed := make([]byte, tmpSeedLen) // 1 byte for index i \in [0, paramLA -1], where paramLA is assumed to be smaller than 127
 
 	var err error
-	rst := pp.NewPolyAVec(pp.paramLA)
+	polyAs := make([]*PolyA, pp.paramLA)
 	for i := 0; i < pp.paramLA; i++ {
 		copy(tmpSeed, realSeed)
 		tmpSeed[tmpSeedLen-1] = byte(i)
 
-		rst.polyAs[i], err = pp.randomPolyAinGammaA2(tmpSeed)
+		polyAs[i], err = pp.randomPolyAinGammaA2(tmpSeed)
 		if err != nil {
 			return nil, err
 		}
 		//rst.polyAs[i] = tmp
 	}
-	return rst, nil
+
+	return &PolyAVec{
+		polyAs: polyAs,
+	}, nil
 }
 
+// isAddressSKspNormInBound
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) isAddressSKspNormInBound(addressSKsp *PolyAVec) (inBound bool) {
 	if addressSKsp.infNorm() > 2 {
 		// 2 is consistent with the pp.randomPolyAinGammaA2(tmpSeed)
@@ -539,9 +553,10 @@ func (pp *PublicParameter) isAddressSKspNormInBound(addressSKsp *PolyAVec) (inBo
 
 // expandAddressSKsn() expand AddressSKsn from an input seed, and directly output the NTT form.
 // To be self-completed, this function append 'ASKSN' before seed to form the real used seed.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) expandAddressSKsn(seed []byte) (*PolyANTT, error) {
 	if len(seed) == 0 {
-		return nil, ErrLength
+		return nil, errors.New("expandAddressSKsn: the seed is empty")
 	}
 
 	realSeed := append([]byte{'A', 'S', 'K', 'S', 'N'}, seed...) // AskSn
@@ -558,9 +573,10 @@ func (pp *PublicParameter) expandAddressSKsn(seed []byte) (*PolyANTT, error) {
 // expandValueCmtRandomness() expand r \in (\chi^{d_c})^{L_c} from a given seed.
 // \chi^{d_c} is regarded as a polyC, and r is regarded as a PolyCVec
 // vector length PublicParameter.paramLC
+// reviewed by Alice, 2024.,06.20
 func (pp *PublicParameter) expandValueCmtRandomness(seed []byte) (*PolyCVec, error) {
 	if len(seed) == 0 {
-		return nil, ErrLength
+		return nil, errors.New("expandValueCmtRandomness: the seed is empty")
 	}
 	realSeed := append([]byte{'C', 'M', 'T', 'R'}, seed...) // CmtR
 
@@ -568,35 +584,39 @@ func (pp *PublicParameter) expandValueCmtRandomness(seed []byte) (*PolyCVec, err
 	tmpSeed := make([]byte, tmpSeedLen) // 1 byte for index i \in [0, paramLc -1], where paramLc is assumed to be smaller than 127
 
 	var err error
-	rst := pp.NewPolyCVec(pp.paramLC)
+	polyCs := make([]*PolyC, pp.paramLC)
+
 	for i := 0; i < pp.paramLC; i++ {
 		copy(tmpSeed, realSeed)
 		tmpSeed[tmpSeedLen-1] = byte(i)
-		rst.polyCs[i], err = pp.randomPolyCinDistributionChi(tmpSeed)
+		polyCs[i], err = pp.randomPolyCinDistributionChi(tmpSeed)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return rst, nil
+	return &PolyCVec{polyCs: polyCs}, nil
 }
 
 // sampleValueCmtRandomness() return a random r \in (\chi^{d_c})^{L_c}.
 // \chi^{d_c} is regarded as a polyC, and r is regarded as a PolyCVec
 // vector length PublicParameter.paramLC
+// // reviewed by Alice, 2024.,06.20
 func (pp *PublicParameter) sampleValueCmtRandomness() (*PolyCVec, error) {
 	var err error
-	rst := pp.NewPolyCVec(pp.paramLC)
+
+	polyCs := make([]*PolyC, pp.paramLC)
 	for i := 0; i < pp.paramLC; i++ {
-		rst.polyCs[i], err = pp.randomPolyCinDistributionChi(nil)
+		polyCs[i], err = pp.randomPolyCinDistributionChi(nil)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return rst, nil
+	return &PolyCVec{polyCs: polyCs}, nil
 }
 
 // review done 0413
 // Each coefficient of PolyCinDistributionChi is sampled from {-1, 0, 1}, where both 1 and -1 has probability 5/16, and 0 has probability 6/16.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomPolyCinDistributionChi(seed []byte) (*PolyC, error) {
 
 	var seedUsed []byte
@@ -653,78 +673,94 @@ func (pp *PublicParameter) randomPolyCinDistributionChi(seed []byte) (*PolyC, er
 
 // sampleMaskingVecA() returns a masking vector y \in (S_{eta_a})^{L_a}.
 // vector length PublicParameter.paramLA
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) sampleMaskingVecA() (*PolyAVec, error) {
-	rst := pp.NewPolyAVec(pp.paramLA)
 
 	var err error
+
+	polyAs := make([]*PolyA, pp.paramLA)
+
 	for i := 0; i < pp.paramLA; i++ {
-		rst.polyAs[i], err = pp.randomPolyAinEtaA()
+		polyAs[i], err = pp.randomPolyAinEtaA()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return rst, nil
+
+	return &PolyAVec{
+		polyAs: polyAs,
+	}, nil
+
 }
 
 // sampleMaskingVecC() returns a masking vector y \in (S_{eta_c})^{L_c}
 // vector length PublicParameter.paramLC
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) sampleMaskingVecC() (*PolyCVec, error) {
 	// etaC
 	var err error
 
-	polys := make([]*PolyC, pp.paramLC)
+	polyCs := make([]*PolyC, pp.paramLC)
 
 	for i := 0; i < pp.paramLC; i++ {
-		polys[i], err = pp.randomPolyCinEtaC()
+		polyCs[i], err = pp.randomPolyCinEtaC()
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &PolyCVec{
-		polyCs: polys,
+		polyCs: polyCs,
 	}, nil
 
 }
 
 // sampleResponseA() returns a PolyAVec with length paramLa,
-// where each coefficient lies in [-(eta_a-beta_a), (eta_a-beta_a)], where eta_a = 2^{19}-1, beta_a = 300
+// where each coefficient lies in [-(eta_a-beta_a), (eta_a-beta_a)], where eta_a = 2^{19}-1, beta_a = 200
 // vector length PublicParameter.paramLA
+// reviewed by Alice, 2024.,06.20
 func (pp *PublicParameter) sampleResponseA() (*PolyAVec, error) {
-	rst := pp.NewPolyAVec(pp.paramLA)
 
+	polyAs := make([]*PolyA, pp.paramLA)
 	var err error
 	for i := 0; i < pp.paramLA; i++ {
-		rst.polyAs[i], err = pp.randomPolyAForResponseA()
+		polyAs[i], err = pp.randomPolyAForResponseA()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return rst, nil
+	return &PolyAVec{
+		polyAs: polyAs,
+	}, nil
 }
 
 // sampleResponseC() returns a PolyCVec with length paramLc,
 // where each coefficient lies in [-(eta_c - beta_c), (eta_c - beta_c)]
 // vector length PublicParameter.paramLC
+// reviewed by Alice, 2024.,06.20
 func (pp *PublicParameter) sampleResponseC() (*PolyCVec, error) {
-	rst := pp.NewPolyCVec(pp.paramLC)
+
+	polyCs := make([]*PolyC, pp.paramLC)
 
 	var err error
 	for i := 0; i < pp.paramLC; i++ {
-		rst.polyCs[i], err = pp.randomPolyCForResponseC()
+		polyCs[i], err = pp.randomPolyCForResponseC()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return rst, nil
+
+	return &PolyCVec{
+		polyCs: polyCs,
+	}, nil
 }
 
 // 9007199254746113 = 0010_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_0100_0000_0001
 // 4503599627373056 = 0001_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1010_0000_0000
-//
-//	randomDcIntegersInQc() outputs Dc int64,  by sampling uniformly (when seed is nil) or expanding from a seed (when seed is not nil)
-//	Each integer lies in [-(Q_c-1)/2, (Q_c-2)/2].
+// randomDcIntegersInQc() outputs Dc int64, by sampling uniformly (when seed is nil) or expanding from a seed (when seed is not nil)
+// Each integer lies in [-(Q_c-1)/2, (Q_c-2)/2].
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) randomDcIntegersInQc(seed []byte) ([]int64, error) {
 	var tmpSeed []byte
 	if len(seed) == 0 {
@@ -806,6 +842,7 @@ func (pp *PublicParameter) randomDcIntegersInQc(seed []byte) ([]int64, error) {
 // randomDcIntegersInQcEtaF() outputs Dc int64,  by sampling uniformly.
 // Each integer lies in [-eta_f, eta_f].
 // eta_f = 2^23-1.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) randomDcIntegersInQcEtaF() ([]int64, error) {
 
 	seed := RandomBytes(RandSeedBytesLen)
@@ -822,7 +859,7 @@ func (pp *PublicParameter) randomDcIntegersInQcEtaF() ([]int64, error) {
 	// For each number in [-eta_f, eta_f] = [0, 2*eta_f], 24 bits are used to sample 1 number
 	// bound := eta_f
 	// probability: (2*bound+1) / (1 << 24) // should be float
-	// needBits for each sample: 23*((1<<23)/(2*bound+1))
+	// needBits for each sample: 24*((1<<24)/(2*bound+1))
 	bound := pp.paramEtaF // [-eta_f, eta_f] = [0, 2*eta_f]
 	bitNumPerSample := 24
 	expectedBitsPerSample := int(24*((1<<24)/float64(2*bound+1))) + 1 // should be less than 2^{32} bits
@@ -879,8 +916,8 @@ func (pp *PublicParameter) randomDcIntegersInQcEtaF() ([]int64, error) {
 }
 
 // q_a = 8522826353 = 2^32+2^31+2^30+2^29+2^28+2^27+2^26+2^9+2^6+2^5+2^4+1
-//
-//	randomDaIntegersInQa() returns paramDA int64, each in the scope [-(q_a-1)/2, (q_a-1)/2].
+// randomDaIntegersInQa() returns paramDA int64, each in the scope [-(q_a-1)/2, (q_a-1)/2].
+// reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) randomDaIntegersInQa(seed []byte) ([]int64, error) {
 	var tmpSeed []byte
 	if len(seed) == 0 {
@@ -929,12 +966,11 @@ func (pp *PublicParameter) randomDaIntegersInQa(seed []byte) ([]int64, error) {
 	return sampled, nil
 }
 
-// expandSigACh should output a {-1,0,1}^DC vector with the number of not-0 is theta_a from a byte array.
-//
-//	The seed could not be empty.
-//
-// Firstly, set the 1 or -1 with total number is theta
-// Secondly, shuffle the array using the Knuth-Durstenfeld Shuffle
+// expandChallengeA outputs a {-1,0,1}^DA vector with the number of non-zero is theta_a.
+// The seed could not be empty.
+// Firstly, set the 1 or -1 with total number is theta_a.
+// Secondly, shuffle the array using the Knuth-Durstenfeld Shuffle.
+// todo: review, 2024.06.20
 func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 	//tmpSeed := make([]byte, len(seed))
 	//copy(tmpSeed, seed)
@@ -950,7 +986,7 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 	if err != nil {
 		return nil, err
 	}
-	// because the ThetaA must less than DA, so there would use the
+	// because the ThetaA must be less than DA, so there would use the
 	// 8-th binary for Setting and 0-th to 7-th for Shuffling.
 	// Setting
 	buf := make([]byte, (pp.paramThetaA+7)/8)
@@ -992,6 +1028,7 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 // expandChallengeC() returns a challenge for proof in value commitment, say a PolyC, //
 // where each coefficient is sampled from {-1, 0, 1}, with Pr(0)=1/2, Pr(1)=Pr(-1)= 1/4.
 // The seed could not be empty.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) expandChallengeC(seed []byte) (*PolyC, error) {
 	if len(seed) == 0 {
 		//	for such an expand fucntion, the seed could not be empty.
@@ -1042,6 +1079,7 @@ func (pp *PublicParameter) expandChallengeC(seed []byte) (*PolyC, error) {
 // *                                                ^
 // *                                                |
 // *                                      PublicParameter.paramK
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) samplePloyCWithLowZeros() (*PolyC, error) {
 
 	coeffs, err := pp.randomDcIntegersInQc(nil)
@@ -1083,6 +1121,7 @@ func (pp *PublicParameter) samplePloyCWithLowZeros() (*PolyC, error) {
 //}
 
 // expandBinaryMatrix expand from seed, matrix would have binary element
+// reviewed by Alice, 2024.06.20
 func expandBinaryMatrix(seed []byte, rownum int, colnum int) (binM [][]byte, err error) {
 	if len(seed) == 0 {
 		//	for such an expand function, the seed should not be empty.
