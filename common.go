@@ -29,6 +29,7 @@ var binarySerializer binaryFreeList = make(chan []byte, binaryFreeListMaxItems)
 
 // WriteVarInt serializes val to w using a variable number of bytes depending
 // on its value.
+// reviewed by Alice, 2024.06.21
 func WriteVarInt(w io.Writer, val uint64) error {
 	if val < 0xfd {
 		return binarySerializer.PutUint8(w, uint8(val))
@@ -58,6 +59,7 @@ func WriteVarInt(w io.Writer, val uint64) error {
 }
 
 // ReadVarInt reads a variable length integer from r and returns it as a uint64.
+// reviewed by Alice, 2024.06.21
 func ReadVarInt(r io.Reader) (uint64, error) {
 	discriminant, err := binarySerializer.Uint8(r)
 	if err != nil {
@@ -117,6 +119,7 @@ func ReadVarInt(r io.Reader) (uint64, error) {
 
 // Uint8 reads a single byte from the provided reader using a buffer from the
 // free list and returns it as a uint8.
+// reviewed by Alice, 2024.06.21
 func (l binaryFreeList) Uint8(r io.Reader) (uint8, error) {
 	buf := l.Borrow()[:1]
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -130,6 +133,7 @@ func (l binaryFreeList) Uint8(r io.Reader) (uint8, error) {
 
 // Borrow returns a byte slice from the free list with a length of 8.  A new
 // buffer is allocated if there are not any available on the free list.
+// todo: review, 2024.06.21
 func (l binaryFreeList) Borrow() []byte {
 	var buf []byte
 	select {
@@ -142,6 +146,7 @@ func (l binaryFreeList) Borrow() []byte {
 
 // Return puts the provided byte slice back on the free list.  The buffer MUST
 // have been obtained via the Borrow function and therefore have a cap of 8.
+// todo: review, 2024.06.21
 func (l binaryFreeList) Return(buf []byte) {
 	select {
 	case l <- buf:
@@ -153,6 +158,7 @@ func (l binaryFreeList) Return(buf []byte) {
 // Uint16 reads two bytes from the provided reader using a buffer from the
 // free list, converts it to a number using the provided byte order, and returns
 // the resulting uint16.
+// todo: review, 2024.06.21
 func (l binaryFreeList) Uint16(r io.Reader, byteOrder binary.ByteOrder) (uint16, error) {
 	buf := l.Borrow()[:2]
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -167,6 +173,7 @@ func (l binaryFreeList) Uint16(r io.Reader, byteOrder binary.ByteOrder) (uint16,
 // Uint32 reads four bytes from the provided reader using a buffer from the
 // free list, converts it to a number using the provided byte order, and returns
 // the resulting uint32.
+// todo: review, 2024.06.21
 func (l binaryFreeList) Uint32(r io.Reader, byteOrder binary.ByteOrder) (uint32, error) {
 	buf := l.Borrow()[:4]
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -181,6 +188,7 @@ func (l binaryFreeList) Uint32(r io.Reader, byteOrder binary.ByteOrder) (uint32,
 // Uint64 reads eight bytes from the provided reader using a buffer from the
 // free list, converts it to a number using the provided byte order, and returns
 // the resulting uint64.
+// todo: review, 2024.06.21
 func (l binaryFreeList) Uint64(r io.Reader, byteOrder binary.ByteOrder) (uint64, error) {
 	buf := l.Borrow()[:8]
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -194,6 +202,7 @@ func (l binaryFreeList) Uint64(r io.Reader, byteOrder binary.ByteOrder) (uint64,
 
 // PutUint8 copies the provided uint8 into a buffer from the free list and
 // writes the resulting byte to the given writer.
+// todo: review, 2024.06.21
 func (l binaryFreeList) PutUint8(w io.Writer, val uint8) error {
 	buf := l.Borrow()[:1]
 	buf[0] = val
@@ -205,6 +214,7 @@ func (l binaryFreeList) PutUint8(w io.Writer, val uint8) error {
 // PutUint16 serializes the provided uint16 using the given byte order into a
 // buffer from the free list and writes the resulting two bytes to the given
 // writer.
+// todo: review, 2024.06.21
 func (l binaryFreeList) PutUint16(w io.Writer, byteOrder binary.ByteOrder, val uint16) error {
 	buf := l.Borrow()[:2]
 	byteOrder.PutUint16(buf, val)
@@ -216,6 +226,7 @@ func (l binaryFreeList) PutUint16(w io.Writer, byteOrder binary.ByteOrder, val u
 // PutUint32 serializes the provided uint32 using the given byte order into a
 // buffer from the free list and writes the resulting four bytes to the given
 // writer.
+// todo: review, 2024.06.21
 func (l binaryFreeList) PutUint32(w io.Writer, byteOrder binary.ByteOrder, val uint32) error {
 	buf := l.Borrow()[:4]
 	byteOrder.PutUint32(buf, val)
@@ -227,6 +238,7 @@ func (l binaryFreeList) PutUint32(w io.Writer, byteOrder binary.ByteOrder, val u
 // PutUint64 serializes the provided uint64 using the given byte order into a
 // buffer from the free list and writes the resulting eight bytes to the given
 // writer.
+// todo: review, 2024.06.21
 func (l binaryFreeList) PutUint64(w io.Writer, byteOrder binary.ByteOrder, val uint64) error {
 	buf := l.Borrow()[:8]
 	byteOrder.PutUint64(buf, val)
@@ -238,6 +250,7 @@ func (l binaryFreeList) PutUint64(w io.Writer, byteOrder binary.ByteOrder, val u
 // VarIntSerializeSize returns the number of bytes it would take to serialize
 // val as a variable length integer.
 // The only difference with VarIntSerializeSize() is return type
+// reviewed by Alice, 2024.06.21
 func VarIntSerializeSize(val uint64) int {
 	// The value is small enough to be represented by itself, so it's
 	// just 1 byte.
