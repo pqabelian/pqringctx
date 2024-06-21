@@ -968,9 +968,10 @@ func (pp *PublicParameter) randomDaIntegersInQa(seed []byte) ([]int64, error) {
 
 // expandChallengeA outputs a {-1,0,1}^DA vector with the number of non-zero is theta_a.
 // The seed could not be empty.
-// Firstly, set the 1 or -1 with total number is theta_a.
+// Firstly, set the 1 or -1 with total number is theta_a. i.e. [0,...0,1,..,1]
 // Secondly, shuffle the array using the Knuth-Durstenfeld Shuffle.
 // todo: review, 2024.06.20
+// reviewed by ocean 2024.06.21, the implementation was borrowed from dilithium
 func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 	//tmpSeed := make([]byte, len(seed))
 	//copy(tmpSeed, seed)
@@ -995,7 +996,7 @@ func (pp *PublicParameter) expandChallengeA(seed []byte) (*PolyA, error) {
 		return nil, err
 	}
 	signs := uint64(0)
-	for i := 0; i < 8; i++ {
+	for i := 0; i < (pp.paramThetaA+7)/8; i++ {
 		signs |= uint64(buf[i]) << (8 * i)
 	}
 
