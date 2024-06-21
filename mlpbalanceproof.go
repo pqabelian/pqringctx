@@ -2,7 +2,9 @@ package pqringctx
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 )
 
 type BalanceProofCase uint8
@@ -2661,6 +2663,66 @@ func (pp *PublicParameter) collectBytesForBalanceProofLmRnChallenge(msg []byte, 
 	}
 
 	return rst, nil
+}
+
+// CarryVectorRProofSerializeSize
+// For carry vector f, u_p = B*f + e servers as its range proof, where u_p's infinite normal should be smaller than q_c/16.
+// e is sampled from [-eta_f, eta_f].
+// B*f is bounded by d_c*J (for coinbaseTx with J>1), d_c * (J+1) (for transferTx with I=1), and d_c * (I+J+1) (for transferTx with I>1).
+// A valid proof for u_p should have infinite normal in [-(eta_f - beta_f), (eta_f - beta_f)].
+// Note q_c = 9007199254746113 = 2^{53} + 2^{12} + 2^{10} + 2^{0} is a 54-bit number, and 2^{49}-1 < q_c/16.
+// Any eta_f smaller than 2^{49}-1 will be fine.
+// We set eta_f = 2^{23}-1.
+// Each coefficient of u_p, say in [-(eta_f - beta_f), (eta_f - beta_f)], can be encoded by 3 bytes.
+// todo: review, moved from serialization.go on 2024.06.21
+func (pp *PublicParameter) CarryVectorRProofSerializeSize() int {
+	return pp.paramDC * 3
+}
+
+// writeCarryVectorRProof
+// todo: review, moved from serialization.go on 2024.06.21
+func (pp *PublicParameter) writeCarryVectorRProof(w io.Writer, u_p []int64) error {
+	if len(u_p) != pp.paramDC {
+		return errors.New("The carry vector should have size equal to paramDc")
+	}
+
+	var coeff int64
+	tmp := make([]byte, 3)
+	for i := 0; i < pp.paramDC; i++ {
+		coeff = u_p[i]
+		tmp[0] = byte(coeff >> 0)
+		tmp[1] = byte(coeff >> 8)
+		tmp[2] = byte(coeff >> 16)
+		_, err := w.Write(tmp)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readCarryVectorRProof
+// todo: review, moved from serialization.go on 2024.06.21
+func (pp *PublicParameter) readCarryVectorRProof(r io.Reader) ([]int64, error) {
+	u_p := make([]int64, pp.paramDC)
+
+	var coeff int64
+	tmp := make([]byte, 3)
+	for i := 0; i < pp.paramDC; i++ {
+		_, err := r.Read(tmp)
+		if err != nil {
+			return nil, err
+		}
+		coeff = int64(tmp[0]) << 0
+		coeff |= int64(tmp[1]) << 8
+		coeff |= int64(tmp[2]) << 16
+		if tmp[2]>>7 == 1 {
+			//	23-bit for absolute
+			coeff = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
+		}
+		u_p[i] = coeff
+	}
+	return u_p, nil
 }
 
 //	helper functions	end

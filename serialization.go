@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"io"
 )
@@ -14,16 +13,23 @@ const (
 	ErrNilPointer    = "there are nil pointer"
 )
 
-// todo: 20220414 review
+// PolyANTTSerializeSize
 // For PolyANTT, each coefficient lies in the scope [-(q_a-1)/2, (q_a-1)/2].
 // Note that q_a = 8522826353 = 2^32+2^31+2^30+2^29+2^28+2^27+2^26+2^9+2^6+2^5+2^4+1 is a 33-bit number.
 // We use 33-bit to encode/serialze a coefficient in [-(q_a-1)/2, (q_a-1)/2], say 32-bit for absoulte and 1 bit for signal.
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) PolyANTTSerializeSize() int {
 	return pp.paramDA*4 + pp.paramDA/8 //	pp.paramDA is 2^n, at this moment pp.paramDA=256
 }
+
+// writePolyANTT
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) writePolyANTT(w io.Writer, a *PolyANTT) error {
 	if a == nil {
 		return errors.New("writePolyANTT: attempting to serialize a nil PolyANTT")
+	}
+	if len(a.coeffs) != pp.paramDA {
+		return errors.New("writePolyANTT: coeffs of the input PolyANTT has an invalid length")
 	}
 
 	signalBytes := make([]byte, pp.paramDA/8)
@@ -58,7 +64,8 @@ func (pp *PublicParameter) writePolyANTT(w io.Writer, a *PolyANTT) error {
 	return nil
 }
 
-// todo: 20220414 review
+// readPolyANTT
+// reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 
 	tmp := make([]byte, 4)
@@ -97,12 +104,16 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 	return retPolyANTT, nil
 }
 
+// PolyANTTVecSerializeSize
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyANTTVecSerializeSize(a *PolyANTTVec) int {
 	if a == nil {
 		return VarIntSerializeSize(0)
 	}
 	return VarIntSerializeSize(uint64(len(a.polyANTTs))) + len(a.polyANTTs)*pp.PolyANTTSerializeSize()
 }
+
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyANTTVec(w io.Writer, a *PolyANTTVec) error {
 	if a == nil {
 		//	write the length of the vector
@@ -128,6 +139,8 @@ func (pp *PublicParameter) writePolyANTTVec(w io.Writer, a *PolyANTTVec) error {
 	}
 	return nil
 }
+
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyANTTVec(r io.Reader) (*PolyANTTVec, error) {
 	var err error
 	var count uint64
@@ -155,12 +168,18 @@ func (pp *PublicParameter) readPolyANTTVec(r io.Reader) (*PolyANTTVec, error) {
 // we use 20-bits (19 bits for absolute and 1 bit for signal) to serialize/encode it.
 // Each two coefficients use 40 bits = 5 bytes.
 // As the response in proof has infinity form in [-(eta_a - beta_a), (eta_a - beta_a)], here we only handle Poly, rather than PolyNTT.
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyASerializeSizeEta() int {
 	return pp.paramDA / 2 * 5
 }
+
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 	if a == nil {
 		return errors.New("writePolyAEta: attempting to serialize a nil PolyA")
+	}
+	if len(a.coeffs) != pp.paramDA {
+		return errors.New("writePolyAEta: coeffs of the input PolyA has an invalid length")
 	}
 
 	var err error
@@ -191,6 +210,7 @@ func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 	return nil
 }
 
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 	var err error
 
@@ -234,7 +254,7 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 
 // PolyAVecSerializeSizeEtaByVecLen returns the serialize size for a PolyAVec with the input length vecLen.
 // added on 2023.12.18
-// todo: review
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyAVecSerializeSizeEtaByVecLen(vecLen int) int {
 	if vecLen <= 0 {
 		return VarIntSerializeSize(0)
@@ -242,12 +262,17 @@ func (pp *PublicParameter) PolyAVecSerializeSizeEtaByVecLen(vecLen int) int {
 	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyASerializeSizeEta()
 }
 
+// PolyAVecSerializeSizeEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyAVecSerializeSizeEta(a *PolyAVec) int {
 	if a == nil {
 		return VarIntSerializeSize(0)
 	}
 	return VarIntSerializeSize(uint64(len(a.polyAs))) + len(a.polyAs)*pp.PolyASerializeSizeEta()
 }
+
+// writePolyAVecEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyAVecEta(w io.Writer, a *PolyAVec) error {
 	if a == nil {
 		//	write the length of PolyAVec
@@ -272,6 +297,9 @@ func (pp *PublicParameter) writePolyAVecEta(w io.Writer, a *PolyAVec) error {
 	}
 	return nil
 }
+
+// readPolyAVecEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAVecEta(r io.Reader) (*PolyAVec, error) {
 	var err error
 	var count uint64
@@ -293,19 +321,25 @@ func (pp *PublicParameter) readPolyAVecEta(r io.Reader) (*PolyAVec, error) {
 	return &PolyAVec{polyAs: res}, nil
 }
 
-// todo: 20220414 review
-// PolyASerializeSizeGamma() returns the serialize size of a PolyA in S_{gamma_a},
+// PolyASerializeSizeGamma returns the serialize size of a PolyA in S_{gamma_a},
 // where gamma_a = 2 is a 2-bits number.
 // For each coefficient is in [-gamma_a, gamma_a],
 // we use 3-bits (2 bits for absolute and 1 bit for signal) to serialize/encode it.
-// Each 4 coefficients use 1 byte.
+// Each 4 coefficients use 1 byte for their absloute values, and each 8 coefficients use 1 byte for their signals.
 // As the AskSp in AddressSecretKey has infinity form in [-gamma_a, gamma_a], here we only handle Poly, rather than PolyNTT.
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyASerializeSizeGamma() int {
 	return pp.paramDA/4 + pp.paramDA/8 // pp.paramDA = 2^n for some n, at this moment pp.paramDA=256
 }
+
+// writePolyAGamma
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 	if polyA == nil {
 		return errors.New("writePolyAGamma: attempting to serialize a nil PolyA")
+	}
+	if len(polyA.coeffs) != pp.paramDA {
+		return errors.New("writePolyAGamma: coeffs of the input PolyA has an invalid length")
 	}
 
 	signalBytes := make([]byte, pp.paramDA/8)
@@ -316,10 +350,10 @@ func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 	serialized := make([]byte, pp.paramDA/4)
 	t := 0
 	for i := 0; i < pp.paramDA; i = i + 4 {
-		tmp0 := byte(polyA.coeffs[i] & 0x03 << 0)
-		tmp1 := byte(polyA.coeffs[i+1] & 0x03 << 2)
-		tmp2 := byte(polyA.coeffs[i+2] & 0x03 << 4)
-		tmp3 := byte(polyA.coeffs[i+3] & 0x03 << 6)
+		tmp0 := byte((polyA.coeffs[i] & 0x03) << 0)
+		tmp1 := byte((polyA.coeffs[i+1] & 0x03) << 2)
+		tmp2 := byte((polyA.coeffs[i+2] & 0x03) << 4)
+		tmp3 := byte((polyA.coeffs[i+3] & 0x03) << 6)
 		serialized[t] = tmp0 | tmp1 | tmp2 | tmp3
 		t += 1
 	}
@@ -343,27 +377,28 @@ func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 	return nil
 }
 
-// todo: 20220414 review
+// readPolyAGamma
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 	polyA := pp.NewPolyA()
 
-	serialzed := make([]byte, pp.paramDA/4)
-	_, err := r.Read(serialzed)
+	serialized := make([]byte, pp.paramDA/4)
+	_, err := r.Read(serialized)
 	if err != nil {
 		return nil, err
 	}
 
-	j := 0
-	for i := 0; i < pp.paramDA/4; i++ {
-		polyA.coeffs[j] = int64((serialzed[i] >> 0) & 0x03)
+	i := 0
+	for t := 0; t < pp.paramDA/4; t++ {
+		polyA.coeffs[i] = int64((serialized[t] >> 0) & 0x03)
 
-		polyA.coeffs[j+1] = int64((serialzed[i] >> 2) & 0x03)
+		polyA.coeffs[i+1] = int64((serialized[t] >> 2) & 0x03)
 
-		polyA.coeffs[j+2] = int64((serialzed[i] >> 4) & 0x03)
+		polyA.coeffs[i+2] = int64((serialized[t] >> 4) & 0x03)
 
-		polyA.coeffs[j+3] = int64((serialzed[i] >> 6) & 0x03)
+		polyA.coeffs[i+3] = int64((serialized[t] >> 6) & 0x03)
 
-		j = j + 4
+		i = i + 4
 	}
 
 	signalBytes := make([]byte, pp.paramDA/8)
@@ -374,7 +409,7 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 
 	var coeff int64
 	var signalHint byte
-	for i := 0; i < pp.paramDA; i++ {
+	for i = 0; i < pp.paramDA; i++ {
 		signalHint = 1 << (i % 8)
 		if signalBytes[i/8]&signalHint == signalHint {
 			//	- signal
@@ -422,17 +457,24 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 //	return &PolyAVec{polyAs: res}, nil
 //}
 
+// PolyCNTTSerializeSize
 // For PolyCNTT, each coefficient lies in the scope [-(q_c-1)/2, (q_c-1)/2].
 // Note that q_c = 9007199254746113 = 2^{53} + 2^{12} + 2^{10} + 2^{0} is a 54-bit number
-// We use 54-bit to encode/serialze a coefficient in [-(q_c-1)/2, (q_c-1)/2], say 53-bit for absoulte and 1 bit for signal.
-// Thta is, we use 7-byte to encode/serialize a coefficient.
+// We use 54-bit to encode/serialize a coefficient in [-(q_c-1)/2, (q_c-1)/2], say 53-bit for absolute value and 1 bit for signal.
+// That is, we use 7-byte to encode/serialize a coefficient.
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCNTTSerializeSize() int {
 	return pp.paramDC * 7
 }
 
+// writePolyCNTT
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyCNTT(w io.Writer, polyCNTT *PolyCNTT) error {
 	if polyCNTT == nil {
 		return errors.New("writePolyCNTT: attempting to serialize a nil PolyCNTT")
+	}
+	if len(polyCNTT.coeffs) != pp.paramDC {
+		return errors.New("writePolyCNTT: coeffs of the input PolyCNTT has an invalid length")
 	}
 
 	var coeff int64
@@ -454,6 +496,9 @@ func (pp *PublicParameter) writePolyCNTT(w io.Writer, polyCNTT *PolyCNTT) error 
 	}
 	return nil
 }
+
+// readPolyCNTT
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 	polyCNTT := pp.NewPolyCNTT()
 
@@ -483,6 +528,7 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 
 // PolyCNTTVecSerializeSizeByVecLen returns the serialize size of PolyCNTTVec, according to the length of the PolyCNTTVec.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCNTTVecSerializeSizeByVecLen(vecLen int) int {
 	if vecLen <= 0 {
 		return VarIntSerializeSize(0)
@@ -490,12 +536,17 @@ func (pp *PublicParameter) PolyCNTTVecSerializeSizeByVecLen(vecLen int) int {
 	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyCNTTSerializeSize()
 }
 
+// PolyCNTTVecSerializeSize
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCNTTVecSerializeSize(c *PolyCNTTVec) int {
 	if c == nil {
 		return VarIntSerializeSize(0)
 	}
 	return VarIntSerializeSize(uint64(len(c.polyCNTTs))) + len(c.polyCNTTs)*pp.PolyCNTTSerializeSize()
 }
+
+// writePolyCNTTVec
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyCNTTVec(w io.Writer, c *PolyCNTTVec) error {
 	if c == nil {
 		//	write the length of vector PolyCNTTVec
@@ -521,6 +572,9 @@ func (pp *PublicParameter) writePolyCNTTVec(w io.Writer, c *PolyCNTTVec) error {
 	}
 	return nil
 }
+
+// readPolyCNTTVec
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCNTTVec(r io.Reader) (*PolyCNTTVec, error) {
 	var err error
 	var count uint64
@@ -541,18 +595,25 @@ func (pp *PublicParameter) readPolyCNTTVec(r io.Reader) (*PolyCNTTVec, error) {
 	return &PolyCNTTVec{polyCNTTs: res}, nil
 }
 
-// PolyCSerializeSizeEta() returns the serialize size of a PolyC in S_{eta_c - beta_c},
+// PolyCSerializeSizeEta returns the serialize size of a PolyC in S_{eta_c - beta_c},
 // where eta_c = 2^24 -1 is a 24-bits number.
 // For each coefficient is in [-(eta_c - beta_c), (eta_c - beta_c)],
 // we use 25-bits (24 bits for absolute and 1 bit for signal) to serialize/encode it.
 // That is, each coefficient use (24 bits = 3 bytes, 1 bit signal).
-// As the response in proof has infinity form in [-(eta_c - beta_c), (eta_c - beta_c)], here we only handle Poly, rather than PolyNTT.
+// As the response in proof has infinity form in [-(eta_c - beta_c), (eta_c - beta_c)], here we only handle PolyC, rather than PolyCNTT.
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCSerializeSizeEta() int {
 	return pp.paramDC*3 + pp.paramDC/8 //	pp.paramDC = 128 at this moment, and basically,it should be a 2^n for some n
 }
+
+// writePolyCEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyCEta(w io.Writer, polyC *PolyC) error {
 	if polyC == nil {
 		return errors.New("writePolyCEta: attempting to serialize a nil PolyC")
+	}
+	if len(polyC.coeffs) != pp.paramDC {
+		return errors.New("writePolyCEta: coeffs of the input polyC has an invalid length")
 	}
 
 	var err error
@@ -590,6 +651,8 @@ func (pp *PublicParameter) writePolyCEta(w io.Writer, polyC *PolyC) error {
 	return nil
 }
 
+// readPolyCEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	var err error
 
@@ -632,6 +695,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 
 // PolyCVecSerializeSizeEtaByVecLen can compute the serialized size for a PolyCVec with vecLen.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCVecSerializeSizeEtaByVecLen(vecLen int) int {
 	if vecLen <= 0 {
 		return VarIntSerializeSize(0)
@@ -639,12 +703,17 @@ func (pp *PublicParameter) PolyCVecSerializeSizeEtaByVecLen(vecLen int) int {
 	return VarIntSerializeSize(uint64(vecLen)) + vecLen*pp.PolyCSerializeSizeEta()
 }
 
+// PolyCVecSerializeSizeEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyCVecSerializeSizeEta(a *PolyCVec) int {
 	if a == nil {
 		return VarIntSerializeSize(0)
 	}
 	return VarIntSerializeSize(uint64(len(a.polyCs))) + len(a.polyCs)*pp.PolyCSerializeSizeEta()
 }
+
+// writePolyCVecEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) writePolyCVecEta(w io.Writer, a *PolyCVec) error {
 	if a == nil {
 		//	write the length of the vector
@@ -670,6 +739,9 @@ func (pp *PublicParameter) writePolyCVecEta(w io.Writer, a *PolyCVec) error {
 	}
 	return nil
 }
+
+// readPolyCVecEta
+// reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCVecEta(r io.Reader) (*PolyCVec, error) {
 	var err error
 	var count uint64
@@ -691,11 +763,15 @@ func (pp *PublicParameter) readPolyCVecEta(r io.Reader) (*PolyCVec, error) {
 	return &PolyCVec{polyCs: res}, nil
 }
 
+// AddressPublicKeySerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) AddressPublicKeySerializeSize() int {
 	//return pp.PolyANTTVecSerializeSize(a.t) + pp.PolyANTTSerializeSize()
 	return (pp.paramKA + 1) * pp.PolyANTTSerializeSize()
 }
 
+// SerializeAddressPublicKey
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeAddressPublicKey(apk *AddressPublicKey) ([]byte, error) {
 	var err error
 	if apk == nil || apk.t == nil || apk.e == nil {
@@ -720,6 +796,9 @@ func (pp *PublicParameter) SerializeAddressPublicKey(apk *AddressPublicKey) ([]b
 
 	return w.Bytes(), nil
 }
+
+// DeserializeAddressPublicKey
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeAddressPublicKey(serialziedAPk []byte) (*AddressPublicKey, error) {
 	var err error
 	r := bytes.NewReader(serialziedAPk)
@@ -854,101 +933,17 @@ func (pp *PublicParameter) DeserializeAddressPublicKey(serialziedAPk []byte) (*A
 //	return pp.paramLC * pp.PolyCNTTSerializeSize()
 //}
 
-func (pp *PublicParameter) ValueCommitmentSerializeSize() int {
-	//	return pp.PolyCNTTVecSerializeSize(v.b) + pp.PolyCNTTSerializeSize()
-	return (pp.paramKC + 1) * pp.PolyCNTTSerializeSize()
-}
-func (pp *PublicParameter) SerializeValueCommitment(vcmt *ValueCommitment) ([]byte, error) {
-	var err error
-	if vcmt == nil || vcmt.b == nil || vcmt.c == nil {
-		return nil, errors.New("SerializeValueCommitment: there is nil pointer in ValueCommitment")
-	}
-	if len(vcmt.b.polyCNTTs) != pp.paramKC {
-		return nil, errors.New("SerializeValueCommitment: the format of ValueCommitment does not match the design")
-	}
-
-	length := pp.ValueCommitmentSerializeSize()
-	w := bytes.NewBuffer(make([]byte, 0, length))
-	for i := 0; i < pp.paramKC; i++ {
-		err = pp.writePolyCNTT(w, vcmt.b.polyCNTTs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	err = pp.writePolyCNTT(w, vcmt.c)
-	if err != nil {
-		return nil, err
-	}
-	return w.Bytes(), nil
-}
-func (pp *PublicParameter) DeserializeValueCommitment(serialziedValueCommitment []byte) (*ValueCommitment, error) {
-	var err error
-	r := bytes.NewReader(serialziedValueCommitment)
-
-	b := pp.NewPolyCNTTVec(pp.paramKC)
-	var c *PolyCNTT
-
-	for i := 0; i < pp.paramKC; i++ {
-		b.polyCNTTs[i], err = pp.readPolyCNTT(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-	c, err = pp.readPolyCNTT(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ValueCommitment{b, c}, nil
-}
-
-// TxoValueBytesLen returns 7 (bytes) to encode the value in [0, 2^{51}-1].
-func (pp *PublicParameter) TxoValueBytesLen() int {
-	//	N = 51, v \in [0, 2^{51}-1]
-	return 7
-}
-func (pp *PublicParameter) encodeTxoValueToBytes(value uint64) ([]byte, error) {
-	//	N = 51, v \in [0, 2^{51}-1]
-	if value < 0 || value > (1<<51)-1 {
-		return nil, errors.New("value is not in the scope [0, 2^N-1] for N= 51")
-	}
-
-	rst := make([]byte, 7)
-	for i := 0; i < 7; i++ {
-		rst[0] = byte(value >> 0)
-		rst[1] = byte(value >> 8)
-		rst[2] = byte(value >> 16)
-		rst[3] = byte(value >> 24)
-		rst[4] = byte(value >> 32)
-		rst[5] = byte(value >> 40)
-		rst[6] = byte(value >> 48)
-	}
-	return rst, nil
-}
-
-func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint64, error) {
-	//	N = 51, v \in [0, 2^{51}-1]
-	if len(serializedValue) != 7 {
-		return 0, errors.New("serializedValue's length is not 7")
-	}
-	var res uint64
-	res = uint64(serializedValue[0]) << 0
-	res |= uint64(serializedValue[1]) << 8
-	res |= uint64(serializedValue[2]) << 16
-	res |= uint64(serializedValue[3]) << 24
-	res |= uint64(serializedValue[4]) << 32
-	res |= uint64(serializedValue[5]) << 40
-	res |= uint64(serializedValue[6]&0x07) << 48
-
-	return res, nil
-}
-
+// TxoSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) TxoSerializeSize() int {
 	return pp.AddressPublicKeySerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
 		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 }
+
+// SerializeTxo
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeTxo(txo *Txo) ([]byte, error) {
 	if txo == nil || txo.AddressPublicKey == nil || txo.ValueCommitment == nil {
 		return nil, errors.New("SerializeTxo: there is nil pointer in Txo")
@@ -992,6 +987,9 @@ func (pp *PublicParameter) SerializeTxo(txo *Txo) ([]byte, error) {
 
 	return w.Bytes(), nil
 }
+
+// DeserializeTxo
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeTxo(serializedTxo []byte) (*Txo, error) {
 	var err error
 	r := bytes.NewReader(serializedTxo)
@@ -1032,15 +1030,21 @@ func (pp *PublicParameter) DeserializeTxo(serializedTxo []byte) (*Txo, error) {
 	return &Txo{apk, cmt, vct, ctKem}, nil
 }
 
-// LgrTxoIdSerializeSize() returns HashOutputBytesLen, since we use Hash to compute LgrTxoId,
+// LgrTxoIdSerializeSize returns HashOutputBytesLen, since we use Hash to compute LgrTxoId,
 // to guarantee no one can tontrol the txo-id-in-ledger.
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) LgrTxoIdSerializeSize() int {
 	return HashOutputBytesLen
 }
 
+// LgrTxoSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) LgrTxoSerializeSize() int {
 	return pp.TxoSerializeSize() + pp.LgrTxoIdSerializeSize()
 }
+
+// SerializeLgrTxo
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeLgrTxo(lgrTxo *LgrTxo) ([]byte, error) {
 	if lgrTxo.txo == nil {
 		return nil, errors.New("SerializeLgrTxo: there is nil pointer in LgrTxo")
@@ -1068,6 +1072,9 @@ func (pp *PublicParameter) SerializeLgrTxo(lgrTxo *LgrTxo) ([]byte, error) {
 
 	return w.Bytes(), nil
 }
+
+// DeserializeLgrTxo
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeLgrTxo(serializedLgrTxo []byte) (*LgrTxo, error) {
 
 	r := bytes.NewReader(serializedLgrTxo)
@@ -1091,6 +1098,8 @@ func (pp *PublicParameter) DeserializeLgrTxo(serializedLgrTxo []byte) (*LgrTxo, 
 	return &LgrTxo{txo, id}, nil
 }
 
+// RpulpProofSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) RpulpProofSerializeSize(prf *rpulpProof) int {
 	var length int
 	lengthOfPolyCNTT := pp.PolyCNTTSerializeSize()
@@ -1113,6 +1122,8 @@ func (pp *PublicParameter) RpulpProofSerializeSize(prf *rpulpProof) int {
 	return length
 }
 
+// SerializeRpulpProof
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeRpulpProof(prf *rpulpProof) ([]byte, error) {
 	if prf == nil || prf.c_waves == nil ||
 		prf.c_hat_g == nil || prf.psi == nil || prf.phi == nil ||
@@ -1195,6 +1206,8 @@ func (pp *PublicParameter) SerializeRpulpProof(prf *rpulpProof) ([]byte, error) 
 	return w.Bytes(), nil
 }
 
+// DeserializeRpulpProof
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeRpulpProof(serializedRpulpProof []byte) (*rpulpProof, error) {
 
 	r := bytes.NewReader(serializedRpulpProof)
@@ -1291,9 +1304,14 @@ func (pp *PublicParameter) DeserializeRpulpProof(serializedRpulpProof []byte) (*
 	}, nil
 }
 
+// challengeSeedCSerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) challengeSeedCSerializeSizeApprox() int {
 	return VarIntSerializeSize(uint64(HashOutputBytesLen)) + HashOutputBytesLen
 }
+
+// responseCSerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) responseCSerializeSizeApprox() int {
 	//	r \in (Ring_{q_c})^{L_c}
 	//	z \in (Ring_{q_c})^{L_c}
@@ -1302,6 +1320,8 @@ func (pp *PublicParameter) responseCSerializeSizeApprox() int {
 		pp.paramK*(VarIntSerializeSize(uint64(pp.paramLC))+pp.paramLC*pp.PolyCSerializeSizeEta())
 }
 
+// CbTxWitnessJ1SerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) CbTxWitnessJ1SerializeSizeApprox() int {
 	var lenApprox int
 
@@ -1317,6 +1337,8 @@ func (pp *PublicParameter) CbTxWitnessJ1SerializeSizeApprox() int {
 	return lenApprox
 }
 
+// CbTxWitnessJ1SerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) CbTxWitnessJ1SerializeSize(witness *CbTxWitnessJ1) int {
 	if witness == nil {
 		return 0
@@ -1332,6 +1354,8 @@ func (pp *PublicParameter) CbTxWitnessJ1SerializeSize(witness *CbTxWitnessJ1) in
 	return length
 }
 
+// SerializeCbTxWitnessJ1
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeCbTxWitnessJ1(witness *CbTxWitnessJ1) ([]byte, error) {
 	if witness.zs == nil || len(witness.chseed) == 0 {
 		return nil, errors.New("SerializeCbTxWitnessJ1: there is nil pointer in CbTxWitnessJ1")
@@ -1363,6 +1387,8 @@ func (pp *PublicParameter) SerializeCbTxWitnessJ1(witness *CbTxWitnessJ1) ([]byt
 	return w.Bytes(), nil
 }
 
+// DeserializeCbTxWitnessJ1
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeCbTxWitnessJ1(serializedWitness []byte) (*CbTxWitnessJ1, error) {
 	r := bytes.NewReader(serializedWitness)
 
@@ -1393,65 +1419,15 @@ func (pp *PublicParameter) DeserializeCbTxWitnessJ1(serializedWitness []byte) (*
 	}, nil
 }
 
-// todo: review
-// For carry vector f, u_p = B*f + e servers as its range proof, where u_p's infinite normal should be smaller than q_c/16.
-// e is sampled from [-eta_f, eta_f].
-// B*f is bounded by d_c*J (for coinbaseTx with J>1), d_c * (J+1) (for transferTx with I=1), and d_c * (I+J+1) (for transferTx with I>1).
-// A valid proof for u_p should have infinite normal in [-(eta_f - beta_f), (eta_f - beta_f)].
-// Note q_c = 9007199254746113 = 2^{53} + 2^{12} + 2^{10} + 2^{0} is a 54-bit number, and 2^{49}-1 < q_c/16.
-// Any eta_f smaller than 2^{49}-1 will be fine.
-// We set eta_f = 2^{23}-1.
-// Each coefficient of u_p, say in [-(eta_f - beta_f), (eta_f - beta_f)], can be encoded by 3 bytes.
-func (pp *PublicParameter) CarryVectorRProofSerializeSize() int {
-	return pp.paramDC * 3
-}
-
-func (pp *PublicParameter) writeCarryVectorRProof(w io.Writer, u_p []int64) error {
-	if len(u_p) != pp.paramDC {
-		return errors.New("The carry vector should have size equal to paramDc")
-	}
-
-	var coeff int64
-	tmp := make([]byte, 3)
-	for i := 0; i < pp.paramDC; i++ {
-		coeff = u_p[i]
-		tmp[0] = byte(coeff >> 0)
-		tmp[1] = byte(coeff >> 8)
-		tmp[2] = byte(coeff >> 16)
-		_, err := w.Write(tmp)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func (pp *PublicParameter) readCarryVectorRProof(r io.Reader) ([]int64, error) {
-	u_p := make([]int64, pp.paramDC)
-
-	var coeff int64
-	tmp := make([]byte, 3)
-	for i := 0; i < pp.paramDC; i++ {
-		_, err := r.Read(tmp)
-		if err != nil {
-			return nil, err
-		}
-		coeff = int64(tmp[0]) << 0
-		coeff |= int64(tmp[1]) << 8
-		coeff |= int64(tmp[2]) << 16
-		if tmp[2]>>7 == 1 {
-			//	23-bit for absolute
-			coeff = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
-		}
-		u_p[i] = coeff
-	}
-	return u_p, nil
-}
-
+// boundingVecCSerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) boundingVecCSerializeSizeApprox() int {
 	//	PolyCNTTVec[k_c]
 	return VarIntSerializeSize(uint64(pp.paramKC)) + pp.paramKC*pp.PolyCNTTSerializeSize()
 }
 
+// CbTxWitnessJ2SerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) CbTxWitnessJ2SerializeSizeApprox(outTxoNum int) int {
 	var lenApprox int
 
@@ -1489,6 +1465,8 @@ func (pp *PublicParameter) CbTxWitnessJ2SerializeSizeApprox(outTxoNum int) int {
 	return lenApprox
 }
 
+// CbTxWitnessJ2SerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) CbTxWitnessJ2SerializeSize(witness *CbTxWitnessJ2) int {
 	if witness == nil {
 		return 0
@@ -1505,6 +1483,9 @@ func (pp *PublicParameter) CbTxWitnessJ2SerializeSize(witness *CbTxWitnessJ2) in
 
 	return length
 }
+
+// SerializeCbTxWitnessJ2
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeCbTxWitnessJ2(witness *CbTxWitnessJ2) ([]byte, error) {
 	if witness == nil || witness.b_hat == nil || len(witness.c_hats) == 0 ||
 		len(witness.u_p) == 0 || witness.rpulpproof == nil {
@@ -1552,6 +1533,8 @@ func (pp *PublicParameter) SerializeCbTxWitnessJ2(witness *CbTxWitnessJ2) ([]byt
 	return w.Bytes(), nil
 }
 
+// DeserializeCbTxWitnessJ2
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeCbTxWitnessJ2(serializedCbTxWitness []byte) (*CbTxWitnessJ2, error) {
 	var count uint64
 	r := bytes.NewReader(serializedCbTxWitness)
@@ -1602,6 +1585,8 @@ func (pp *PublicParameter) DeserializeCbTxWitnessJ2(serializedCbTxWitness []byte
 	}, nil
 }
 
+// CoinbaseTxSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) CoinbaseTxSerializeSize(tx *CoinbaseTx, withWitness bool) int {
 	var length int
 
@@ -1627,6 +1612,8 @@ func (pp *PublicParameter) CoinbaseTxSerializeSize(tx *CoinbaseTx, withWitness b
 	return length
 }
 
+// SerializeCoinbaseTx
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeCoinbaseTx(tx *CoinbaseTx, withWitness bool) ([]byte, error) {
 	if tx == nil || len(tx.OutputTxos) == 0 {
 		return nil, errors.New("SerializeCoinbaseTx: there is nil pointer in CoinbaseTx")
@@ -1681,6 +1668,8 @@ func (pp *PublicParameter) SerializeCoinbaseTx(tx *CoinbaseTx, withWitness bool)
 	return w.Bytes(), nil
 }
 
+// DeserializeCoinbaseTx
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeCoinbaseTx(serializedCbTx []byte, withWitness bool) (*CoinbaseTx, error) {
 	r := bytes.NewReader(serializedCbTx)
 
@@ -1753,15 +1742,22 @@ func (pp *PublicParameter) DeserializeCoinbaseTx(serializedCbTx []byte, withWitn
 	}, nil
 }
 
+// challengeSeedASerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) challengeSeedASerializeSizeApprox() int {
 	return VarIntSerializeSize(uint64(HashOutputBytesLen)) + HashOutputBytesLen
 }
+
+// responseASerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) responseASerializeSizeApprox() int {
 	//	r \in (Ring_{q_a})^{L_a}
 	//	z \in (Ring_{q_a})^{L_a} eta
 	return VarIntSerializeSize(uint64(pp.paramLA)) + pp.paramLA*pp.PolyASerializeSizeEta()
 }
 
+// ElrsSignatureSerializeSizeApprox
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) ElrsSignatureSerializeSizeApprox(ringSize int) int {
 	var lenApprxo int
 	// seeds [][]byte, each ring member has a seed []byte
@@ -1779,6 +1775,8 @@ func (pp *PublicParameter) ElrsSignatureSerializeSizeApprox(ringSize int) int {
 	return lenApprxo
 }
 
+// ElrsSignatureSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) ElrsSignatureSerializeSize(sig *elrsSignature) int {
 	var length int
 	// seeds [][]byte
@@ -1809,6 +1807,9 @@ func (pp *PublicParameter) ElrsSignatureSerializeSize(sig *elrsSignature) int {
 	}
 	return length
 }
+
+// SerializeElrsSignature
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeElrsSignature(sig *elrsSignature) ([]byte, error) {
 	if sig == nil {
 		return nil, errors.New(ErrNilPointer)
@@ -1883,6 +1884,8 @@ func (pp *PublicParameter) SerializeElrsSignature(sig *elrsSignature) ([]byte, e
 	return w.Bytes(), nil
 }
 
+// DeserializeElrsSignature
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeElrsSignature(serializeElrsSignature []byte) (*elrsSignature, error) {
 	var err error
 	var count uint64
@@ -1974,7 +1977,8 @@ func (pp *PublicParameter) DeserializeElrsSignature(serializeElrsSignature []byt
 	}, nil
 }
 
-// TrTxWitnessSerializeSizeApprox() returns the approximate size of TrTxWitnessSerializeSize, based on the inputRingSizes and outputTxoNum.
+// TrTxWitnessSerializeSizeApprox returns the approximate size of TrTxWitnessSerializeSize, based on the inputRingSizes and outputTxoNum.
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) TrTxWitnessSerializeSizeApprox(inputRingSizes []int, outputTxoNum int) int {
 	lenApprox := VarIntSerializeSize(uint64(len(inputRingSizes))) + len(inputRingSizes)*pp.PolyANTTSerializeSize() + // ma_ps      []*PolyANTT, each ring has a ma_ps
 		VarIntSerializeSize(uint64(len(inputRingSizes))) + len(inputRingSizes)*pp.ValueCommitmentSerializeSize() // cmt_ps     []*ValueCommitment, each ring has a cnt_ps
@@ -2025,6 +2029,8 @@ func (pp *PublicParameter) TrTxWitnessSerializeSizeApprox(inputRingSizes []int, 
 	return lenApprox
 }
 
+// TrTxWitnessSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) TrTxWitnessSerializeSize(witness *TrTxWitness) int {
 	if witness == nil {
 		return 0
@@ -2051,6 +2057,8 @@ func (pp *PublicParameter) TrTxWitnessSerializeSize(witness *TrTxWitness) int {
 	return length
 }
 
+// SerializeTrTxWitness
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeTrTxWitness(witness *TrTxWitness) ([]byte, error) {
 	if witness == nil || witness.ma_ps == nil || witness.cmt_ps == nil ||
 		witness.elrsSigs == nil || witness.b_hat == nil || witness.c_hats == nil ||
@@ -2141,6 +2149,9 @@ func (pp *PublicParameter) SerializeTrTxWitness(witness *TrTxWitness) ([]byte, e
 
 	return w.Bytes(), nil
 }
+
+// DeserializeTrTxWitness
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeTrTxWitness(serializedTrTxWitness []byte) (*TrTxWitness, error) {
 	var err error
 	var count uint64
@@ -2254,6 +2265,8 @@ func (pp *PublicParameter) DeserializeTrTxWitness(serializedTrTxWitness []byte) 
 	}, nil
 }
 
+// TrTxInputSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) TrTxInputSerializeSize(trTxIn *TrTxInput) int {
 	var length int
 	//	TxoList      []*LgrTxo
@@ -2266,6 +2279,7 @@ func (pp *PublicParameter) TrTxInputSerializeSize(trTxIn *TrTxInput) int {
 }
 
 // serializeTrTxInput() is called only SerializeTransferTx() to prepare TrTxCon to be authenticated.
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) serializeTrTxInput(trTxIn *TrTxInput) ([]byte, error) {
 	if trTxIn == nil || len(trTxIn.TxoList) == 0 {
 		return nil, errors.New("serializeTrTxInput: there is nil pointer in TrTxInput")
@@ -2304,6 +2318,9 @@ func (pp *PublicParameter) serializeTrTxInput(trTxIn *TrTxInput) ([]byte, error)
 
 	return w.Bytes(), nil
 }
+
+// deserializeTrTxInput
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) deserializeTrTxInput(serialziedTrTxInput []byte) (*TrTxInput, error) {
 	var err error
 	var count uint64
@@ -2343,6 +2360,8 @@ func (pp *PublicParameter) deserializeTrTxInput(serialziedTrTxInput []byte) (*Tr
 	}, nil
 }
 
+// TransferTxSerializeSize
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) TransferTxSerializeSize(tx *TransferTx, withWitness bool) int {
 	var length int
 
@@ -2372,6 +2391,8 @@ func (pp *PublicParameter) TransferTxSerializeSize(tx *TransferTx, withWitness b
 	return length
 }
 
+// SerializeTransferTx
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) SerializeTransferTx(tx *TransferTx, withWitness bool) ([]byte, error) {
 	if tx == nil || len(tx.Inputs) == 0 || len(tx.OutputTxos) == 0 {
 		return nil, errors.New("SerializeTransferTx: there is nil pointer in TransferTx")
@@ -2442,6 +2463,8 @@ func (pp *PublicParameter) SerializeTransferTx(tx *TransferTx, withWitness bool)
 	return w.Bytes(), nil
 }
 
+// DeserializeTransferTx
+// not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
 func (pp *PublicParameter) DeserializeTransferTx(serializedTrTx []byte, withWitness bool) (*TransferTx, error) {
 	var err error
 	var count uint64
@@ -2538,48 +2561,3 @@ func (pp *PublicParameter) DeserializeTransferTx(serializedTrTx []byte, withWitn
 //	MaxAllowedElrsSignatureSize uint32 = 8388608    // 2^23, 8M bytes
 //	MaxAllowedTrTxInputSize     uint32 = 8388608    // 2^23, 8M bytes
 //)
-
-// writeVarBytes write byte array to io.Writer
-func writeVarBytes(w io.Writer, b []byte) error {
-	count := len(b)
-	err := WriteVarInt(w, uint64(count))
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		_, err = w.Write(b)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// readVarBytes read certain number of byte from io.Reader
-// the length of the byte array is decided by the initial several byte
-func readVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
-	count, err := ReadVarInt(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if count == 0 {
-		return nil, nil
-	}
-
-	// Prevent byte array larger than the max message size.  It would
-	// be possible to cause memory exhaustion and panics without a sane
-	// upper bound on this count.
-	if count > uint64(maxAllowed) {
-		str := fmt.Sprintf("%s is larger than the max allowed size "+
-			"[count %d, max %d]", fieldName, count, maxAllowed)
-		return nil, errors.New(str)
-	}
-
-	b := make([]byte, count)
-	_, err = io.ReadFull(r, b)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}

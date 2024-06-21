@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 )
@@ -270,4 +271,51 @@ func VarIntSerializeSize(val uint64) int {
 
 	// Discriminant 1 byte plus 8 bytes for the uint64.
 	return 9
+}
+
+// writeVarBytes write byte array to io.Writer
+// todo: review, moved from serialization.go on 2024.06.21
+func writeVarBytes(w io.Writer, b []byte) error {
+	count := len(b)
+	err := WriteVarInt(w, uint64(count))
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		_, err = w.Write(b)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readVarBytes read certain number of byte from io.Reader
+// the length of the byte array is decided by the initial several byte
+// todo: review, moved from serialization.go on 2024.06.21s
+func readVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
+	count, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if count == 0 {
+		return nil, nil
+	}
+
+	// Prevent byte array larger than the max message size.  It would
+	// be possible to cause memory exhaustion and panics without a sane
+	// upper bound on this count.
+	if count > uint64(maxAllowed) {
+		str := fmt.Sprintf("%s is larger than the max allowed size "+
+			"[count %d, max %d]", fieldName, count, maxAllowed)
+		return nil, errors.New(str)
+	}
+
+	b := make([]byte, count)
+	_, err = io.ReadFull(r, b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
