@@ -274,7 +274,8 @@ func VarIntSerializeSize(val uint64) int {
 }
 
 // writeVarBytes write byte array to io.Writer
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.21
 func writeVarBytes(w io.Writer, b []byte) error {
 	count := len(b)
 	err := WriteVarInt(w, uint64(count))
@@ -292,7 +293,8 @@ func writeVarBytes(w io.Writer, b []byte) error {
 
 // readVarBytes read certain number of byte from io.Reader
 // the length of the byte array is decided by the initial several byte
-// todo: review, moved from serialization.go on 2024.06.21s
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.21
 func readVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
 	count, err := ReadVarInt(r)
 	if err != nil {
