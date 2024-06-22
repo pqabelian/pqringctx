@@ -2668,22 +2668,24 @@ func (pp *PublicParameter) collectBytesForBalanceProofLmRnChallenge(msg []byte, 
 // CarryVectorRProofSerializeSize
 // For carry vector f, u_p = B*f + e servers as its range proof, where u_p's infinite normal should be smaller than q_c/16.
 // e is sampled from [-eta_f, eta_f].
-// B*f is bounded by d_c*J (for coinbaseTx with J>1), d_c * (J+1) (for transferTx with I=1), and d_c * (I+J+1) (for transferTx with I>1).
+// B*f is bounded by beta_f which has different value for different cases.
 // A valid proof for u_p should have infinite normal in [-(eta_f - beta_f), (eta_f - beta_f)].
 // Note q_c = 9007199254746113 = 2^{53} + 2^{12} + 2^{10} + 2^{0} is a 54-bit number, and 2^{49}-1 < q_c/16.
 // Any eta_f smaller than 2^{49}-1 will be fine.
 // We set eta_f = 2^{23}-1.
 // Each coefficient of u_p, say in [-(eta_f - beta_f), (eta_f - beta_f)], can be encoded by 3 bytes.
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) CarryVectorRProofSerializeSize() int {
 	return pp.paramDC * 3
 }
 
 // writeCarryVectorRProof
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) writeCarryVectorRProof(w io.Writer, u_p []int64) error {
 	if len(u_p) != pp.paramDC {
-		return errors.New("The carry vector should have size equal to paramDc")
+		return errors.New("writeCarryVectorRProof: the input carry vector has an incorrect size")
 	}
 
 	var coeff int64
@@ -2702,7 +2704,8 @@ func (pp *PublicParameter) writeCarryVectorRProof(w io.Writer, u_p []int64) erro
 }
 
 // readCarryVectorRProof
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) readCarryVectorRProof(r io.Reader) ([]int64, error) {
 	u_p := make([]int64, pp.paramDC)
 
