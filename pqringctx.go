@@ -50,11 +50,6 @@ type Txo struct {
 //	}
 //}
 
-type ValueCommitment struct {
-	b *PolyCNTTVec //	binding vector with length PublicParameter.paramKC
-	c *PolyCNTT    //	commitment
-}
-
 type rpulpProof struct {
 	c_waves []*PolyCNTT //	lenth n
 	c_hat_g *PolyCNTT

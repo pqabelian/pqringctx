@@ -5,15 +5,25 @@ import (
 	"errors"
 )
 
+// ValueCommitment
+// moved from pqringctx.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
+type ValueCommitment struct {
+	b *PolyCNTTVec //	binding vector with length PublicParameter.paramKC
+	c *PolyCNTT    //	commitment
+}
+
 // ValueCommitmentSerializeSize
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) ValueCommitmentSerializeSize() int {
 	//	return pp.PolyCNTTVecSerializeSize(v.b) + pp.PolyCNTTSerializeSize()
 	return (pp.paramKC + 1) * pp.PolyCNTTSerializeSize()
 }
 
 // SerializeValueCommitment
-// todo: review, moved from serialization.go on 2024.06.21
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) SerializeValueCommitment(vcmt *ValueCommitment) ([]byte, error) {
 	var err error
 	if vcmt == nil || vcmt.b == nil || vcmt.c == nil {
@@ -39,10 +49,11 @@ func (pp *PublicParameter) SerializeValueCommitment(vcmt *ValueCommitment) ([]by
 }
 
 // DeserializeValueCommitment
-// todo: review, moved from serialization.go on 2024.06.21
-func (pp *PublicParameter) DeserializeValueCommitment(serialziedValueCommitment []byte) (*ValueCommitment, error) {
+// moved from serialization.go on 2024.06.21
+// reviewed by Alice, 2024.06.22
+func (pp *PublicParameter) DeserializeValueCommitment(serializedValueCommitment []byte) (*ValueCommitment, error) {
 	var err error
-	r := bytes.NewReader(serialziedValueCommitment)
+	r := bytes.NewReader(serializedValueCommitment)
 
 	b := pp.NewPolyCNTTVec(pp.paramKC)
 	var c *PolyCNTT
@@ -62,14 +73,17 @@ func (pp *PublicParameter) DeserializeValueCommitment(serialziedValueCommitment 
 }
 
 // TxoValueBytesLen returns 7 (bytes) to encode the value in [0, 2^{51}-1].
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) TxoValueBytesLen() int {
 	//	N = 51, v \in [0, 2^{51}-1]
 	return 7
 }
+
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) encodeTxoValueToBytes(value uint64) ([]byte, error) {
 	//	N = 51, v \in [0, 2^{51}-1]
 	if value < 0 || value > (1<<51)-1 {
-		return nil, errors.New("value is not in the scope [0, 2^N-1] for N= 51")
+		return nil, errors.New("encodeTxoValueToBytes: value is not in the scope [0, 2^N-1] for N= 51")
 	}
 
 	rst := make([]byte, 7)
@@ -85,10 +99,11 @@ func (pp *PublicParameter) encodeTxoValueToBytes(value uint64) ([]byte, error) {
 	return rst, nil
 }
 
+// reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint64, error) {
 	//	N = 51, v \in [0, 2^{51}-1]
 	if len(serializedValue) != 7 {
-		return 0, errors.New("serializedValue's length is not 7")
+		return 0, errors.New("decodeTxoValueFromBytes: serializedValue's length is not 7")
 	}
 	var res uint64
 	res = uint64(serializedValue[0]) << 0
