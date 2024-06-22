@@ -10,15 +10,22 @@ import (
 	"math/big"
 )
 
+// AddressPublicKey
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type AddressPublicKey struct {
 	t *PolyANTTVec // directly in NTT form
 	e *PolyANTT
 }
+
+// AddressSecretKey
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type AddressSecretKey struct {
 	*AddressSecretKeySp
 	*AddressSecretKeySn
 }
 
+// AddressSecretKey
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (ask *AddressSecretKey) checkMatchPublicKey(apk *AddressPublicKey, pp *PublicParameter) bool {
 	// t = A*s
 	s_ntt := pp.NTTPolyAVec(ask.s)
@@ -34,6 +41,8 @@ func (ask *AddressSecretKey) checkMatchPublicKey(apk *AddressPublicKey, pp *Publ
 	return true
 }
 
+// Txo
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type Txo struct {
 	*AddressPublicKey
 	*ValueCommitment
@@ -50,6 +59,8 @@ type Txo struct {
 //	}
 //}
 
+// rpulpProof
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type rpulpProof struct {
 	c_waves []*PolyCNTT //	lenth n
 	c_hat_g *PolyCNTT
@@ -62,6 +73,8 @@ type rpulpProof struct {
 	zs     []*PolyCVec   //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
 }
 
+// CoinbaseTx
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type CoinbaseTx struct {
 	Vin         uint64
 	OutputTxos  []*Txo
@@ -70,6 +83,8 @@ type CoinbaseTx struct {
 	TxWitnessJ2 *CbTxWitnessJ2
 }
 
+// CbTxWitnessJ1
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type CbTxWitnessJ1 struct {
 	chseed []byte
 	// zs, as the response, need to have infinite normal in a scopr, say [-(eta_c - beta_c), (eta_c - beta_c)].
@@ -77,6 +92,8 @@ type CbTxWitnessJ1 struct {
 	zs []*PolyCVec //	length paramK, each in (S_{eta_c - beta_c})^{L_c}
 }
 
+// CbTxWitnessJ2
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type CbTxWitnessJ2 struct {
 	b_hat      *PolyCNTTVec
 	c_hats     []*PolyCNTT // length J+2
@@ -84,14 +101,18 @@ type CbTxWitnessJ2 struct {
 	rpulpproof *rpulpProof
 }
 
+// TxOutputDesc
 // For CoinbaseTxGen and TransferTxGen
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type TxOutputDesc struct {
 	serializedAPk []byte
 	serializedVPk []byte
 	value         uint64
 }
 
+// TxInputDesc
 // For trasnferTx Gen
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type TxInputDesc struct {
 	lgrTxoList      []*LgrTxo
 	sidx            uint8 //	consumed Txo index
@@ -104,6 +125,7 @@ type TxInputDesc struct {
 
 // LgrTxo consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/datase.
 // Txo's ID in ledger is determined by the ledger layer.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type LgrTxo struct {
 	txo *Txo
 	id  []byte
@@ -113,6 +135,7 @@ type LgrTxo struct {
 // TransferTx's TxWitness does not care the storage and organization of traneferTx in blocks and ledger.
 // This is because pqringct serves as the crypto-layer.
 // The fields of Tx are defined as exported.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type TransferTx struct {
 	//	Version uint32	//	crypto-layer does not care the (actually has not the concept of) version of transferTx.
 	Inputs     []*TrTxInput
@@ -122,11 +145,15 @@ type TransferTx struct {
 	TxWitness  *TrTxWitness
 }
 
+// TrTxInput
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type TrTxInput struct {
 	TxoList      []*LgrTxo
 	SerialNumber []byte
 }
 
+// TrTxWitness
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type TrTxWitness struct {
 	ma_ps      []*PolyANTT        // length I, each for one Input. The key-image of the signing key, and is the pre-image of SerialNumber.
 	cmt_ps     []*ValueCommitment // length I, each for one Input. It commits the same value as the consumed Txo.
@@ -137,6 +164,8 @@ type TrTxWitness struct {
 	rpulpproof *rpulpProof
 }
 
+// elrsSignature
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 type elrsSignature struct {
 	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
 	//	z_as, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
@@ -147,6 +176,8 @@ type elrsSignature struct {
 	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
 }
 
+// addressKeyGen
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) addressKeyGen(seed []byte) (apk *AddressPublicKey, ask *AddressSecretKey, err error) {
 	// check the validity of the length of seed
 	if seed != nil && len(seed) != pp.paramKeyGenSeedBytesLen {
@@ -189,6 +220,8 @@ func (pp *PublicParameter) addressKeyGen(seed []byte) (apk *AddressPublicKey, as
 	return apk, ask, nil
 }
 
+// addressKeyVerify
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) addressKeyVerify(apk *AddressPublicKey, ask *AddressSecretKey) (valid bool, hints string) {
 	//	verify the normal of ask.s
 	if !pp.isAddressSKspNormInBound(ask.s) {
@@ -210,18 +243,22 @@ func (pp *PublicParameter) addressKeyVerify(apk *AddressPublicKey, ask *AddressS
 	return true, ""
 }
 
+// valueKeyGen
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) valueKeyGen(seed []byte) ([]byte, []byte, error) {
 	return pqringctxkem.KeyGen(pp.paramKem, seed, pp.paramKeyGenSeedBytesLen)
 }
 
+// valueKeyVerify
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) valueKeyVerify(vpk []byte, vsk []byte) (valid bool, hints string) {
 	//	From the caller, (vpk []byte, vsk []byte) was obtained by calling (pp *PublicParameter) valueKeyGen(seed []byte) ([]byte, []byte, error)
 	return pqringctxkem.VerifyKeyPair(pp.paramKem, vpk, vsk)
 }
 
 // txoGen() returns a transaction output and the randomness used to generate the commitment.
-//
 // Deprecated: Use txoRCTPreGen / txoRCTGen / txoSDNGen instead.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) txoGen(apk *AddressPublicKey, vpk []byte, vin uint64) (txo *Txo, cmtr *PolyCNTTVec, err error) {
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
@@ -277,6 +314,8 @@ func (pp *PublicParameter) txoGen(apk *AddressPublicKey, vpk []byte, vin uint64)
 	return rettxo, cmtr, nil
 }
 
+// rpulpProve
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) rpulpProve(message []byte, cmts []*ValueCommitment, cmt_rs []*PolyCNTTVec, n uint8,
 	b_hat *PolyCNTTVec, r_hat *PolyCNTTVec, c_hats []*PolyCNTT, msg_hats [][]int64, n2 uint8,
 	n1 uint8, rpulpType RpUlpType, binMatrixB [][]byte,
@@ -538,6 +577,8 @@ rpUlpProveRestart:
 	return retrpulppi, nil
 }
 
+// rpulpVerify
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) rpulpVerify(message []byte,
 	cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8,
@@ -864,6 +905,8 @@ func (pp *PublicParameter) rpulpVerify(message []byte,
 	return true
 }
 
+// expandKIDR
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) expandKIDR(lgrtxo *LgrTxo) (*PolyANTT, error) {
 	serializedLgrTxo, err := pp.SerializeLgrTxo(lgrtxo)
 	if err != nil {
@@ -900,6 +943,8 @@ func (pp *PublicParameter) expandKIDR(lgrtxo *LgrTxo) (*PolyANTT, error) {
 	//return &PolyANTT{coeffs: coeffs}, nil
 }
 
+// elrsSign
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) elrsSign(
 	lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment,
 	msg []byte, sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*elrsSignature, error) {
@@ -1149,7 +1194,9 @@ ELRSSignRestart:
 	}, nil
 }
 
+// collectBytesForElrsChallenge
 // todo_DONE: the paper is not accurate, use the following params
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) collectBytesForElrsChallenge(
 	lgxTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment,
 	msg []byte,
@@ -1256,6 +1303,7 @@ func (pp *PublicParameter) collectBytesForElrsChallenge(
 }
 
 // elrsVerify() verify the validity of a given (message, signature) pair.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) elrsVerify(lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_p *ValueCommitment, msg []byte, sig *elrsSignature) (bool, error) {
 	ringLen := len(lgrTxoList)
 	if ringLen == 0 {
@@ -1386,6 +1434,7 @@ func (pp *PublicParameter) elrsVerify(lgrTxoList []*LgrTxo, ma_p *PolyANTT, cmt_
 }
 
 // CoinbaseTxGen() generates a coinbase transaction.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) coinbaseTxGen(vin uint64, txOutputDescs []*TxOutputDesc, txMemo []byte) (cbTx *CoinbaseTx, err error) {
 	V := uint64(1)<<pp.paramN - 1
 
@@ -1660,6 +1709,7 @@ func (pp *PublicParameter) coinbaseTxGen(vin uint64, txOutputDescs []*TxOutputDe
 }
 
 // CoinbaseTxVerify reports whether a coinbase transaction is legal.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) coinbaseTxVerify(cbTx *CoinbaseTx) (bool, error) {
 	if cbTx == nil {
 		return false, nil
@@ -1805,6 +1855,7 @@ func (pp *PublicParameter) coinbaseTxVerify(cbTx *CoinbaseTx) (bool, error) {
 	return true, nil
 }
 
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) collectBytesForCoinbaseTxJ1(premsg []byte, ws []*PolyCNTTVec, deltas []*PolyCNTT) []byte {
 	length := len(premsg) + pp.paramK*(pp.paramKC+1)*pp.paramDC*8
 	rst := make([]byte, 0, length)
@@ -1841,6 +1892,7 @@ func (pp *PublicParameter) collectBytesForCoinbaseTxJ1(premsg []byte, ws []*Poly
 }
 
 // collectBytesForCoinbaseTxJ2 is an auxiliary function for CoinbaseTxGen and CoinbaseTxVerify to collect some information into a byte slice
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) collectBytesForCoinbaseTxJ2(premsg []byte, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) []byte {
 
 	length := len(premsg) + len(b_hat.polyCNTTs)*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
@@ -1876,6 +1928,7 @@ func (pp *PublicParameter) collectBytesForCoinbaseTxJ2(premsg []byte, b_hat *Pol
 }
 
 // TransferTxGen() generates Transfer Transaction.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs []*TxOutputDesc, fee uint64, txMemo []byte) (trTx *TransferTx, err error) {
 	//	check the well-formness of the inputs and outputs
 	inputNum := len(inputDescs)
@@ -2375,6 +2428,7 @@ func (pp *PublicParameter) transferTxGen(inputDescs []*TxInputDesc, outputDescs 
 }
 
 // TransferTxVerify reports whether a transfer transaction is legal.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) transferTxVerify(trTx *TransferTx) (bool, error) {
 	if trTx == nil {
 		return false, nil
@@ -2519,6 +2573,7 @@ func (pp *PublicParameter) transferTxVerify(trTx *TransferTx) (bool, error) {
 	return true, nil
 }
 
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) collectBytesForTransferTx(premsg []byte, b_hat *PolyCNTTVec, c_hats []*PolyCNTT) []byte {
 	length := len(premsg) + pp.paramKC*pp.paramDC*8 + len(c_hats)*pp.paramDC*8
 	rst := make([]byte, 0, length)
@@ -2552,11 +2607,13 @@ func (pp *PublicParameter) collectBytesForTransferTx(premsg []byte, b_hat *PolyC
 	return rst
 }
 
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) ledgerTxoSerialNumberSerializeSize() int {
 	return HashOutputBytesLen
 }
 
 // ledgerTxoSerialNumberCompute() compute the serial number for a PolyANTT.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) ledgerTxoSerialNumberCompute(ma_p *PolyANTT) ([]byte, error) {
 	length := pp.PolyANTTSerializeSize()
 	w := bytes.NewBuffer(make([]byte, 0, length))
@@ -2592,6 +2649,7 @@ func (pp *PublicParameter) ledgerTxoSerialNumberCompute(ma_p *PolyANTT) ([]byte,
 }
 
 // pqringct uses Kyber, where serializedVPk can be computed from serializedVSk, so that here serializedVPk is not used when calling pqringctxkem.Decaps.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) txoCoinReceive(txo *Txo, serializedAPk []byte, serializedVPk []byte, serializedVSk []byte) (valid bool, v uint64, err error) {
 	if txo == nil {
 		return false, 0, errors.New("nil txo in txoCoinReceive")
@@ -2657,6 +2715,7 @@ func (pp *PublicParameter) txoCoinReceive(txo *Txo, serializedAPk []byte, serial
 }
 
 // ledgerTXOSerialNumberGen() generates serial number for a ledger-txo, say a (txo, txolid) pair.
+// not used anymore and should be removed; reviewed/commented by Alice, 2024.06.22
 func (pp *PublicParameter) ledgerTXOSerialNumberGen(lgrTxo *LgrTxo, serializedAsksn []byte) ([]byte, error) {
 	//txo, err := pp.DeserializeTxo(serializedTxo)
 	//if err != nil {

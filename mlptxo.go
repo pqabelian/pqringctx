@@ -20,13 +20,13 @@ import (
 //	PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
 //
 
-// TxoMLP defines the interface for Txo.
+// TxoMLP defines the interface for TxoMLP.
 // reviewed on 2023.12.05
 type TxoMLP interface {
 	CoinAddressType() CoinAddressType
 }
 
-// TxoRCTPre defines the Txo with RingCT-privacy, but the coinAddress has the initial format.
+// TxoRCTPre defines the TxoMLP with RingCT-privacy, but the coinAddress has the initial format.
 // This is to achieve back-compatibility with the previous Txos (with RingCT-privacy).
 // reviewed on 2023.12.05
 type TxoRCTPre struct {
@@ -43,7 +43,7 @@ func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
 	return txoRCTPre.coinAddressType
 }
 
-// TxoRCT defines the Txo with RingCT-privacy.
+// TxoRCT defines the TxoMLP with RingCT-privacy.
 // reviewed on 2023.12.05
 // todo: review
 type TxoRCT struct {
@@ -62,7 +62,7 @@ func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 	return txoRCT.coinAddressType
 }
 
-// TxoSDN defines the Txo with Pseudonym-privacy.
+// TxoSDN defines the TxoMLP with Pseudonym-privacy.
 // reviewed on 2023.12.05
 type TxoSDN struct {
 	coinAddressType               CoinAddressType
@@ -390,7 +390,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 	return value, cmtr, nil
 }
 
-// GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a Txo for the input coinAddressType.
+// GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a TxoMLP for the input coinAddressType.
 // reviewed on 2023.12.07
 func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
@@ -1010,7 +1010,7 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 }
 
 // PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
-// return an err if it is not a Pseudonym-Privacy Txo.
+// return an err if it is not a Pseudonym-Privacy TxoMLP.
 // todo: review
 func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []byte, value uint64, err error) {
 	if txoMLP == nil {

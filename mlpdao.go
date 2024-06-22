@@ -8,9 +8,9 @@ const (
 	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 2
 )
 
-// LgrTxoMLP consists of a Txo and a txoId-in-ledger, which is the unique identifier of a Txo in the ledger/blockchain/database.
+// LgrTxoMLP consists of a TxoMLP and a txoId-in-ledger, which is the unique identifier of a TxoMLP in the ledger/blockchain/database.
 // TxoId-in-ledger is determined by the ledger layer.
-// In other words, a Txo becomes a coin (i.e., LgrTxo) only when it is assigned a unique txoId-in-ledger.
+// In other words, a TxoMLP becomes a coin (i.e., LgrTxoMLP) only when it is assigned a unique txoId-in-ledger.
 type LgrTxoMLP struct {
 	txo TxoMLP
 	id  []byte
@@ -43,8 +43,8 @@ type TransferTxMLP struct {
 	txWitness *TxWitnessTrTx
 }
 
-// TxOutputDescMLP describes the information for generating Txo, for generating CoinbaseTx and TransferTx.
-// As the generated Txo will have privacy-level based on the coinAddress, TxOutputDescMLP is uniform for multi-privacy-levels.
+// TxOutputDescMLP describes the information for generating TxoMLP, for generating CoinbaseTxMLP and TransferTxMLP.
+// As the generated TxoMLP will have privacy-level based on the coinAddress, TxOutputDescMLP is uniform for multi-privacy-levels.
 // In particular, to generate a coin on pseudonym-privacy address, the serializedVPK could be nil.
 // reviewed on 2023.12.07
 type TxOutputDescMLP struct {
@@ -53,13 +53,13 @@ type TxOutputDescMLP struct {
 	value              uint64
 }
 
-// TxInputDescMLP describe the information for a coin to be consumed, for generating TransferTx.
+// TxInputDescMLP describe the information for a coin to be consumed, for generating TransferTxMLP.
 // As the consumed coin may have different privacy-levels, TxInputDescMLP is uniform for multi-privacy-levels.
 // In particular, if the coin to consumed is on pseudonym-privacy-level,
 // the coinSerialNumberSecretKey, coinValuePK, and coinValueSK will be nil.
 type TxInputDescMLP struct {
 	lgrTxoList                []*LgrTxoMLP
-	sidx                      uint8 //	consumed LgrTxo index
+	sidx                      uint8 //	consumed LgrTxoMLP index
 	coinSpendSecretKey        []byte
 	coinSerialNumberSecretKey []byte //	This is optional, could be nil
 	coinValuePublicKey        []byte //	This is optional, could be nil

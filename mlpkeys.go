@@ -537,7 +537,7 @@ func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coi
 // CoinValueKeyGen generates serializedValuePublicKey and serializedValueSecretKey,
 // which will be used to transmit the (value, randomness) pair of the value-commitment to the coin owner.
 // Note that by default, pqringctx transmits the (value, randomness) pair by on-chain data,
-// i.e., the ciphertexts are included in Txo.
+// i.e., the ciphertexts are included in TxoMLP.
 // As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
 // we use a standalone ValueKeyGen algorithm to generate these keys.
 // reviewed on 2023.12.07

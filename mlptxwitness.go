@@ -89,7 +89,7 @@ type TxWitnessTrTx struct {
 	vPublic             int64
 	//	abf
 	ma_ps                      []*PolyANTT                  // length inForRing, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
-	cmts_in_p                  []*ValueCommitment           // length inForRing, each for one RingCT-privacy Input. It commits the same value as the consumed Txo.
+	cmts_in_p                  []*ValueCommitment           // length inForRing, each for one RingCT-privacy Input. It commits the same value as the consumed TxoMLP.
 	elrSigs                    []*ElrSignatureMLP           // length inForRing, each for one RingCT-privacy Input.
 	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
 	simpleSigs                 []*SimpleSignatureMLP        // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.

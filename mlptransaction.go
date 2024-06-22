@@ -1182,7 +1182,7 @@ func (pp *PublicParameter) GetSerialNumberSerializeSize() int {
 }
 
 // ledgerTxoSerialNumberSerializeSizeMLP returns serial size of null-serial-number.
-// Note that this must keep the same as pqringct.ledgerTxoSerialNumberCompute.
+// Note that this must keep the same as pqringct.ledgerTxoSerialNumberSerializeSize.
 // reviewed on 2023.12.07.
 // reviewed on 2023.12.14
 func (pp *PublicParameter) ledgerTxoSerialNumberSerializeSizeMLP() int {
@@ -1504,7 +1504,7 @@ func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int,
 	}
 }
 
-// extendSerializedTransferTxContent extend the serialized TransferTx Content by appending the cmt_ps.
+// extendSerializedTransferTxContent extend the serialized TransferTxMLP Content by appending the cmt_ps.
 // added on 2023.12.15
 // reviewed on 2023.12.19
 func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon []byte, cmts_in_p []*ValueCommitment) ([]byte, error) {

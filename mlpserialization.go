@@ -257,8 +257,8 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 	}
 
 	//	serialNumber []byte
-	if len(txInput.serialNumber) != pp.ledgerTxoSerialNumberSerializeSize() {
-		return nil, fmt.Errorf("serializeTxInputMLP: txInput.serialNumber has a length(%d) different from the expected one(%d)", len(txInput.serialNumber), pp.ledgerTxoSerialNumberSerializeSize())
+	if len(txInput.serialNumber) != pp.ledgerTxoSerialNumberSerializeSizeMLP() {
+		return nil, fmt.Errorf("serializeTxInputMLP: txInput.serialNumber has a length(%d) different from the expected one(%d)", len(txInput.serialNumber), pp.ledgerTxoSerialNumberSerializeSizeMLP())
 	}
 	//err = writeVarBytes(w, txInput.serialNumber)
 	_, err = w.Write(txInput.serialNumber)
