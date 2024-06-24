@@ -26,6 +26,7 @@ const (
 )
 
 // KMAC specific context
+// todo: review, by 2024.06
 type kmac struct {
 	sha3.ShakeHash     // cSHAKE context and Read/Write operations
 	outputLen      int // tag size
@@ -44,6 +45,7 @@ type kmac struct {
 // Note that unlike other hash implementations in the standard library,
 // the returned Hash does not implement encoding.BinaryMarshaler
 // or encoding.BinaryUnmarshaler.
+// todo: review, by 2024.06
 func NewKMAC128(key []byte, outputLen int, domainSeparationCustomizationString []byte) hash.Hash {
 	if len(key) < 16 {
 		panic("Key must not be smaller than security strength")
@@ -60,6 +62,7 @@ func NewKMAC128(key []byte, outputLen int, domainSeparationCustomizationString [
 // Note that unlike other hash implementations in the standard library,
 // the returned Hash does not implement encoding.BinaryMarshaler
 // or encoding.BinaryUnmarshaler.
+// todo: review, by 2024.06
 func NewKMAC256(key []byte, outputLen int, domainSeparationCustomizationString []byte) hash.Hash {
 	if len(key) < 32 {
 		panic("Key must not be smaller than security strength")
@@ -68,6 +71,8 @@ func NewKMAC256(key []byte, outputLen int, domainSeparationCustomizationString [
 	return newKMAC(key, outputLen, c)
 }
 
+// newKMAC
+// todo: review, by 2024.06
 func newKMAC(key []byte, outputLen int, c sha3.ShakeHash) hash.Hash {
 	if outputLen < kmacMinimumOutputSize {
 		panic("tagSize is too small")
@@ -84,23 +89,27 @@ func newKMAC(key []byte, outputLen int, c sha3.ShakeHash) hash.Hash {
 }
 
 // Reset resets the hash to initial state.
+// todo: review, by 2024.06
 func (k *kmac) Reset() {
 	k.ShakeHash.Reset()
 	k.Write(bytepad(k.initBlock, k.ShakeHash.BlockSize()))
 }
 
 // BlockSize returns the hash block size.
+// todo: review, by 2024.06
 func (k *kmac) BlockSize() int {
 	return k.ShakeHash.BlockSize()
 }
 
 // Size returns the size of output.
+// todo: review, by 2024.06
 func (k *kmac) Size() int {
 	return k.outputLen
 }
 
 // Sum appends the current KMAC to b and returns the resulting slice.
 // It does not change the underlying hash state.
+// todo: review, by 2024.06
 func (k *kmac) Sum(b []byte) []byte {
 	dup := k.ShakeHash.Clone()
 
@@ -113,6 +122,7 @@ func (k *kmac) Sum(b []byte) []byte {
 }
 
 // Clone returns copy of a KMAC context within its current state.
+// todo: review, by 2024.06
 func (k *kmac) Clone() sha3.ShakeHash {
 	b := make([]byte, len(k.initBlock))
 	copy(b, k.initBlock)
@@ -130,6 +140,7 @@ func (k *kmac) Clone() sha3.ShakeHash {
 // specified in 2.3.3 of [1].
 //
 // copied from golang.org/x/crypto/sha3/shake.go
+// todo: review, by 2024.06
 func bytepad(input []byte, w int) []byte {
 	// leftEncode always returns max 9 bytes
 	buf := make([]byte, 0, 9+len(input)+w)
@@ -146,6 +157,7 @@ func bytepad(input []byte, w int) []byte {
 // specified in 2.3.1 of [1].
 //
 // copied from golang.org/x/crypto/sha3/shake.go
+// todo: review, by 2024.06
 func leftEncode(value uint64) []byte {
 	var b [9]byte
 	binary.BigEndian.PutUint64(b[1:], value)
@@ -164,6 +176,7 @@ func leftEncode(value uint64) []byte {
 // of the byte string after the byte string representation of x
 //
 // specified in 2.3.1 of [1].
+// todo: review, by 2024.06
 func rightEncode(value uint64) []byte {
 	var b [9]byte
 	binary.BigEndian.PutUint64(b[:8], value)

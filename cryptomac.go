@@ -14,6 +14,7 @@ const domainSeparationCustomizationString = "PQRINGCT"
 
 // MACGen
 // TODO review the implementation of underlying KMAC
+// todo: review, by 2024.06
 func MACGen(key []byte, message []byte) (messageMac []byte, err error) {
 	if len(key) != MACKeyBytesLen {
 		return nil, fmt.Errorf("MACGen: the input key has an invalid length (%d)", len(key))
@@ -25,6 +26,7 @@ func MACGen(key []byte, message []byte) (messageMac []byte, err error) {
 
 // MACVerify checks the validity of the input message and messageMac, using the input key.
 // Note: err != nil implies unexpected cases happens, it is necessary for the caller to print the error to log and/or return err to its caller.
+// todo: review, by 2024.06
 func MACVerify(key []byte, message []byte, messageMac []byte) (bool, error) {
 	if len(key) != MACKeyBytesLen {
 		return false, fmt.Errorf("MACVerify: the input key has an invalid length (%d)", len(key))
