@@ -7,34 +7,43 @@ import (
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
-// AddressSecretKeySp namely SpendKey
+// AddressSecretKeySp namely SpendKey.
+// reviewed by Alice, 2024.06.23
 type AddressSecretKeySp struct {
-	//	s \in (S_{\gamma_a})^{L_a}, where \gamma_a is small, say 5 at this moment.
-	//	As s' infinity normal lies in [-5, 5], here we define s as PolyAVec, rather than PolyANTTVec.
+	//	s \in (S_{\gamma_a})^{L_a}, where \gamma_a is small, say 2 at this moment.
+	//	As s has infinity normal in [-2, 2], here we define s as PolyAVec, rather than PolyANTTVec.
 	s *PolyAVec
 }
 
-// AddressSecretKeySn namely SerialNumberKey
+// AddressSecretKeySn namely SerialNumberKey.
+// reviewed by Alice, 2024.06.23
 type AddressSecretKeySn struct {
 	ma *PolyANTT
 }
 
-// AddressPublicKeyForRing is the struct for full-privacy Address which is used in pair with AddressSecretKeyForRing
+// AddressPublicKeyForRing is the struct for full-privacy Address which is used in pair with AddressSecretKeyForRing.
+// reviewed by Alice, 2024.06.23
 type AddressPublicKeyForRing struct {
-	t *PolyANTTVec // directly in NTT form
+	t *PolyANTTVec // directly in NTT form, length K_a
 	e *PolyANTT
 }
+
+// AddressSecretKeyForRing is the struct for full-privacy Secret Key which is used in pair with AddressPublicKeyForRing.
+// reviewed by Alice, 2024.06.23
 type AddressSecretKeyForRing struct {
 	*AddressSecretKeySp
 	*AddressSecretKeySn
 }
 
-// AddressPublicKeyForSingle is the struct for pseudonym-privacy Address which is used in pair with AddressSecretKeyForSingle
-// Comparing with AddressPublicKeyForRing, this address does not include parts related to protecting privacy
+// AddressPublicKeyForSingle is the struct for pseudonym-privacy Address which is used in pair with AddressSecretKeyForSingle.
+// Comparing with AddressPublicKeyForRing, this address does not include parts related to protecting privacy.
+// reviewed by Alice, 2024.06.23
 type AddressPublicKeyForSingle struct {
-	t *PolyANTTVec // directly in NTT form
+	t *PolyANTTVec // directly in NTT form, length K_a
 }
 
+// AddressSecretKeyForSingle is the struct for pseudonym-privacy secret key which is used in pair with AddressPublicKeyForSingle.
+// reviewed by Alice, 2024.06.23
 type AddressSecretKeyForSingle struct {
 	*AddressSecretKeySp
 }
@@ -46,6 +55,7 @@ type AddressSecretKeyForSingle struct {
 // reviewed on 2023.12.05
 // reviewed on 2023.12.30
 // REVIEWED ON 2023/12/31
+// reviewed by Alice, 2024.06.23
 func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte,
 	coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte,
 	coinSerialNumberSecretKey []byte, err error) {
@@ -102,9 +112,9 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGen(coinSpendKeyRandSeed []byt
 	//return nil, nil, nil, err
 }
 
-// CoinAddressKeyForPKRingGenSerialNumberKeyPart coinSerialNumberSecretKey from the input coinSerialNumberKeyRandSeed.
+// CoinAddressKeyForPKRingGenSerialNumberKeyPart generates coinSerialNumberSecretKey from the input coinSerialNumberKeyRandSeed.
 // NOTE: As a part of CoinAddressKeyForPKRingGen, the codes must be consistent with that in CoinAddressKeyForPKRingGen.
-// todo: review
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) CoinAddressKeyForPKRingGenSerialNumberKeyPart(coinSerialNumberKeyRandSeed []byte) (coinSerialNumberSecretKey []byte, err error) {
 
 	askSn, err := pp.addressKeyForRingGenSerialNumberKeyPart(coinSerialNumberKeyRandSeed)
@@ -132,6 +142,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGenSerialNumberKeyPart(coinSer
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
 // REVIEWED ON 2023/12/31
+// todo: reviewed by Alice, 2024.06.23
 func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -267,7 +278,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coi
 // CoinAddressForPKRingDetect checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
 // Note that err != nil implies that unexpected cases (such as incorrect call) happen,
 // and it is necessary for the caller to print the error to log and/or return the error to its caller.
-// todo: review
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) CoinAddressForPKRingDetect(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -324,6 +335,7 @@ func (pp *PublicParameter) CoinAddressForPKRingDetect(coinAddress []byte, coinDe
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
 // REVIEWED ON 2023/12/31
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 
 	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
@@ -379,6 +391,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []
 // added on 2023.12.13
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, coinSpendSecretKey []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -486,7 +499,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 // CoinAddressForPKHSingleDetect checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
 // Note that err != nil implies that unexpected cases (such as incorrect call) happen,
 // and it is necessary for the caller to print the error to log and/or return the error to its caller.
-// todo: review
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -541,6 +554,7 @@ func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coi
 // As the encryption/transmit of (value, randomness) pair is independent from the coinAddress part,
 // we use a standalone ValueKeyGen algorithm to generate these keys.
 // reviewed on 2023.12.07
+// todo: review by 2024.06
 func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (coinValuePublicKey []byte, coinValueSecretKey []byte, err error) {
 	return pqringctxkem.KeyGen(pp.paramKem, randSeed, pp.paramKeyGenSeedBytesLen)
 }
@@ -551,6 +565,7 @@ func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (coinValuePublicKey 
 // added on 2023.12.13
 // todo: review
 // todo: confirm the back-compatible
+// todo: review by 2024.06
 func (pp *PublicParameter) CoinValueKeyVerify(coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, hints string) {
 	//	From the caller, (coinValuePublicKey []byte, coinValueSecretKey []byte) was obtained by calling (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) ([]byte, []byte, error)
 	return pqringctxkem.VerifyKeyPair(pp.paramKem, coinValuePublicKey, coinValueSecretKey)
@@ -560,6 +575,7 @@ func (pp *PublicParameter) CoinValueKeyVerify(coinValuePublicKey []byte, coinVal
 // reviewed on 2023.12.05
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []byte) (CoinAddressType, error) {
 	n := len(coinAddress)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -593,6 +609,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []b
 
 // ExtractPublicRandFromCoinAddress extracts the PublicRand from the input coinAddress.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) ExtractPublicRandFromCoinAddress(coinAddress []byte) ([]byte, error) {
 
 	n := len(coinAddress)
@@ -633,6 +650,7 @@ func (pp *PublicParameter) ExtractPublicRandFromCoinAddress(coinAddress []byte) 
 // ExtractCoinAddressTypeFromCoinSpendSecretKey extracts coinAddressType from the input coinSpendSecretKey.
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpendSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSpendSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -667,6 +685,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpen
 // ExtractCoinAddressTypeFromCoinSerialNumberSecretKey extracts CoinAddressType from the input CoinSerialNumberSecretKey.
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(coinSnSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSnSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -681,7 +700,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(c
 		//	should be a coinAddress generated by AddressKeyForRingGen
 		coinAddressType := CoinAddressType(coinSnSecretKey[0])
 		if coinAddressType != CoinAddressTypePublicKeyForRing {
-			return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinSnSecretKey: the length of the input coinSnSecretKey and the extracted coinAddressType mismatch")
+			return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinSerialNumberSecretKey: the length of the input coinSnSecretKey and the extracted coinAddressType mismatch")
 		}
 		return CoinAddressTypePublicKeyForRing, nil
 
@@ -690,12 +709,13 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(c
 		return CoinAddressTypePublicKeyHashForSingle, nil
 	}
 
-	return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinSnSecretKey: the input coinSnSecretKey has a length that is not supported")
+	return 0, fmt.Errorf("ExtractCoinAddressTypeFromCoinSerialNumberSecretKey: the input coinSnSecretKey has a length that is not supported")
 }
 
 // GetCoinAddressSize returns the CoinAddress size corresponding to the input CoinAddressType.
 // reviewed on 2023.12.05
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -712,6 +732,7 @@ func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (
 // GetCoinSpendSecretKeySize returns the size of CoinSpendSecretKey, according to the input CoinAddressType.
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -728,6 +749,7 @@ func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddress
 // GetCoinSerialNumberSecretKeySize returns the size of CoinSerialNumberSecretKey, according to the input CoinAddressType.
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -742,19 +764,21 @@ func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType Coin
 }
 
 // GetCoinValuePublicKeySize returns the CoinValuePublicKey size
-// todo: to review
+// todo: review, by 2024.06
 func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
 	// todo(MPL): 4 + 1184
 	return pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem)
 }
 
+// GetCoinValueSecretKeySize
+// todo: review, by 2024.06
 func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
 	// todo(MPL): 4 + 2400
 	return pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem)
 }
 
 // DetectCoinAddress checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
-// todo: review
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) DetectCoinAddress(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 	if err != nil {
@@ -781,27 +805,29 @@ func (pp *PublicParameter) DetectCoinAddress(coinAddress []byte, coinDetectorKey
 // If the seed is empty, this algorithm is a randomized algorithm.
 // If the seed is not empty and has the correct length (which can be obtained by GetParamKeyGenSeedBytesLen() ), it is a deterministic algorithm,
 // where all randomness will be derived from the input seed.
+// NOTE: The coinSpendKeyRandSeed (resp. coinSerialNumberKeyRandSeed) either is nil or has the correct length (paramKeyGenSeedBytesLen).
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 // todo: erase the memory?
 func (pp *PublicParameter) addressKeyForRingGen(coinSpendKeyRandSeed []byte, coinSerialNumberKeyRandSeed []byte) (apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing, err error) {
 	// check the validity of the length of seed
 	if coinSpendKeyRandSeed != nil && len(coinSpendKeyRandSeed) != pp.paramKeyGenSeedBytesLen {
-		return nil, nil, fmt.Errorf("AddressKeyForRingGen: the length of coinSpendKeyRandSeed (%d) is invalid", len(coinSpendKeyRandSeed))
+		return nil, nil, fmt.Errorf("addressKeyForRingGen: the length of coinSpendKeyRandSeed (%d) is invalid", len(coinSpendKeyRandSeed))
 	}
 	localCoinSpendKeyRandSeed := make([]byte, pp.paramKeyGenSeedBytesLen)
-	if len(coinSpendKeyRandSeed) == 0 {
+	if coinSpendKeyRandSeed == nil {
 		localCoinSpendKeyRandSeed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 	} else {
 		copy(localCoinSpendKeyRandSeed, coinSpendKeyRandSeed)
 	}
 
 	if coinSerialNumberKeyRandSeed != nil && len(coinSerialNumberKeyRandSeed) != pp.paramKeyGenSeedBytesLen {
-		return nil, nil, fmt.Errorf("AddressKeyForRingGen: the length of coinSerialNumberKeyRandSeed (%d) is invalid", len(coinSerialNumberKeyRandSeed))
+		return nil, nil, fmt.Errorf("addressKeyForRingGen: the length of coinSerialNumberKeyRandSeed (%d) is invalid", len(coinSerialNumberKeyRandSeed))
 	}
 	localCoinSerialNumberKeyRandSeed := make([]byte, pp.paramKeyGenSeedBytesLen)
-	if len(coinSerialNumberKeyRandSeed) == 0 {
+	if coinSerialNumberKeyRandSeed == nil {
 		localCoinSerialNumberKeyRandSeed = RandomBytes(pp.paramKeyGenSeedBytesLen)
 	} else {
 		copy(localCoinSerialNumberKeyRandSeed, coinSerialNumberKeyRandSeed)
@@ -847,7 +873,8 @@ func (pp *PublicParameter) addressKeyForRingGen(coinSpendKeyRandSeed []byte, coi
 
 // addressKeyForRingGenSerialNumberKeyPart generates AddressSecretKeySn from the input coinSerialNumberKeyRandSeed.
 // NOTE: As a part of addressKeyForRingGen, the codes must be consistent with that in addressKeyForRingGen.
-// todo: review
+// Note: coinSerialNumberKeyRandSeed either is nil or has the correct length paramKeyGenSeedBytesLen.
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressKeyForRingGenSerialNumberKeyPart(coinSerialNumberKeyRandSeed []byte) (askSn *AddressSecretKeySn, err error) {
 	// check the validity of the length of seed
 
@@ -902,15 +929,46 @@ func (pp *PublicParameter) addressKeyForRingGenSerialNumberKeyPart(coinSerialNum
 // addressKeyForRingVerify check whether the input AddressPublicKeyForRing and AddressSecretKeyForRing match.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing) (valid bool, hints string) {
 	if apk == nil || apk.t == nil || apk.e == nil ||
 		ask == nil || ask.s == nil || ask.ma == nil {
 		return false, "addressKeyForRingVerify: there are nil points in the input (apk, ask)"
 	}
 
+	// sanity-check on ask.s
+	if len(ask.s.polyAs) != pp.paramLA {
+		return false, "addressKeyForRingVerify: the input ask.s is not well-form"
+	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(ask.s.polyAs[i]) {
+			return false, "addressKeyForRingVerify: the input ask.s is not well-form"
+		}
+	}
+
 	//	verify the normal of ask.s
 	if !pp.isAddressSKspNormInBound(ask.s) {
-		return false, "addressKeyForRingVerify: the normal of AddressSecretKeySp is not in the expected bound"
+		return false, "addressKeyForRingVerify: the normal of ask.s is not in the expected bound"
+	}
+
+	// sanity-check on ask.ma
+	if !pp.PolyANTTSanityCheck(ask.ma) {
+		return false, "addressKeyForRingVerify: the input the input ask.ma is not well-form"
+	}
+
+	// sanity-check on apk.t
+	if len(apk.t.polyANTTs) != pp.paramKA {
+		return false, "addressKeyForRingVerify: the input apk.t is not well-form"
+	}
+	for i := 0; i < pp.paramKA; i++ {
+		if !pp.PolyANTTSanityCheck(apk.t.polyANTTs[i]) {
+			return false, "addressKeyForRingVerify: the input apk.t is not well-form"
+		}
+	}
+
+	// sanity-check on apk.e
+	if !pp.PolyANTTSanityCheck(apk.e) {
+		return false, "addressKeyForRingVerify: the input apk.e is not well-form"
 	}
 
 	// compute t = A * s
@@ -932,9 +990,11 @@ func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing,
 // If the seed is empty, this algorithm is a randomized algorithm.
 // If the seed is not empty and has the correct length (which can be obtained by GetParamKeyGenSeedBytesLen() ), it is a deterministic algorithm,
 // where all randomness will be derived from the input seed.
+// Note: coinSpendKeyRandSeed either is nil or has the correct length paramKeyGenSeedBytesLen.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 // todo: erase the memory?
 func (pp *PublicParameter) addressKeyForSingleGen(coinSpendKeyRandSeed []byte) (apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle, err error) {
 	// check the validity of the length of seed
@@ -987,14 +1047,36 @@ func (pp *PublicParameter) addressKeyForSingleGen(coinSpendKeyRandSeed []byte) (
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle) (valid bool, hints string) {
 	if apk == nil || apk.t == nil ||
 		ask == nil || ask.s == nil {
 		return false, "addressKeyForSingleVerify: there are nil points in the input (apk, ask)"
 	}
+
+	// sanity-check on ask.s
+	if len(ask.s.polyAs) != pp.paramLA {
+		return false, "addressKeyForSingleVerify: the input ask.s is not well-form"
+	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(ask.s.polyAs[i]) {
+			return false, "addressKeyForSingleVerify: the input ask.s is not well-form"
+		}
+	}
+
 	//	verify the normal of ask.s
 	if !pp.isAddressSKspNormInBound(ask.s) {
-		return false, "addressKeyForSingleVerify: the normal of AddressSecretKeySp is not in the expected bound"
+		return false, "addressKeyForSingleVerify: the normal of the input ask.s is not in the expected bound"
+	}
+
+	// sanity-check on apk.t
+	if len(apk.t.polyANTTs) != pp.paramKA {
+		return false, "addressKeyForSingleVerify: the input apk.t is not well-form"
+	}
+	for i := 0; i < pp.paramKA; i++ {
+		if !pp.PolyANTTSanityCheck(apk.t.polyANTTs[i]) {
+			return false, "addressKeyForSingleVerify: the input apk.t is not well-form"
+		}
 	}
 
 	// compute t = A * s
@@ -1016,6 +1098,7 @@ func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSin
 // AddressPublicKeyForRingSerializeSize returns the serialized size for AddressPublicKeyForRing.
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
+// reviewed by Alice, 2023.06.24
 func (pp *PublicParameter) addressPublicKeyForRingSerializeSize() int {
 	//return pp.PolyANTTVecSerializeSize(a.t) + pp.PolyANTTSerializeSize()
 	return (pp.paramKA + 1) * pp.PolyANTTSerializeSize()
@@ -1025,6 +1108,7 @@ func (pp *PublicParameter) addressPublicKeyForRingSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressPublicKeyForRing(apk *AddressPublicKeyForRing) ([]byte, error) {
 	var err error
 	if apk == nil || apk.t == nil || apk.e == nil {
@@ -1053,6 +1137,7 @@ func (pp *PublicParameter) serializeAddressPublicKeyForRing(apk *AddressPublicKe
 // deserializeAddressPublicKeyForRing deserialize the input []byte to an AddressPublicKeyForRing.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) deserializeAddressPublicKeyForRing(serializedAPKForRing []byte) (*AddressPublicKeyForRing, error) {
 	var err error
 	r := bytes.NewReader(serializedAPKForRing)
@@ -1076,6 +1161,7 @@ func (pp *PublicParameter) deserializeAddressPublicKeyForRing(serializedAPKForRi
 // addressPublicKeyForSingleSerializeSize returns the serialize size for AddressPublicKeyForSingle.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressPublicKeyForSingleSerializeSize() int {
 	//return pp.PolyANTTVecSerializeSize(a.t)
 	return pp.paramKA * pp.PolyANTTSerializeSize()
@@ -1085,6 +1171,7 @@ func (pp *PublicParameter) addressPublicKeyForSingleSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressPublicKeyForSingle(apk *AddressPublicKeyForSingle) ([]byte, error) {
 	var err error
 	if apk == nil || apk.t == nil {
@@ -1109,6 +1196,7 @@ func (pp *PublicParameter) serializeAddressPublicKeyForSingle(apk *AddressPublic
 // deserializeAddressPublicKeyForSingle deserialize the input []byte to an AddressPublicKeyForSingle.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) deserializeAddressPublicKeyForSingle(serializedAPKForSingle []byte) (*AddressPublicKeyForSingle, error) {
 	var err error
 	r := bytes.NewReader(serializedAPKForSingle)
@@ -1128,6 +1216,7 @@ func (pp *PublicParameter) deserializeAddressPublicKeyForSingle(serializedAPKFor
 // addressSecretKeySpSerializeSize return the fixed size of AddressSecretKeySp.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressSecretKeySpSerializeSize() int {
 	// s polyAVec with length L_a, wih
 	return pp.paramLA * pp.PolyASerializeSizeGamma()
@@ -1137,6 +1226,7 @@ func (pp *PublicParameter) addressSecretKeySpSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressSecretKeySp(askSp *AddressSecretKeySp) ([]byte, error) {
 	var err error
 	if askSp == nil || askSp.s == nil {
@@ -1144,10 +1234,10 @@ func (pp *PublicParameter) serializeAddressSecretKeySp(askSp *AddressSecretKeySp
 	}
 
 	if len(askSp.s.polyAs) != pp.paramLA {
-		return nil, fmt.Errorf("the format of AddressSecretKeySp does not match the design")
+		return nil, fmt.Errorf("serializeAddressSecretKeySp: the format of AddressSecretKeySp does not match the design")
 	}
 
-	// s is in its poly form and it has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 5 at this moment,
+	// s is in its poly form and has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 2 at this moment,
 	// we serialize its poly from.
 	askSpLen := pp.addressSecretKeySpSerializeSize()
 	w := bytes.NewBuffer(make([]byte, 0, askSpLen))
@@ -1163,6 +1253,7 @@ func (pp *PublicParameter) serializeAddressSecretKeySp(askSp *AddressSecretKeySp
 // deserializeAddressSecretKeySp deserialize the input []byte to an AddressSecretKeySp.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) deserializeAddressSecretKeySp(serializedASKSp []byte) (*AddressSecretKeySp, error) {
 	var err error
 	r := bytes.NewReader(serializedASKSp)
@@ -1179,6 +1270,7 @@ func (pp *PublicParameter) deserializeAddressSecretKeySp(serializedASKSp []byte)
 // addressSecretKeySnSerializeSize return the fixed size of AddressSecretKeySn.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) addressSecretKeySnSerializeSize() int {
 	return pp.PolyANTTSerializeSize()
 }
@@ -1186,6 +1278,7 @@ func (pp *PublicParameter) addressSecretKeySnSerializeSize() int {
 // serializeAddressSecretKeySn serialize the input AddressSecretKeySn to []byte.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressSecretKeySn(askSn *AddressSecretKeySn) ([]byte, error) {
 	var err error
 	if askSn == nil || askSn.ma == nil {
@@ -1203,6 +1296,7 @@ func (pp *PublicParameter) serializeAddressSecretKeySn(askSn *AddressSecretKeySn
 // deserializeAddressSecretKeySn deserialize the input []byte to an AddressSecretKeySn.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) deserializeAddressSecretKeySn(serializedASKSn []byte) (*AddressSecretKeySn, error) {
 	r := bytes.NewReader(serializedASKSn)
 	ma, err := pp.readPolyANTT(r)
@@ -1219,6 +1313,7 @@ func (pp *PublicParameter) deserializeAddressSecretKeySn(serializedASKSn []byte)
 // added on 2023.12.14
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) coinSpendSecretKeyForPKRingParse(coinSpendSecretKey []byte) (*AddressSecretKeySp, error) {
 	if len(coinSpendSecretKey) == 0 {
 		return nil, fmt.Errorf("coinSpendSecretKeyForPKRingParse: the input coinSpendSecretKey is nil/empty")
@@ -1262,6 +1357,7 @@ func (pp *PublicParameter) coinSpendSecretKeyForPKRingParse(coinSpendSecretKey [
 // to an AddressSecretKeySn.
 // added on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey []byte) (*AddressSecretKeySn, error) {
 	if len(coinSerialNumberSecretKey) == 0 {
 		return nil, fmt.Errorf("coinSerialNumberSecretKeyForPKRingParse: the input coinSpendSecretKey is nil/empty")
@@ -1305,6 +1401,7 @@ func (pp *PublicParameter) coinSerialNumberSecretKeyForPKRingParse(coinSerialNum
 // to an AddressSecretKeySp.
 // added on 2023.12.14
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKey []byte) (*AddressPublicKeyForSingle, *AddressSecretKeySp, error) {
 	if len(coinSpendSecretKey) == 0 {
 		return nil, nil, fmt.Errorf("coinSpendSecretKeyForPKHSingleParse: the input coinSpendSecretKey is nil/empty")

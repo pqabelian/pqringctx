@@ -570,3 +570,38 @@ func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool
 
 	return true
 }
+
+// PolyASanityCheck checks whether the input PolyA is well-form:
+// (1) not nil
+// (2) has d_a coefficients
+// Note: It does not check the normal of the coefficients, since if necessary, there will be more concrete checks on the normal.
+// added and reviewed by Alice, 2024.06.24
+// todo: review, by 2024.06
+func (pp *PublicParameter) PolyASanityCheck(a *PolyA) (bl bool) {
+	if a == nil {
+		return false
+	}
+
+	if len(a.coeffs) != pp.paramDA {
+		return false
+	}
+
+	return true
+}
+
+// PolyANTTSanityCheck checks whether the input PolyANTT is well-form:
+// (1) not nil
+// (2) has d_a coefficients
+// added and reviewed by Alice, 2024.06.24
+// todo: review, by 2024.06
+func (pp *PublicParameter) PolyANTTSanityCheck(a *PolyANTT) (bl bool) {
+	if a == nil {
+		return false
+	}
+
+	if len(a.coeffs) != pp.paramDA {
+		return false
+	}
+
+	return true
+}
