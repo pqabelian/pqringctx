@@ -26,11 +26,9 @@ func (pp *PublicParameter) ValueCommitmentSerializeSize() int {
 // reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) SerializeValueCommitment(vcmt *ValueCommitment) ([]byte, error) {
 	var err error
-	if vcmt == nil || vcmt.b == nil || vcmt.c == nil {
-		return nil, errors.New("SerializeValueCommitment: there is nil pointer in ValueCommitment")
-	}
-	if len(vcmt.b.polyCNTTs) != pp.paramKC {
-		return nil, errors.New("SerializeValueCommitment: the format of ValueCommitment does not match the design")
+
+	if !pp.ValueCommitmentSanityCheck(vcmt) {
+		return nil, errors.New("SerializeValueCommitment: the input ValueCommitment is not well-form")
 	}
 
 	length := pp.ValueCommitmentSerializeSize()
@@ -79,6 +77,7 @@ func (pp *PublicParameter) TxoValueBytesLen() int {
 	return 7
 }
 
+// encodeTxoValueToBytes
 // reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) encodeTxoValueToBytes(value uint64) ([]byte, error) {
 	//	N = 51, v \in [0, 2^{51}-1]
@@ -99,6 +98,7 @@ func (pp *PublicParameter) encodeTxoValueToBytes(value uint64) ([]byte, error) {
 	return rst, nil
 }
 
+// decodeTxoValueFromBytes
 // reviewed by Alice, 2024.06.22
 func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint64, error) {
 	//	N = 51, v \in [0, 2^{51}-1]
@@ -115,4 +115,34 @@ func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint
 	res |= uint64(serializedValue[6]&0x07) << 48
 
 	return res, nil
+}
+
+// ValueCommitmentSanityCheck checks whether the input ValueCommitment is well-form:
+// (1) cmt is not nil
+// (2) cmt.b != nil AND is well-form
+// (3) cmt.c is well-form
+// added and reviewed by Alice, 2024.06.25
+// todo: review, by 2024.06
+func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) (bl bool) {
+	if cmt == nil {
+		return false
+	}
+
+	if cmt.b == nil {
+		return false
+	}
+	if len(cmt.b.polyCNTTs) != pp.paramKC {
+		return false
+	}
+	for i := 0; i < pp.paramKC; i++ {
+		if !pp.PolyCNTTSanityCheck(cmt.b.polyCNTTs[i]) {
+			return false
+		}
+	}
+
+	if !pp.PolyCNTTSanityCheck(cmt.c) {
+		return false
+	}
+
+	return true
 }
