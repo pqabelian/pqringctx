@@ -169,6 +169,8 @@ func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	return retSerializedC, kappa, nil
 }
 
+// Decaps
+// todo: review by 2024.06
 func Decaps(ppkem *ParamKem, serializedC []byte, sk []byte) ([]byte, error) {
 	if len(sk) < 4 {
 		return nil, errors.New("invalid secret key")
@@ -264,6 +266,8 @@ func GetKemSecretKeyBytesLen(ppkem *ParamKem) int {
 	return 0
 }
 
+// GetKemCiphertextBytesLen
+// todo: review by 2024.06
 func GetKemCiphertextBytesLen(ppkem *ParamKem) int {
 	switch ppkem.Version {
 	case KEM_KYBER:
