@@ -512,3 +512,20 @@ func (pp *PublicParameter) PolyCNTTEqualCheck(a *PolyCNTT, b *PolyCNTT) (eq bool
 
 	return true
 }
+
+// PolyCNTTSanityCheck checks whether the input PolyCNTT is well-form:
+// (1) not nil
+// (2) has d_c coefficients
+// added and reviewed by Alice, 2024.06.25
+// todo: review, by 2024.06
+func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) (bl bool) {
+	if c == nil {
+		return false
+	}
+
+	if len(c.coeffs) != pp.paramDC {
+		return false
+	}
+
+	return true
+}
