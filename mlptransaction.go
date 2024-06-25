@@ -1380,6 +1380,52 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 	}, nil
 }
 
+// LedgerTxoSerialNumberGen generates serialNumber for the input LgrTxoMLP, using the input coinSerialNumberSecretKey.
+// NOTE: the input coinSerialNumberSecretKey could be nil, for example, when the input LgrTxoMLP is on a CoinAddressTypePublicKeyHashForSingle.
+// NOTE: this must keep the same as pqringct.ledgerTXOSerialNumberGen, and consistent with the codes in TransferTxMLPGen.
+// moved from mlptxo.go
+// todo: review, by 2024.06
+func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
+	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
+		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: there is nil in the input LgrTxoMLP")
+	}
+
+	m_r, err := pp.expandKIDRMLP(lgrTxo)
+	if err != nil {
+		return nil, err
+	}
+
+	coinAddressType := lgrTxo.txo.CoinAddressType()
+
+	var ma_p *PolyANTT
+	if len(coinSerialNumberSecretKey) != 0 {
+		if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
+			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is not nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing", coinAddressType)
+		}
+
+		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
+		if err != nil {
+			return nil, err
+		}
+
+		ma_p = pp.PolyANTTAdd(askSn.ma, m_r)
+
+	} else {
+
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		}
+
+		ma_p = m_r
+	}
+
+	sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_p)
+	if err != nil {
+		return nil, err
+	}
+	return sn, nil
+}
+
 //	LgrTxoMLP	end
 
 // helper functions	begin
