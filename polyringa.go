@@ -551,7 +551,7 @@ func (pp *PublicParameter) PolyANTTVecEqualCheck(a *PolyANTTVec, b *PolyANTTVec)
 	return true
 }
 
-// PolyANTTEqualCheck
+// PolyANTTEqualCheck checks whether the input two PolyANTTs are equal.
 // reviewed by Alice, 2024.06.18
 func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool) {
 	if a == nil || b == nil {
@@ -570,6 +570,8 @@ func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool
 
 	return true
 }
+
+// sanity check functions	begin
 
 // PolyASanityCheck checks whether the input PolyA is well-form:
 // (1) not nil
@@ -605,3 +607,5 @@ func (pp *PublicParameter) PolyANTTSanityCheck(a *PolyANTT) (bl bool) {
 
 	return true
 }
+
+// sanity check functions	end
