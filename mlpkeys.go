@@ -1108,14 +1108,12 @@ func (pp *PublicParameter) addressPublicKeyForRingSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
-// reviewed by Alice, 2024.06.24
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) serializeAddressPublicKeyForRing(apk *AddressPublicKeyForRing) ([]byte, error) {
 	var err error
-	if apk == nil || apk.t == nil || apk.e == nil {
-		return nil, fmt.Errorf("serializeAddressPublicKeyForRing: there is nil pointer in AddressPublicKeyForRing")
-	}
-	if len(apk.t.polyANTTs) != pp.paramKA {
-		return nil, fmt.Errorf("serializeAddressPublicKeyForRing: the format of AddressPublicKeyForRing does not match the design")
+
+	if !pp.AddressPublicKeyForRingSanityCheck(apk) {
+		return nil, fmt.Errorf("serializeAddressPublicKeyForRing: the input AddressPublicKeyForRing is not well-form")
 	}
 
 	length := pp.addressPublicKeyForRingSerializeSize()
@@ -1174,11 +1172,9 @@ func (pp *PublicParameter) addressPublicKeyForSingleSerializeSize() int {
 // reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressPublicKeyForSingle(apk *AddressPublicKeyForSingle) ([]byte, error) {
 	var err error
-	if apk == nil || apk.t == nil {
-		return nil, fmt.Errorf("serializeAddressPublicKeyForSingle: there is nil pointer in AddressPublicKeyForSingle")
-	}
-	if len(apk.t.polyANTTs) != pp.paramKA {
-		return nil, fmt.Errorf("serializeAddressPublicKeyForSingle: the format of AddressPublicKeyForSingle does not match the design")
+
+	if !pp.AddressPublicKeyForSingleSanityCheck(apk) {
+		return nil, fmt.Errorf("serializeAddressPublicKeyForSingle: the input AddressPublicKeyForSingle is not well-form")
 	}
 
 	length := pp.addressPublicKeyForSingleSerializeSize()
@@ -1452,3 +1448,60 @@ func (pp *PublicParameter) coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKe
 //	CoinAddress and Keys Parse	end
 
 //	helper functions	end
+
+//	sanity check functions	begin
+
+// AddressPublicKeyForRingSanityCheck checks whether the input AddressPublicKeyForRing is well-from.
+// (1) addressPublicKeyForRing is not nil,
+// (2) addressPublicKeyForRing.t is not nil and is well-form
+// (3) addressPublicKeyForRing.e is well-form
+// todo: review by 2024.06
+func (pp *PublicParameter) AddressPublicKeyForRingSanityCheck(addressPublicKeyForRing *AddressPublicKeyForRing) bool {
+	if addressPublicKeyForRing == nil {
+		return false
+	}
+
+	if addressPublicKeyForRing.t == nil {
+		return false
+	}
+	if len(addressPublicKeyForRing.t.polyANTTs) != pp.paramKA {
+		return false
+	}
+	for i := 0; i < pp.paramKA; i++ {
+		if !pp.PolyANTTSanityCheck(addressPublicKeyForRing.t.polyANTTs[i]) {
+			return false
+		}
+	}
+
+	if !pp.PolyANTTSanityCheck(addressPublicKeyForRing.e) {
+		return false
+	}
+
+	return true
+}
+
+// AddressPublicKeyForSingleSanityCheck checks whether the input AddressPublicKeyForSingle is well-from.
+// (1) addressPublicKeyForSingle is not nil,
+// (2) addressPublicKeyForRing.t is not nil and is well-form
+// todo: review by 2024.06
+func (pp *PublicParameter) AddressPublicKeyForSingleSanityCheck(addressPublicKeyForSingle *AddressPublicKeyForSingle) bool {
+	if addressPublicKeyForSingle == nil {
+		return false
+	}
+
+	if addressPublicKeyForSingle.t == nil {
+		return false
+	}
+	if len(addressPublicKeyForSingle.t.polyANTTs) != pp.paramKA {
+		return false
+	}
+	for i := 0; i < pp.paramKA; i++ {
+		if !pp.PolyANTTSanityCheck(addressPublicKeyForSingle.t.polyANTTs[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+//	sanity check functions	end
