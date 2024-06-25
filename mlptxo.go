@@ -10,25 +10,17 @@ import (
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
 // As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels
 // and consequently have different structures,
-// here we use []byte to denote Txo (in its serialized form).
-// type TxoMLP []byte
-// Note: We do not define standalone structure for Txo.
-//
-//	Instead, we directly use []byte in Txs to denote Txo, rather than using a structure.
-//	This is because:
-//	Txo is purely at the cryptography layer, and the caller of PQRINGCTX does not need to learn the details of Txo.
-//	PQRINGCTX will be responsible for generating Txo and providing service/API on the generated Txo.
-//
-
-// TxoMLP defines the interface for TxoMLP.
+// here we use an interface to define TxoMLP.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 type TxoMLP interface {
 	CoinAddressType() CoinAddressType
 }
 
-// TxoRCTPre defines the TxoMLP with RingCT-privacy, but the coinAddress has the initial format.
-// This is to achieve back-compatibility with the previous Txos (with RingCT-privacy).
+// TxoRCTPre defines the TxoMLP with RingCT-privacy, but the coinAddress has the old-style format.
+// This is to achieve back-compatibility with the previous Txos (with RingCT-privacy in pqringct).
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 type TxoRCTPre struct {
 	coinAddressType         CoinAddressType
 	addressPublicKeyForRing *AddressPublicKeyForRing
@@ -39,13 +31,14 @@ type TxoRCTPre struct {
 
 // CoinAddressType is a method that all TxoMLP instance shall implement, which returns the coinAddressType.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 func (txoRCTPre *TxoRCTPre) CoinAddressType() CoinAddressType {
 	return txoRCTPre.coinAddressType
 }
 
 // TxoRCT defines the TxoMLP with RingCT-privacy.
 // reviewed on 2023.12.05
-// todo: review
+// reviewed by Alice, 2024.06.25
 type TxoRCT struct {
 	coinAddressType         CoinAddressType
 	addressPublicKeyForRing *AddressPublicKeyForRing
@@ -58,12 +51,14 @@ type TxoRCT struct {
 
 // CoinAddressType is the method that all TxoMLP instance shall implement, which returns the coinAddressType.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 func (txoRCT *TxoRCT) CoinAddressType() CoinAddressType {
 	return txoRCT.coinAddressType
 }
 
 // TxoSDN defines the TxoMLP with Pseudonym-privacy.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 type TxoSDN struct {
 	coinAddressType               CoinAddressType
 	addressPublicKeyForSingleHash []byte
@@ -74,6 +69,7 @@ type TxoSDN struct {
 
 // CoinAddressType is the method that all TxoMLP instance shall implement, which returns the coinAddressType.
 // reviewed on 2023.12.05
+// reviewed by Alice, 2024.06.25
 func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
@@ -81,14 +77,15 @@ func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 //	TXO	Gen		begin
 //
 // txoRCTPreGen() returns a transaction output and the randomness used to generate the commitment.
-// It is same as the txoGen in pqringct, with coinAddress be exactly the serializedAddressPublicKey.
+// It is same as the txoGen in pqringct, with coinAddress being exactly the serializedAddressPublicKey.
 // Note that the coinAddress should be serializedAddressPublicKeyForRing = serializedAddressPublicKey (in pqringct).
 // Note that the vpk should be serializedValuePublicKey = serializedViewPublicKey (in pqringct).
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, coinValuePublicKey []byte, value uint64) (txo *TxoRCTPre, cmtr *PolyCNTTVec, err error) {
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
-	//		todo: pp.Encaps ? 2023.12.13
+	// todo: review by 2024.06
 	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, coinValuePublicKey)
 	if err != nil {
 		return nil, nil, err
@@ -156,14 +153,13 @@ func (pp *PublicParameter) txoRCTPreGen(coinAddress []byte, coinValuePublicKey [
 
 // txoRCTGen() returns a transaction output and the randomness used to generate the commitment.
 // Note that the coinAddress should be 1 byte (CoinAddressType) + serializedAddressPublicKeyForRing.
-// Note that the vpk should be 1 byte (CoinAddressType) + serializedValuePublicKey.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []byte, value uint64) (txo *TxoRCT, cmtr *PolyCNTTVec, err error) {
 
 	//	got (C, kappa) from key encapsulate mechanism
 	// Restore the KEM version
-	//		todo: pp.Encaps ? 2023.12.13
+	// todo: review by 2024.06
 	CtKemSerialized, kappa, err := pqringctxkem.Encaps(pp.paramKem, coinValuePublicKey)
 	if err != nil {
 		return nil, nil, err
@@ -254,6 +250,7 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []by
 // txoSDNGen() returns a transaction output and the randomness used to generate the commitment.
 // Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN, err error) {
 	// parse coinAddress
 	apkHashSize := HashOutputBytesLen
@@ -288,8 +285,8 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 
 // ExtractValueAndRandFromTxoMLP extract the (value, randomness) pair for txoMLP.valueCommitment.
 // added on 2023.12.13
-// todo: review
-// todo: confirm the kem call
+// reviewed by Alice, 2024.06.25
+// todo: confirm the kem call, by 2024.06
 func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
 	if txoMLP == nil {
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP could not be nil/empty")
@@ -317,20 +314,30 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP is not TxoRCTPre, TxoRCT, or TxoSDN")
 	}
 
-	if len(coinValuePublicKey) == 0 || len(coinValueSecretKey) == 0 {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: none of the input (txoMLP, coinValuePublicKey, coinValueSecretKey) could be nil/empty")
+	// sanity-check on ctKemSerialized
+	if len(ctKemSerialized) != pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem) {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.ctKemSerialized is not well-form")
 	}
-	if len(ctKemSerialized) == 0 {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.ctKemSerialized is nil/empty")
+
+	// sanity-check on vct
+	if len(vct) != pp.TxoValueBytesLen() {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.vct is not well-form")
 	}
-	if len(vct) == 0 {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.vct is nil/empty")
-	}
-	if valueCommitment == nil || valueCommitment.b == nil || valueCommitment.c == nil {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.valueCommitment is nil or has nil field")
+
+	// sanity-check on valueCommitment
+	if !pp.ValueCommitmentSanityCheck(valueCommitment) {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.valueCommitment is not well-form")
 	}
 
 	//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
+	if len(coinValuePublicKey) != pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem) {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input coinValuePublicKey is not well-form")
+	}
+
+	if len(coinValueSecretKey) != pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem) {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input coinValueSecretKey is not well-form")
+	}
+
 	copiedCoinValueSecretKey := make([]byte, len(coinValueSecretKey))
 	copy(copiedCoinValueSecretKey, coinValueSecretKey)
 	validValueKey, hints := pp.CoinValueKeyVerify(coinValuePublicKey, copiedCoinValueSecretKey)
@@ -392,6 +399,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 
 // GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a TxoMLP for the input coinAddressType.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -401,7 +409,7 @@ func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressTy
 	case CoinAddressTypePublicKeyHashForSingle:
 		return pp.TxoSDNSerializeSize(), nil
 	default:
-		return 0, fmt.Errorf("TxoMLPSerializeSize: unsupported coinAddressType")
+		return 0, fmt.Errorf("GetTxoMLPSerializeSizeByCoinAddressType: unsupported coinAddressType")
 	}
 }
 
@@ -410,6 +418,7 @@ func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressTy
 // reviewed on 2023.12.04
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
 		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is nil")
@@ -442,6 +451,7 @@ func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 // Note that, for the case of TxoRCTPre, this must keep the same as pqringct.SerializeTxo.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte, err error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is nil")
@@ -472,6 +482,7 @@ func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte,
 
 // DeserializeTxoMLP deserialize the input []byte to a TxoMLP.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoMLP, err error) {
 	if len(serializedTxo) == 0 {
 		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo is empty")
@@ -494,6 +505,7 @@ func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoML
 // reviewed on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 	return pp.addressPublicKeyForRingSerializeSize() +
 		pp.ValueCommitmentSerializeSize() +
@@ -506,10 +518,11 @@ func (pp *PublicParameter) TxoRCTPreSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, error) {
-	if txoRCTPre == nil || txoRCTPre.addressPublicKeyForRing == nil || txoRCTPre.valueCommitment == nil ||
-		len(txoRCTPre.vct) == 0 || len(txoRCTPre.ctKemSerialized) == 0 {
-		return nil, fmt.Errorf("serializeTxoRCTPre: there is nil pointer in the input txoRCTPre")
+
+	if !pp.TxoRCTPreSanityCheck(txoRCTPre) {
+		return nil, fmt.Errorf("serializeTxoRCTPre: the input TxoRCTPre is not well-form")
 	}
 
 	var err error
@@ -555,6 +568,7 @@ func (pp *PublicParameter) serializeTxoRCTPre(txoRCTPre *TxoRCTPre) ([]byte, err
 // Note that this is the same as deserializeTxo of pqringct.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*TxoRCTPre, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCTPre)
@@ -604,7 +618,7 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) TxoRCTSerializeSize() int {
 	return 1 + // for coinAddressType
 		pp.addressPublicKeyForRingSerializeSize() +
@@ -618,11 +632,11 @@ func (pp *PublicParameter) TxoRCTSerializeSize() int {
 // serializeTxoRCT serialize the input TxoRCT to []byte.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
-	if txoRCT == nil || txoRCT.addressPublicKeyForRing == nil || txoRCT.valueCommitment == nil ||
-		len(txoRCT.vct) == 0 || len(txoRCT.ctKemSerialized) == 0 {
-		return nil, fmt.Errorf("serializeTxoRCT: there is nil pointer in the input txoRCT")
+
+	if !pp.TxoRCTSanityCheck(txoRCT) {
+		return nil, fmt.Errorf("serializeTxoRCT: the input txoRCT is not well-form")
 	}
 
 	var err error
@@ -685,7 +699,7 @@ func (pp *PublicParameter) serializeTxoRCT(txoRCT *TxoRCT) ([]byte, error) {
 // deserializeTxoRCT deserialize the input []byte to a TxoRCT.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoRCT)
@@ -739,7 +753,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 		return nil, err
 	}
 
-	ctKem, err := readVarBytes(r, MaxAllowedKemCiphertextSize, "TxoRCTPre.CtKemSerialized")
+	ctKem, err := readVarBytes(r, MaxAllowedKemCiphertextSize, "TxoRCT.CtKemSerialized")
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +772,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 // review on 2023.12.04.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
@@ -770,10 +784,14 @@ func (pp *PublicParameter) TxoSDNSerializeSize() int {
 // serializeTxoSDN serialize the input TxoSDN to []byte.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 	if txoSDN == nil || len(txoSDN.addressPublicKeyForSingleHash) == 0 {
 		return nil, fmt.Errorf("serializeTxoSDN: there is nil pointer in the input txoSDN")
+	}
+
+	if !pp.TxoSDNSanityCheck(txoSDN) {
+		return nil, fmt.Errorf("serializeTxoSDN: the input txoSDN is not well-form")
 	}
 
 	var err error
@@ -816,7 +834,7 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 // deserializeTxoSDN deserialize the input []byte to a TxoSDN.
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoSDN)
@@ -864,8 +882,11 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 
 // ExtractCoinAddressFromSerializedTxo extracts the coinAddress from a serializedTxo, which was generated by SerializeTxoMLP.
 // reviewed on 2023.12.12
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) ExtractCoinAddressFromSerializedTxo(serializedTxo []byte) ([]byte, error) {
 	txoMLP, err := pp.DeserializeTxoMLP(serializedTxo)
+	// Note that here we did not "get CoinAddressSize from serializedTxo" then "substr the CoinAddress from serializedTxo".
+	// Instead, we first DeserializeTxoMLP to make sure the serializedTxo is indeed a valid serialization of a TxoMLP.
 	if err != nil {
 		return nil, err
 	}
@@ -883,6 +904,7 @@ func (pp *PublicParameter) ExtractCoinAddressFromSerializedTxo(serializedTxo []b
 // GetCoinAddressFromTxoMLP returns the coinAddress for the input txoMLP.
 // added on 2023.12.13
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is nil")
@@ -984,7 +1006,7 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 // TxoMLPCoinReceive checks whether the input txoMLP belongs to the input coinAddress, and if true,
 // it extracts the value from txoMLP using the input (coinValuePublicKey, coinValueSecretKey) pair.
 // NOTE: the validity of (coinValuePublicKey, coinValueSecretKey) pair is checked during the value-extraction.
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
 	if txoMLP == nil {
 		return false, 0, fmt.Errorf("TxoMLPCoinReceive: the input txoMLP is nil")
@@ -1011,7 +1033,7 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 
 // PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
 // return an err if it is not a Pseudonym-Privacy TxoMLP.
-// todo: review
+// reviewed by Alice, 2024.06.25
 func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []byte, value uint64, err error) {
 	if txoMLP == nil {
 		return nil, 0, fmt.Errorf("PseudonymTxoCoinParse: the input txoMLP is nil")
@@ -1030,50 +1052,127 @@ func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []b
 	}
 }
 
-// LedgerTxoSerialNumberGen generates serialNumber for the input LgrTxoMLP, using the input coinSerialNumberSecretKey.
-// NOTE: the input coinSerialNumberSecretKey could be nil, for example, when the input LgrTxoMLP is on a CoinAddressTypePublicKeyHashForSingle.
-// NOTE: this must keep the same as pqringct.ledgerTXOSerialNumberGen, and consistent with the codes in TransferTxMLPGen.
-// todo: review
-func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
-	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
-		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: there is nil in the input LgrTxoMLP")
+// sanity check functions	begin
+
+// TxoRCTPreSanityCheck checks whether the input TxoRCTPre is well-from.
+// (1) not nil
+// (2) txoRCTPre.coinAddressType is correct
+// (3) txoRCTPre.addressPublicKeyForRing is well-form
+// (4) txoRCTPre.valueCommitment is well-form
+// (5) txoRCTPre.vct has correct length
+// (6) txoRCTPre.ctKemSerialized has correct length.
+// todo: review by 2024.06
+func (pp *PublicParameter) TxoRCTPreSanityCheck(txoRCTPre *TxoRCTPre) bool {
+	if txoRCTPre == nil {
+		return false
 	}
 
-	m_r, err := pp.expandKIDRMLP(lgrTxo)
-	if err != nil {
-		return nil, err
+	if txoRCTPre.coinAddressType != CoinAddressTypePublicKeyForRingPre {
+		return false
 	}
 
-	coinAddressType := lgrTxo.txo.CoinAddressType()
-
-	var ma_p *PolyANTT
-	if len(coinSerialNumberSecretKey) != 0 {
-		if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
-			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is not nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing", coinAddressType)
-		}
-
-		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
-		if err != nil {
-			return nil, err
-		}
-
-		ma_p = pp.PolyANTTAdd(askSn.ma, m_r)
-
-	} else {
-
-		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
-		}
-
-		ma_p = m_r
+	if !pp.AddressPublicKeyForRingSanityCheck(txoRCTPre.addressPublicKeyForRing) {
+		return false
 	}
 
-	sn, err := pp.ledgerTxoSerialNumberComputeMLP(ma_p)
-	if err != nil {
-		return nil, err
+	if !pp.ValueCommitmentSanityCheck(txoRCTPre.valueCommitment) {
+		return false
 	}
-	return sn, nil
+
+	if len(txoRCTPre.vct) != pp.TxoValueBytesLen() {
+		return false
+	}
+
+	if len(txoRCTPre.ctKemSerialized) != pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem) {
+		return false
+	}
+
+	return true
 }
+
+// TxoRCTSanityCheck checks whether the input TxoRCT is well-from.
+// (1) not nil
+// (2) txoRCT.coinAddressType is correct
+// (3) txoRCT.addressPublicKeyForRing is well-form
+// (4) txoRCT.publicRand has the correct length
+// (5) txoRCT.detectorTag has the correct length
+// (6) txoRCT.valueCommitment is well-form
+// (7) txoRCT.vct has correct length
+// (8) txoRCT.ctKemSerialized has correct length.
+// todo: review by 2024.06
+func (pp *PublicParameter) TxoRCTSanityCheck(txoRCT *TxoRCT) bool {
+	if txoRCT == nil {
+		return false
+	}
+
+	if txoRCT.coinAddressType != CoinAddressTypePublicKeyForRing {
+		return false
+	}
+
+	if !pp.AddressPublicKeyForRingSanityCheck(txoRCT.addressPublicKeyForRing) {
+		return false
+	}
+
+	if len(txoRCT.publicRand) != pp.GetParamKeyGenPublicRandBytesLen() {
+		return false
+	}
+
+	if len(txoRCT.detectorTag) != pp.GetParamMACOutputBytesLen() {
+		return false
+	}
+
+	if !pp.ValueCommitmentSanityCheck(txoRCT.valueCommitment) {
+		return false
+	}
+
+	if len(txoRCT.vct) != pp.TxoValueBytesLen() {
+		return false
+	}
+
+	if len(txoRCT.ctKemSerialized) != pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem) {
+		return false
+	}
+
+	return true
+}
+
+// TxoSDNSanityCheck checks whether the input TxoSDN is well-from.
+// (1) not nil
+// (2) TxoSDN.coinAddressType is correct
+// (3) TxoSDN.addressPublicKeyForSingleHash has the correct length
+// (4) TxoSDN.publicRand has the correct length
+// (5) TxoSDN.detectorTag has the correct length
+// (6) TxoSDN.value is in the correct scope [1, 2^N-1] (note that TxoSDN.value is public and could not be 0).
+// todo: review by 2024.06
+func (pp *PublicParameter) TxoSDNSanityCheck(txoSDN *TxoSDN) bool {
+	if txoSDN == nil {
+		return false
+	}
+
+	if txoSDN.coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+		return false
+	}
+
+	if len(txoSDN.addressPublicKeyForSingleHash) != HashOutputBytesLen {
+		return false
+	}
+
+	if len(txoSDN.publicRand) != pp.GetParamKeyGenPublicRandBytesLen() {
+		return false
+	}
+
+	if len(txoSDN.detectorTag) != pp.GetParamMACOutputBytesLen() {
+		return false
+	}
+
+	if txoSDN.value <= 0 || txoSDN.value > (1<<pp.paramN-1) {
+		return false
+	}
+
+	return true
+}
+
+//	sanity check functions	end
 
 // todo: remove this
 //func (pp *PublicParameter) TxoCoinSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
