@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"golang.org/x/crypto/sha3"
+	mrand "math/rand"
 	"reflect"
 	"testing"
 )
@@ -220,6 +222,16 @@ func Test_kmac_Clone(t *testing.T) {
 				t.Errorf("Clone() fail")
 			}
 
+			k.ShakeHash = sha3.NewCShake256(RandomBytes(64), RandomBytes(64))
+
+			expected = k.Sum(nil)
+
+			cloned = k.Clone()
+
+			if !reflect.DeepEqual(expected, cloned.Sum(nil)) {
+				t.Errorf("Clone() fail")
+			}
+
 		})
 	}
 }
@@ -241,5 +253,82 @@ func TestKMAC(t *testing.T) {
 	kmac256.Write(data)
 	result := kmac256.Sum(nil)
 	t.Logf("KMAC Result:\n %08b \n %s", result, hex.EncodeToString(result))
+}
 
+var testKMac = map[string]struct {
+	constructor  func(key []byte, outputLen int, S []byte) sha3.ShakeHash
+	defAlgoName  string
+	defCustomStr string
+	outputLen    int
+}{
+	// NewCShake without customization produces same result as SHAKE
+	"KMAC128": {NewKMAC128, "KMAC", "CustomStrign", 32},
+	"KMAC256": {NewKMAC256, "KMAC", "CustomStrign", 64},
+}
+var key = []byte{
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+	0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+}
+
+// sequentialBytes produces a buffer of size consecutive bytes 0x00, 0x01, ..., used for testing.
+//
+// The alignment of each slice is intentionally randomized to detect alignment
+// issues in the implementation. See https://golang.org/issue/37644.
+// Ideally, the compiler should fuzz the alignment itself.
+// (See https://golang.org/issue/35128.)
+func sequentialBytes(size int) []byte {
+	alignmentOffset := mrand.Intn(8)
+	result := make([]byte, size+alignmentOffset)[alignmentOffset:]
+	for i := range result {
+		result[i] = byte(i)
+	}
+	return result
+}
+
+func TestReset(t *testing.T) {
+	for _, v := range testKMac {
+		out1 := make([]byte, v.outputLen)
+		out2 := make([]byte, v.outputLen)
+		// Calculate hash for the first time
+		c := v.constructor(key, v.outputLen, []byte{0x99, 0x98})
+		c.Write(sequentialBytes(0x100))
+		c.Read(out1)
+
+		// Calculate hash again
+		c.Reset()
+		c.Write(sequentialBytes(0x100))
+		c.Read(out2)
+
+		if !bytes.Equal(out1, out2) {
+			t.Error("\nExpected:\n", out1, "\ngot:\n", out2)
+		}
+	}
+}
+
+func TestClone(t *testing.T) {
+
+	for _, size := range []int{0x1, 0x100} {
+		in := sequentialBytes(size)
+		for _, v := range testKMac {
+			out1 := make([]byte, v.outputLen)
+			out2 := make([]byte, v.outputLen)
+			// Calculate hash for the first time
+			h1 := v.constructor(key, v.outputLen, []byte{0x99, 0x98})
+			h1.Write([]byte{0x01})
+
+			h2 := h1.Clone()
+
+			h1.Write(in)
+			h1.Read(out1)
+
+			h2.Write(in)
+			h2.Read(out2)
+
+			if !bytes.Equal(out1, out2) {
+				t.Error("\nExpected:\n", hex.EncodeToString(out1), "\ngot:\n", hex.EncodeToString(out2))
+			}
+		}
+	}
 }
