@@ -3,7 +3,6 @@ package internal
 import (
 	"encoding/binary"
 	"golang.org/x/crypto/sha3"
-	"hash"
 )
 
 // This file provides functions for creating KMAC instance
@@ -46,7 +45,7 @@ type kmac struct {
 // the returned Hash does not implement encoding.BinaryMarshaler
 // or encoding.BinaryUnmarshaler.
 // todo: review, by 2024.06
-func NewKMAC128(key []byte, outputLen int, domainSeparationCustomizationString []byte) hash.Hash {
+func NewKMAC128(key []byte, outputLen int, domainSeparationCustomizationString []byte) sha3.ShakeHash {
 	if len(key) < 16 {
 		panic("Key must not be smaller than security strength")
 	}
@@ -63,7 +62,7 @@ func NewKMAC128(key []byte, outputLen int, domainSeparationCustomizationString [
 // the returned Hash does not implement encoding.BinaryMarshaler
 // or encoding.BinaryUnmarshaler.
 // todo: review, by 2024.06
-func NewKMAC256(key []byte, outputLen int, domainSeparationCustomizationString []byte) hash.Hash {
+func NewKMAC256(key []byte, outputLen int, domainSeparationCustomizationString []byte) sha3.ShakeHash {
 	if len(key) < 32 {
 		panic("Key must not be smaller than security strength")
 	}
@@ -73,7 +72,7 @@ func NewKMAC256(key []byte, outputLen int, domainSeparationCustomizationString [
 
 // newKMAC
 // todo: review, by 2024.06
-func newKMAC(key []byte, outputLen int, c sha3.ShakeHash) hash.Hash {
+func newKMAC(key []byte, outputLen int, c sha3.ShakeHash) sha3.ShakeHash {
 	if outputLen < kmacMinimumOutputSize {
 		panic("tagSize is too small")
 	}
