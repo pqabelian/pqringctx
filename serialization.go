@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"io"
 )
@@ -16,7 +17,7 @@ const (
 // PolyANTTSerializeSize
 // For PolyANTT, each coefficient lies in the scope [-(q_a-1)/2, (q_a-1)/2].
 // Note that q_a = 8522826353 = 2^32+2^31+2^30+2^29+2^28+2^27+2^26+2^9+2^6+2^5+2^4+1 is a 33-bit number.
-// We use 33-bit to encode/serialze a coefficient in [-(q_a-1)/2, (q_a-1)/2], say 32-bit for absoulte and 1 bit for signal.
+// We use 33-bit to encode/serialize a coefficient in [-(q_a-1)/2, (q_a-1)/2], say 32-bit for absolute and 1 bit for signal.
 // reviewed by Alice, 2024.06.20
 func (pp *PublicParameter) PolyANTTSerializeSize() int {
 	return pp.paramDA*4 + pp.paramDA/8 //	pp.paramDA is 2^n, at this moment pp.paramDA=256
@@ -94,7 +95,7 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 	var signalHint byte
 	for i := 0; i < pp.paramDA; i++ {
 		signalHint = 1 << (i % 8)
-		if signalBytes[i/8]&signalHint == signalHint {
+		if (signalBytes[i/8] & signalHint) == signalHint {
 			//	- signal
 			coeff = retPolyANTT.coeffs[i]
 			retPolyANTT.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFF00000000)
@@ -197,8 +198,8 @@ func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 		tmp[3] = byte(highCoeff >> 8)
 		tmpHigh = byte(highCoeff >> 16)
 
-		tmpLow = tmpLow & 0x0F   //	the low four bits include the signal bit
-		tmpHigh = tmpHigh & 0x0F // the low four bits include the signal bit
+		tmpLow = tmpLow & 0x0F   //	the low four bits include the signal bit. This is assuming that the signal bit is implied by the 3-rd bit.
+		tmpHigh = tmpHigh & 0x0F // the low four bits include the signal bit. This is assuming that the signal bit is implied by the 3-rd bit.
 		tmp[4] = (tmpHigh << 4) | tmpLow
 
 		_, err = w.Write(tmp)
@@ -325,7 +326,7 @@ func (pp *PublicParameter) readPolyAVecEta(r io.Reader) (*PolyAVec, error) {
 // where gamma_a = 2 is a 2-bits number.
 // For each coefficient is in [-gamma_a, gamma_a],
 // we use 3-bits (2 bits for absolute and 1 bit for signal) to serialize/encode it.
-// Each 4 coefficients use 1 byte for their absloute values, and each 8 coefficients use 1 byte for their signals.
+// Each 4 coefficients use 1 byte for their absolute values, and each 8 coefficients use 1 byte for their signals.
 // As the AskSp in AddressSecretKey has infinity form in [-gamma_a, gamma_a], here we only handle Poly, rather than PolyNTT.
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) PolyASerializeSizeGamma() int {
@@ -358,7 +359,7 @@ func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 		t += 1
 	}
 	for i := 0; i < pp.paramDA; i++ {
-		if polyA.coeffs[i]&0x04 == 0x04 { // binary 00000100 to get the signal bit
+		if (polyA.coeffs[i] & 0x04) == 0x04 { // us binary 00000100 to get the signal bit
 			//	- signal
 			signalBytes[i/8] = signalBytes[i/8] | (1 << (i % 8))
 		}
@@ -411,7 +412,7 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 	var signalHint byte
 	for i = 0; i < pp.paramDA; i++ {
 		signalHint = 1 << (i % 8)
-		if signalBytes[i/8]&signalHint == signalHint {
+		if (signalBytes[i/8] & signalHint) == signalHint {
 			//	- signal
 			coeff = polyA.coeffs[i]
 			polyA.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFFFFFFFC)
@@ -517,9 +518,24 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 		coeff |= int64(tmp[4]) << 32
 		coeff |= int64(tmp[5]) << 40
 		coeff |= int64(tmp[6]) << 48
-		if tmp[6]>>7 == 1 {
-			//	53-bit for absolute
+
+		//if tmp[6]>>7 == 1 {
+		//	//	53-bit for absolute
+		//	coeff = int64(uint64(coeff) | 0xFF00000000000000)
+		//}
+
+		// As we only need one bit (say, 53-rd bit) to denote the signal,
+		// there are two bits (say, 55th, 54th bit) are free.
+		// To avoid the two bits are manipulated somehow, here we guarantee them to be well-form.
+		if (tmp[6] & 0xE0) == 0xE0 {
+			// the (55th, 54th, 53rd, 52nd) bits are (111X), implying -
 			coeff = int64(uint64(coeff) | 0xFF00000000000000)
+		} else if (tmp[6] | 0x01) == 0x01 {
+			// the (55th, 54th, 53rd, 52nd) bits are (000X), implying +
+			// do nothing
+		} else {
+			// bad-form
+			return nil, fmt.Errorf("readPolyCNTT: %d-th coefficient's serializaiton is not well-form", i)
 		}
 		polyCNTT.coeffs[i] = coeff
 	}
@@ -633,7 +649,7 @@ func (pp *PublicParameter) writePolyCEta(w io.Writer, polyC *PolyC) error {
 		tmp[2] = byte(coeff >> 16)
 		tmpSignal = byte(coeff >> 24)
 
-		if tmpSignal&0x01 == 0x01 {
+		if (tmpSignal & 0x01) == 0x01 {
 			signalBytes[i/8] = signalBytes[i/8] | (0x01 << (i % 8))
 		}
 
@@ -684,7 +700,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	for i := 0; i < pp.paramDC; i++ {
 		signalHint = 0x01 << (i % 8)
 
-		if signalBytes[i/8]&signalHint == signalHint {
+		if (signalBytes[i/8] & signalHint) == signalHint {
 			//	- signal
 			coeff = rst.coeffs[i]
 			rst.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
@@ -799,9 +815,9 @@ func (pp *PublicParameter) SerializeAddressPublicKey(apk *AddressPublicKey) ([]b
 
 // DeserializeAddressPublicKey
 // not used anymore, should be removed. reviewed/commented by Alice, 2024.06.21
-func (pp *PublicParameter) DeserializeAddressPublicKey(serialziedAPk []byte) (*AddressPublicKey, error) {
+func (pp *PublicParameter) DeserializeAddressPublicKey(serializedAPk []byte) (*AddressPublicKey, error) {
 	var err error
-	r := bytes.NewReader(serialziedAPk)
+	r := bytes.NewReader(serializedAPk)
 
 	t := pp.NewPolyANTTVec(pp.paramKA)
 	var e *PolyANTT
