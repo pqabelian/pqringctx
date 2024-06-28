@@ -530,7 +530,7 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 		if (tmp[6] & 0xE0) == 0xE0 {
 			// the (55th, 54th, 53rd, 52nd) bits are (111X), implying -
 			coeff = int64(uint64(coeff) | 0xFF00000000000000)
-		} else if (tmp[6] | 0x01) == 0x01 {
+		} else if (tmp[6] & 0xE0) == 0x00 {
 			// the (55th, 54th, 53rd, 52nd) bits are (000X), implying +
 			// do nothing
 		} else {
