@@ -2,7 +2,6 @@ package pqringctx
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 )
 
@@ -12,17 +11,22 @@ import (
 // Note that this must keep the same as pqringct.LgrTxoIdSerializeSize.
 // added on 2023.12.14
 // reviewed on 2023.12.14
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) LgrTxoMLPIdSerializeSize() int {
 	return HashOutputBytesLen
 }
 
 // LgrTxoMLPSerializeSize returns the serialize size of LgrTxoMLP.
-// // Note that, for the case of lgrTxo.txo being a TxoRctPre, this must keep the same as pqringct.LgrTxoSerializeSize.
+// Note that, for the case of lgrTxo.txo being a TxoRctPre, this must keep the same as pqringct.LgrTxoSerializeSize.
 // added on 2023.12.14
 // reviewed on 2023.12.14
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) lgrTxoMLPSerializeSize(lgrTxo *LgrTxoMLP) (int, error) {
-	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
-		return 0, fmt.Errorf("LgrTxoMLPSerializeSize: there is nil/empty pointer in the input lgrTxo")
+
+	if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
+		return 0, fmt.Errorf("LgrTxoMLPSerializeSize: the input LgrTxoMLP is not well-form")
 	}
 
 	txoSerialize, err := pp.TxoMLPSerializeSize(lgrTxo.txo)
@@ -37,10 +41,12 @@ func (pp *PublicParameter) lgrTxoMLPSerializeSize(lgrTxo *LgrTxoMLP) (int, error
 // Note that for the case of txoRCTPre, this must keep the same as pqringct.SerializeLgrTxo.
 // added on 2023.12.14
 // reviewed on 2023.12.14
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) SerializeLgrTxoMLP(lgrTxo *LgrTxoMLP) ([]byte, error) {
 
-	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
-		return nil, errors.New("SerializeLgrTxoMLP: there is nil/empty pointer in LgrTxo")
+	if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
+		return nil, fmt.Errorf("SerializeLgrTxoMLP: the input LgrTxoMLP is not well-form")
 	}
 
 	length, err := pp.lgrTxoMLPSerializeSize(lgrTxo)
@@ -75,6 +81,8 @@ func (pp *PublicParameter) SerializeLgrTxoMLP(lgrTxo *LgrTxoMLP) ([]byte, error)
 // added on 2023.12.14
 // reviewed on 2023.12.14
 // reviewed on 2023.12.20
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTxoMLP, error) {
 	if len(serializedLgrTxo) == 0 {
 		return nil, fmt.Errorf("DeserializeLgrTxoMLP: the input serializedLgrTxo is empty")
@@ -85,6 +93,11 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 	// To be compatible with pqringct, we have to use this way to determine the bytes for the serializedTxo.
 	// Note that this is based on the fact that pp.LgrTxoMLPIdSerializeSize() is a fixed length.
 	serializedTxoLen := len(serializedLgrTxo) - pp.LgrTxoMLPIdSerializeSize()
+
+	if serializedTxoLen <= 0 {
+		return nil, fmt.Errorf("DeserializeLgrTxoMLP: the input serializedLgrTxo has an incorrect length")
+	}
+
 	serializedTxo := make([]byte, serializedTxoLen)
 	_, err := r.Read(serializedTxo)
 	if err != nil {
@@ -115,10 +128,12 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 // NOTE: the input coinSerialNumberSecretKey could be nil, for example, when the input LgrTxoMLP is on a CoinAddressTypePublicKeyHashForSingle.
 // NOTE: this must keep the same as pqringct.ledgerTXOSerialNumberGen, and consistent with the codes in TransferTxMLPGen.
 // moved from mlptxo.go
-// todo: review, by 2024.06
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
-	if lgrTxo == nil || lgrTxo.txo == nil || len(lgrTxo.id) == 0 {
-		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: there is nil in the input LgrTxoMLP")
+
+	if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
+		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input LgrTxoMLP is not well-form")
 	}
 
 	m_r, err := pp.expandKIDRMLP(lgrTxo)
@@ -161,6 +176,8 @@ func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSeria
 // Note that this must keep the same as pqringct.ledgerTxoSerialNumberSerializeSize.
 // reviewed on 2023.12.07.
 // reviewed on 2023.12.14
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) ledgerTxoSerialNumberSerializeSizeMLP() int {
 	return HashOutputBytesLen
 }
@@ -170,9 +187,12 @@ func (pp *PublicParameter) ledgerTxoSerialNumberSerializeSizeMLP() int {
 // That's why we refer to it as a "compute" algorithm, rather than "Generate".
 // Note that this must keep the same as pqringct.ledgerTxoSerialNumberCompute.
 // reviewed on 2023.12.14
+// moved from mlptransaction.go 2024.07.01
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) ledgerTxoSerialNumberComputeMLP(ma_p *PolyANTT) ([]byte, error) {
-	if ma_p == nil {
-		return nil, fmt.Errorf("ledgerTxoSerialNumberComputeMLP: the input ma_p is nil")
+
+	if !pp.PolyANTTSanityCheck(ma_p) {
+		return nil, fmt.Errorf("ledgerTxoSerialNumberComputeMLP: the input ma_p is not well-form")
 	}
 
 	length := pp.PolyANTTSerializeSize()
@@ -217,7 +237,7 @@ func (pp *PublicParameter) ledgerTxoSerialNumberComputeMLP(ma_p *PolyANTT) ([]by
 func (pp *PublicParameter) expandKIDRMLP(lgrtxo *LgrTxoMLP) (*PolyANTT, error) {
 
 	if !pp.LgrTxoMLPSanityCheck(lgrtxo) {
-		return nil, fmt.Errorf("expandKIDRMLP: the input lgrtxo is not well-form")
+		return nil, fmt.Errorf("expandKIDRMLP: the input LgrTxoMLP is not well-form")
 	}
 
 	serializedLgrTxo, err := pp.SerializeLgrTxoMLP(lgrtxo)
