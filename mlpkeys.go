@@ -1232,6 +1232,15 @@ func (pp *PublicParameter) serializeAddressSecretKeySp(askSp *AddressSecretKeySp
 	if len(askSp.s.polyAs) != pp.paramLA {
 		return nil, fmt.Errorf("serializeAddressSecretKeySp: the format of AddressSecretKeySp does not match the design")
 	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(askSp.s.polyAs[i]) {
+			return nil, fmt.Errorf("serializeAddressSecretKeySp: the input of askSp.s.polyAs[%d] is not well-form", i)
+		}
+
+		if askSp.s.polyAs[i].infNorm() > int64(pp.paramGammaA) {
+			return nil, fmt.Errorf("serializeAddressSecretKeySp: the input of askSp.s.polyAs[%d]'s normal is not in the allowed scope", i)
+		}
+	}
 
 	// s is in its poly form and has infinite normal in [-Gamma_a, Gamma_a] where Gamma_a is 2 at this moment,
 	// we serialize its poly from.
@@ -1277,9 +1286,14 @@ func (pp *PublicParameter) addressSecretKeySnSerializeSize() int {
 // reviewed by Alice, 2024.06.24
 func (pp *PublicParameter) serializeAddressSecretKeySn(askSn *AddressSecretKeySn) ([]byte, error) {
 	var err error
-	if askSn == nil || askSn.ma == nil {
+	if askSn == nil {
 		return nil, errors.New("serializeAddressSecretKeySn: there is nil pointer in AddressSecretKeySn")
 	}
+
+	if !pp.PolyANTTSanityCheck(askSn.ma) {
+		return nil, errors.New("serializeAddressSecretKeySn: the input AddressSecretKeySn.sa is not well-form")
+	}
+
 	snLength := pp.addressSecretKeySnSerializeSize()
 	w := bytes.NewBuffer(make([]byte, 0, snLength))
 	err = pp.writePolyANTT(w, askSn.ma)
