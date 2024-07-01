@@ -1054,6 +1054,29 @@ func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []b
 
 // sanity check functions	begin
 
+// TxoMLPSanityCheck conducts sanity-check on the input TxoMLP.
+// added and reviewed by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) TxoMLPSanityCheck(txoMLP TxoMLP) bool {
+	if txoMLP == nil {
+		return false
+	}
+
+	switch txoInst := txoMLP.(type) {
+	case *TxoRCTPre:
+		return pp.TxoRCTPreSanityCheck(txoInst)
+
+	case *TxoRCT:
+		return pp.TxoRCTSanityCheck(txoInst)
+
+	case *TxoSDN:
+		return pp.TxoSDNSanityCheck(txoInst)
+
+	default:
+		return false
+	}
+}
+
 // TxoRCTPreSanityCheck checks whether the input TxoRCTPre is well-from.
 // (1) not nil
 // (2) txoRCTPre.coinAddressType is correct
