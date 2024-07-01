@@ -1237,9 +1237,11 @@ func (pp *PublicParameter) ledgerTxoSerialNumberComputeMLP(ma_p *PolyANTT) ([]by
 // Note that for the case of the input lgrtxo.txo being a TxoRCTPre, this must keep the same as pqringct.expandKIDR.
 // added on 2023.12.14
 // reviewed on 2023.12.14
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) expandKIDRMLP(lgrtxo *LgrTxoMLP) (*PolyANTT, error) {
-	if lgrtxo == nil {
-		return nil, fmt.Errorf("expandKIDRMLP: the input lgrtxo is nil")
+
+	if !pp.LgrTxoMLPSanityCheck(lgrtxo) {
+		return nil, fmt.Errorf("expandKIDRMLP: the input lgrtxo is not well-form")
 	}
 
 	serializedLgrTxo, err := pp.SerializeLgrTxoMLP(lgrtxo)
@@ -2161,3 +2163,29 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 }
 
 //	helper functions	end
+
+//	Sanity-Check functions	begin
+
+// LgrTxoMLPSanityCheck checks whether the input lgrTxoMLP *LgrTxoMLP is well-from:
+// (1) lgrTxoMLP is not nil
+// (2) lgrTxoMLP.id is not nil/empty
+// (3) lgrTxoMLP.txo is well-form
+// added and reviewed by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) LgrTxoMLPSanityCheck(lgrTxoMLP *LgrTxoMLP) bool {
+	if lgrTxoMLP == nil {
+		return false
+	}
+
+	if len(lgrTxoMLP.id) == 0 {
+		return false
+	}
+
+	if !pp.TxoMLPSanityCheck(lgrTxoMLP.txo) {
+		return false
+	}
+
+	return true
+}
+
+//	Sanity-Check functions	end
