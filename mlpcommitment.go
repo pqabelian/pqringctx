@@ -123,7 +123,7 @@ func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint
 // (3) cmt.c is well-form
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
-func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) (bl bool) {
+func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) bool {
 	if cmt == nil {
 		return false
 	}
@@ -141,6 +141,73 @@ func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) (bl 
 	}
 
 	if !pp.PolyCNTTSanityCheck(cmt.c) {
+		return false
+	}
+
+	return true
+}
+
+// ValueCommitmentRandomnessSanityCheck checks whether the input PolyCVec is in the random space for the value commitment.
+// (1) not nil
+// (2) has the correct length paramLC
+// (3) each PolyC is well-form and has the right normal, say in {-1, 0, 1}^{d_c}
+// added and reviewed by Alice, 2024.06.27
+// todo: review, by 2024.06
+func (pp *PublicParameter) ValueCommitmentRandomnessSanityCheck(r *PolyCVec) bool {
+
+	if r == nil {
+		return false
+	}
+
+	if len(r.polyCs) != pp.paramLC {
+		return false
+	}
+	for i := 0; i < pp.paramLC; i++ {
+		if !pp.PolyCSanityCheck(r.polyCs[i]) {
+			return false
+		}
+
+		if r.polyCs[i].infNorm() > 1 {
+			// the randomness for value commitment should come from the space {-1, 0, 1}^{d_c}
+			return false
+		}
+	}
+
+	return true
+}
+
+// ValueCommitmentOpen checks whether the input (msgNTT, randNTT) is a valid opening for the input cmt.
+// Note that here all the inputs are in the NTT form.
+// As the binding matrix in the public key is pp.paramMatrixB, the hiding vector could be different vectors in pp.paramMatrixH,
+// the parameter vecHIdx uint8 is used to specify the hiding vector.
+// added and reviewed by Alice, 2024.06.27
+// todo: review, by 2024.06
+func (pp *PublicParameter) ValueCommitmentOpen(cmt *ValueCommitment, msgNTT *PolyCNTT, randNTT *PolyCNTTVec, vecHIdx uint8) bool {
+	if !pp.ValueCommitmentSanityCheck(cmt) {
+		return false
+	}
+
+	if !pp.PolyCNTTSanityCheck(msgNTT) {
+		return false
+	}
+
+	randPoly := pp.NTTInvPolyCVec(randNTT)
+	if !pp.ValueCommitmentRandomnessSanityCheck(randPoly) {
+		return false
+	}
+
+	if int(vecHIdx) >= len(pp.paramMatrixH) {
+		return false
+	}
+
+	// Note that the matrix is always paramMatrixB, but the vec for the hiding part could be one row of paramMatrixH.
+	b := pp.PolyCNTTMatrixMulVector(pp.paramMatrixB, randNTT, pp.paramKC, pp.paramLC)
+	c := pp.PolyCNTTAdd(
+		pp.PolyCNTTVecInnerProduct(pp.paramMatrixH[vecHIdx], randNTT, pp.paramLC),
+		msgNTT,
+	)
+
+	if !pp.PolyCNTTVecEqualCheck(b, cmt.b) || !pp.PolyCNTTEqualCheck(c, cmt.c) {
 		return false
 	}
 
