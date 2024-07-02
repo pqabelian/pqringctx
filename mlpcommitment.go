@@ -176,6 +176,39 @@ func (pp *PublicParameter) ValueCommitmentRandomnessSanityCheck(r *PolyCVec) boo
 	return true
 }
 
+// ValueCommitmentRandomnessNTTSanityCheck checks whether the input rNTT *PolyCNTTVec is the NTT form of a valid randomness in the random space for the value commitment.
+// As this function is somewhat redundant (complementing ValueCommitmentRandomnessSanityCheck), it provide an efficient way for the NTT form randomness.
+// (1) rNTT is not nil
+// (2) rNTT.polyCNTTs has the correct length paramLC
+// (3) each PolyCNTT in rNTT.polyCNTTs is well-form and its poly form has the right normal, say in {-1, 0, 1}^{d_c}
+// added and reviewed by Alice, 2024.07.01
+// todo: review, by 2024.07
+func (pp *PublicParameter) ValueCommitmentRandomnessNTTSanityCheck(rNTT *PolyCNTTVec) bool {
+
+	if rNTT == nil {
+		return false
+	}
+
+	if len(rNTT.polyCNTTs) != pp.paramLC {
+		return false
+	}
+
+	for i := 0; i < pp.paramLC; i++ {
+		if !pp.PolyCNTTSanityCheck(rNTT.polyCNTTs[i]) {
+			return false
+		}
+
+		polyC := pp.NTTInvPolyC(rNTT.polyCNTTs[i])
+
+		if polyC.infNorm() > 1 {
+			// the randomness for value commitment should come from the space {-1, 0, 1}^{d_c}
+			return false
+		}
+	}
+
+	return true
+}
+
 // ValueCommitmentOpen checks whether the input (msgNTT, randNTT) is a valid opening for the input cmt.
 // Note that here all the inputs are in the NTT form.
 // As the binding matrix in the public key is pp.paramMatrixB, the hiding vector could be different vectors in pp.paramMatrixH,
@@ -191,8 +224,7 @@ func (pp *PublicParameter) ValueCommitmentOpen(cmt *ValueCommitment, msgNTT *Pol
 		return false
 	}
 
-	randPoly := pp.NTTInvPolyCVec(randNTT)
-	if !pp.ValueCommitmentRandomnessSanityCheck(randPoly) {
+	if !pp.ValueCommitmentRandomnessNTTSanityCheck(randNTT) {
 		return false
 	}
 
