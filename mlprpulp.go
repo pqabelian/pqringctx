@@ -2163,7 +2163,7 @@ func (pp *PublicParameter) RpulpProofSanityCheck(rpulpProof *RpulpProofMLP) bool
 			return false
 		}
 		for j := 0; j < pp.paramLC; j++ {
-			if pp.PolyCSanityCheck(rpulpProof.zs[t].polyCs[j]) {
+			if !pp.PolyCSanityCheck(rpulpProof.zs[t].polyCs[j]) {
 				return false
 			}
 
