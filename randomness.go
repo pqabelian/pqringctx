@@ -542,6 +542,8 @@ func (pp *PublicParameter) expandAddressSKsp(seed []byte) (*PolyAVec, error) {
 
 // isAddressSKspNormInBound
 // reviewed by Alice, 2024.06.20
+// not used anymore, since the codes are included in AddressSecretKeyForRingSanityCheck and AddressSecretKeyForSingleSanityCheck.
+// todo: remove this function after the clearing of pqringctx.go, 2024.07.01
 func (pp *PublicParameter) isAddressSKspNormInBound(addressSKsp *PolyAVec) (inBound bool) {
 	if addressSKsp.infNorm() > 2 {
 		// 2 is consistent with the pp.randomPolyAinGammaA2(tmpSeed)
