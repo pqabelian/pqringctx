@@ -2,11 +2,16 @@ package pqringctx
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 )
 
+// ElrSignatureMLP defines the data structure for ELRSSignature.
+// refactored and reviewed by Alice, 2024.07.02
+// todo: review by 2024.07
 type ElrSignatureMLP struct {
-	seeds [][]byte //	length ringSize, each (seed[]) for a ring member.
+	ringSize uint8    // to be self-contained, give the explicit size
+	seeds    [][]byte //	length ringSize, each (seed[]) for a ring member.
 	//	z_as, as the responses, need to have the infinite norm in a scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
 	//	z_cs, z_cps, as the responses, need to have the infinite norm in a scope, say [-(eta_c - beta_c), (eta_c - beta_c)].
 	//	That is why we use PolyAVec (resp. PolyCVec), rather than PolyANTTVec (resp. PolyCNTTVec).
@@ -15,6 +20,8 @@ type ElrSignatureMLP struct {
 	z_cps [][]*PolyCVec // length ringSize, each length paramK. Each element lies (S_{eta_c - beta_c})^{L_c}.
 }
 
+// SimpleSignatureMLP defines the data structure for SimpleSignature.
+// reviewed by Alice, 2024.06.30
 type SimpleSignatureMLP struct {
 	seed_ch []byte
 	//	z, as the responses, need to have the infinite normal ina scope, say [-(eta_a - beta_a), (eta_a - beta_a)].
@@ -28,18 +35,95 @@ type SimpleSignatureMLP struct {
 // elrSignatureMLPSign generates ElrSignatureMLP.
 // Note that this is the same as pqringct.elrsSign.
 // reviewed on 2023.12.15
+// reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) elrSignatureMLPSign(
 	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte,
 	sindex uint8, sa *PolyANTTVec, rc *PolyCNTTVec, rc_p *PolyCNTTVec) (*ElrSignatureMLP, error) {
 
 	var err error
-	ringLen := len(lgrTxoList)
-	if ringLen == 0 {
-		return nil, fmt.Errorf("elrsMLPSign: the input lgrTxoList is empty")
+
+	// sanity-checks	begin
+	if !pp.LgrTxoRingSanityCheck(lgrTxoList) {
+		return nil, fmt.Errorf("elrsMLPSign: the input lgrTxoList is not well-form")
 	}
-	if int(sindex) >= ringLen {
-		return nil, fmt.Errorf("elrsMLPSign: The signer index is not in the scope")
+	ringLen := uint8(len(lgrTxoList)) // well-form lgrTxoList has a valid length in scope uint8
+
+	if !pp.PolyANTTSanityCheck(ma_p) {
+		return nil, fmt.Errorf("elrsMLPSign: The input ma_p is not well-form")
 	}
+
+	if !pp.ValueCommitmentSanityCheck(cmt_p) {
+		return nil, fmt.Errorf("elrsMLPSign: The input cmt_p is not well-form")
+	}
+
+	if len(extTrTxCon) == 0 {
+		return nil, fmt.Errorf("elrsMLPSign: The input extTrTxCon is not well-form")
+	}
+
+	if sindex >= ringLen {
+		return nil, fmt.Errorf("elrsMLPSign: The input signer index is not in the scope")
+	}
+
+	//	sa is the NTT form of a well-form AddressSecretKeySp
+	askSp, err := pp.newAddressSecretKeySpFromPolyANTTVec(sa)
+	if err != nil {
+		return nil, err
+	}
+
+	//	rc is the NTT form of a well-form randomness for value-commitment
+	if !pp.ValueCommitmentRandomnessNTTSanityCheck(rc) {
+		return nil, fmt.Errorf("elrsMLPSign: The input rc is not well-form")
+	}
+
+	//	rc_p is the NTT form of a well-form randomness for value-commitment
+	if !pp.ValueCommitmentRandomnessNTTSanityCheck(rc_p) {
+		return nil, fmt.Errorf("elrsMLPSign: The input rc_p is not well-form")
+	}
+
+	// Note that the committed message m is not used in the sign signature so that it is not included in the input parameter.
+	// As a result, here the sanity-check does not check whether (lgrTxoList[sindex].txo.cmt, rc, m) (cmt_p, rc_p, m) form valid openings.
+
+	//	For address part, we can check whether the input sa and computed ma forms a valid secret key for the coin to spend.
+	m_r, err := pp.expandKIDRMLP(lgrTxoList[sindex])
+	if err != nil {
+		return nil, err
+	}
+
+	m_a := pp.PolyANTTSub(ma_p, m_r)
+	askSn, err := pp.newAddressSecretKeySnFromPolyANTT(m_a)
+	if err != nil {
+		return nil, err
+	}
+
+	ask := &AddressSecretKeyForRing{
+		AddressSecretKeySp: askSp,
+		AddressSecretKeySn: askSn,
+	}
+
+	// lgrTxoList[sindex].txo.addressPublicKeyForRing.t
+	// lgrTxoList[sindex].txo.addressPublicKeyForRing.e
+	var t_jbar *PolyANTTVec
+	var e_jbar *PolyANTT
+	switch txoToSpend := lgrTxoList[sindex].txo.(type) {
+	case *TxoRCTPre:
+		t_jbar = txoToSpend.addressPublicKeyForRing.t
+		e_jbar = txoToSpend.addressPublicKeyForRing.e
+	case *TxoRCT:
+		t_jbar = txoToSpend.addressPublicKeyForRing.t
+		e_jbar = txoToSpend.addressPublicKeyForRing.e
+	default:
+		return nil, fmt.Errorf("elrsMLPSign: lgrTxoList[%d].txo is not TxoRCTPre or TxoRCT", sindex)
+	}
+	apk := &AddressPublicKeyForRing{
+		t: t_jbar,
+		e: e_jbar,
+	}
+
+	validAddressKey, hints := pp.addressKeyForRingVerify(apk, ask)
+	if !validAddressKey {
+		return nil, fmt.Errorf("elrsMLPSign: lgrTxoList[%d].txo's address and the input (sa, ma) does not match: %v", sindex, hints)
+	}
+	// sanity-checks	end
 
 	seeds := make([][]byte, ringLen)
 	z_as_ntt := make([]*PolyANTTVec, ringLen)
@@ -57,8 +141,8 @@ func (pp *PublicParameter) elrSignatureMLPSign(
 	w_cps := make([][]*PolyCNTTVec, ringLen)
 	delta_cs := make([][]*PolyCNTT, ringLen)
 
-	for j := 0; j < ringLen; j++ {
-		if j == int(sindex) {
+	for j := uint8(0); j < ringLen; j++ {
+		if j == sindex {
 			continue
 		}
 		seeds[j] = RandomBytes(HashOutputBytesLen) // we use Hash to generate seed for challenge
@@ -240,8 +324,8 @@ elrSignatureMLPSignRestart:
 		}*/
 	seeds[sindex] = seed_ch
 	seedByteLen := len(seed_ch)
-	for j := 0; j < ringLen; j++ {
-		if j == int(sindex) {
+	for j := uint8(0); j < ringLen; j++ {
+		if j == sindex {
 			continue
 		}
 		for i := 0; i < seedByteLen; i++ {
@@ -280,6 +364,7 @@ elrSignatureMLPSignRestart:
 		z_cps[sindex][tao] = pp.NTTInvPolyCVec(z_cps_ntt[sindex][tao])
 	}
 
+	// This line code is put here, rather than earlier before the computation of (z_cs, z_cps), is to defend against time-based side-channel.
 	if z_as[sindex].infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
 		goto elrSignatureMLPSignRestart
 	}
@@ -295,25 +380,26 @@ elrSignatureMLPSignRestart:
 	}
 
 	return &ElrSignatureMLP{
-		seeds: seeds,
-		z_as:  z_as,
-		z_cs:  z_cs,
-		z_cps: z_cps,
+		ringSize: ringLen,
+		seeds:    seeds,
+		z_as:     z_as,
+		z_cs:     z_cs,
+		z_cps:    z_cps,
 	}, nil
 }
 
 // collectBytesForElrSignatureMLPChallenge collect preMsg in elrSignatureMLPSign, for the Fiat-Shamir transform.
 // Note that this is almost the same as pqringct.collectBytesForElrsChallenge.
 // todo_DONE: the paper is not accurate, use the following params
+// refactored and reviewed by Alice, 2024.07.01
 // todo: concat the system parameters
-// todo: review
 func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 	lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment,
 	extTrTxCon []byte,
 	w_as []*PolyANTTVec, delta_as []*PolyANTT,
 	w_cs [][]*PolyCNTTVec, w_cps [][]*PolyCNTTVec, delta_cs [][]*PolyCNTT) ([]byte, error) {
 
-	length := 0
+	length := len(pp.paramParameterSeedString) // crs
 	// lgxTxoList []*LgrTxoMLP
 	for j := 0; j < len(lgrTxoList); j++ {
 		lgrTxoLen, err := pp.lgrTxoMLPSerializeSize(lgrTxoList[j])
@@ -323,7 +409,7 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 		length = length + lgrTxoLen
 	}
 
-	length = length + //	lgxTxoList []*LgrTxoMLP
+	length = length + //	crs + lgxTxoList []*LgrTxoMLP
 		pp.paramDA*8 + //	ma_p *PolyANTT
 		(pp.paramKC+1)*pp.paramDC*8 + //	cmt_p *ValueCommitment
 		len(extTrTxCon) + //	extTrTxCon []byte
@@ -358,6 +444,9 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 			rst = append(rst, byte(a.coeffs[k]>>56))
 		}
 	}
+
+	//	crs
+	rst = append(rst, pp.paramParameterSeedString...)
 
 	// lgrTxoList
 	for i := 0; i < len(lgrTxoList); i++ {
@@ -424,83 +513,32 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 }
 
 // elrSignatureMLPVerify() verify the validity of a given (message, signature) pair.
-// todo: review
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *ElrSignatureMLP) error {
-	ringLen := len(lgrTxoList)
-	if ringLen == 0 {
-		return fmt.Errorf("elrSignatureMLPVerify: the input lgrTxoList is nil/empty")
+
+	if !pp.LgrTxoRingSanityCheck(lgrTxoList) {
+		return fmt.Errorf("elrSignatureMLPVerify: the input lgrTxoList []*LgrTxoMLP is not well-form")
+	}
+	ringLen := uint8(len(lgrTxoList)) // well-form LgrTxoRing has a valid length in scope uint8
+
+	if !pp.PolyANTTSanityCheck(ma_p) {
+		return fmt.Errorf("elrSignatureMLPVerify: the input ma_p *PolyANTT is not well-form")
 	}
 
-	if ma_p == nil || cmt_p == nil || len(extTrTxCon) == 0 || sig == nil {
-		return fmt.Errorf("elrSignatureMLPVerify: at least one of the input (ma_p, cmt_p, extTrTxCon, sig) is there is nil/empty")
+	if !pp.ValueCommitmentSanityCheck(cmt_p) {
+		return fmt.Errorf("elrSignatureMLPVerify: the input cmt_p *ValueCommitment is not well-form")
 	}
 
-	if len(ma_p.coeffs) != pp.paramDA {
-		return fmt.Errorf("elrSignatureMLPVerify: the input ma_p is not well-from")
+	if len(extTrTxCon) == 0 {
+		return fmt.Errorf("elrSignatureMLPVerify: the input extTrTxCon []byte is not well-form")
 	}
 
-	if cmt_p.b == nil || len(cmt_p.b.polyCNTTs) != pp.paramKC || cmt_p.c == nil {
-		return fmt.Errorf("elrSignatureMLPVerify: the input cmt_p is not well-from")
-	}
-	for i := 0; i < len(cmt_p.b.polyCNTTs); i++ {
-		if len(cmt_p.b.polyCNTTs[i].coeffs) != pp.paramDC {
-			return fmt.Errorf("elrSignatureMLPVerify: the input cmt_p.b.polyCNTTs[%d] is not well-from", i)
-		}
+	if !pp.ElrSignatureMLPSanityCheck(sig) {
+		return fmt.Errorf("elrSignatureMLPVerify: the input sig *ElrSignatureMLP is not well-form")
 	}
 
-	if len(sig.seeds) != ringLen || len(sig.z_as) != ringLen || len(sig.z_cs) != ringLen || len(sig.z_cps) != ringLen {
-		return fmt.Errorf("elrSignatureMLPVerify: len(lgrTxoList) is %d, while len(sig.seeds) = %d, len(sig.z_as) = %d, len(sig.z_cs) = %d, len(sig.z_cps) = %d",
-			ringLen, len(sig.seeds), len(sig.z_as), len(sig.z_cs), len(sig.z_cps))
-	}
-
-	for j := 0; j < ringLen; j++ {
-		if len(sig.seeds[j]) != HashOutputBytesLen {
-			return fmt.Errorf("elrSignatureMLPVerify: sig.seeds[%d] is not well-from", j)
-		}
-	}
-
-	for j := 0; j < ringLen; j++ {
-		if len(sig.z_as[j].polyAs) != pp.paramLA {
-			return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d] is not well-from", j)
-		}
-		for i := 0; i < len(sig.z_as[j].polyAs); i++ {
-			if len(sig.z_as[j].polyAs[i].coeffs) != pp.paramDA {
-				return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d].polyAs[%d] is not well-from", j, i)
-			}
-		}
-	}
-
-	for j := 0; j < ringLen; j++ {
-		if len(sig.z_cs[j]) != pp.paramK || len(sig.z_cps[j]) != pp.paramK {
-			return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d] or sig.z_cs[%d] is not well-from", j, j)
-		}
-		for tao := 0; tao < len(sig.z_cs[j]); tao++ {
-			if len(sig.z_cs[j][tao].polyCs) != pp.paramLC || len(sig.z_cps[j][tao].polyCs) != pp.paramLC {
-				return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d] or sig.z_cps[%d][%d] is not well-from", j, tao, j, tao)
-			}
-			for i := 0; i < pp.paramLC; i++ {
-				if len(sig.z_cs[j][tao].polyCs[i].coeffs) != pp.paramDC || len(sig.z_cps[j][tao].polyCs[i].coeffs) != pp.paramDC {
-					return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d].polyCs[%d] or sig.z_cps[%d][%d].polyCs[%d] is not well-from", j, tao, i, j, tao, i)
-				}
-			}
-		}
-	}
-
-	boundA := pp.paramEtaA - int64(pp.paramBetaA)
-	boundC := pp.paramEtaC - int64(pp.paramBetaC)
-	for j := 0; j < ringLen; j++ {
-		if sig.z_as[j].infNorm() > boundA {
-			return fmt.Errorf("elrSignatureMLPVerify: sig.z_as[%d].infNorm() (%v) is not in the expected range", j, sig.z_as[j].infNorm())
-		}
-		for tao := 0; tao < pp.paramK; tao++ {
-			if (sig.z_cs[j][tao].infNorm() > boundC) || (sig.z_cps[j][tao].infNorm() > boundC) {
-				return fmt.Errorf("elrSignatureMLPVerify: sig.z_cs[%d][%d].infNorm() (%v) or sig.z_cps[%d][%d].infNorm() (%v) is not in the expected range",
-					j, tao, sig.z_cs[j][tao].infNorm(), j, tao, sig.z_cps[j][tao].infNorm())
-			}
-			//if sig.z_cps[j][tao].infNorm() > boundC {
-			//	return false, nil
-			//}
-		}
+	if ringLen != sig.ringSize {
+		return fmt.Errorf("elrSignatureMLPVerify: the length/ringsSize of the input (lgrTxoList []*LgrTxoMLP, sig *ElrSignatureMLP) does not match")
 	}
 
 	w_as := make([]*PolyANTTVec, ringLen)
@@ -509,7 +547,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	w_cs := make([][]*PolyCNTTVec, ringLen)
 	w_cps := make([][]*PolyCNTTVec, ringLen)
 	delta_cs := make([][]*PolyCNTT, ringLen)
-	for j := 0; j < ringLen; j++ {
+	for j := uint8(0); j < ringLen; j++ {
 		tmpDA, err := pp.expandChallengeA(sig.seeds[j])
 		if err != nil {
 			return err
@@ -621,7 +659,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 	}
 
 	seedByteLen := len(seed_ch)
-	for j := 0; j < ringLen; j++ {
+	for j := uint8(0); j < ringLen; j++ {
 		for i := 0; i < len(seed_ch); i++ {
 			seed_ch[i] ^= sig.seeds[j][i]
 		}
@@ -637,6 +675,7 @@ func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *
 
 // elrSignatureMLPSerializeSize returns the serialize size for a ElrSignatureMLP with the input ringSize.
 // reviewed on 2023.12.19
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize uint8) int {
 	length := 1 + //	for the ringSize
 		int(ringSize)*HashOutputBytesLen + //	seeds [][]byte
@@ -647,27 +686,23 @@ func (pp *PublicParameter) elrSignatureMLPSerializeSize(ringSize uint8) int {
 
 // serializeElrSignatureMLP serializes the input ElrSignatureMLP into []byte.
 // reviewed on 2023.12.19
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byte, error) {
-	if sig == nil || len(sig.seeds) == 0 {
-		return nil, fmt.Errorf("serializeElrSignatureMLP: there is nil pointer in the input ElrSignatureMLP")
+
+	if !pp.ElrSignatureMLPSanityCheck(sig) {
+		return nil, fmt.Errorf("serializeElrSignatureMLP: the input sig *ElrSignatureMLP is not well-form")
 	}
 
-	ringSize := len(sig.seeds)
-	if ringSize > int(pp.paramRingSizeMax) {
-		return nil, fmt.Errorf("serializeElrSignatureMLP: the input ElrSignatureMLP's ring size (%d) exceeds the allowed maximum value (%d)", ringSize, pp.paramRingSizeMax)
-	}
-	if len(sig.z_as) != ringSize || len(sig.z_cs) != ringSize || len(sig.z_cps) != ringSize {
-		return nil, fmt.Errorf("serializeElrSignatureMLP: the input sig.seeds, sig.z_as, sig.z_cs, sig.z_cps should have the same length")
-	}
+	ringSize := sig.ringSize
 
-	length := pp.elrSignatureMLPSerializeSize(uint8(ringSize))
+	length := pp.elrSignatureMLPSerializeSize(ringSize)
 	w := bytes.NewBuffer(make([]byte, 0, length))
 
 	//	ringSize
-	err := w.WriteByte(uint8(ringSize))
+	err := w.WriteByte(ringSize)
 
 	// seeds [][]byte
-	for i := 0; i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		_, err = w.Write(sig.seeds[i])
 		if err != nil {
 			return nil, err
@@ -675,7 +710,7 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 	}
 
 	// z_as  []*PolyAVec eta
-	for i := 0; i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		err = pp.writePolyAVecEta(w, sig.z_as[i])
 		if err != nil {
 			return nil, err
@@ -683,7 +718,7 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 	}
 
 	// z_cs  [][]*PolyCVec eta
-	for i := 0; i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		for t := 0; t < pp.paramK; t++ {
 			err = pp.writePolyCVecEta(w, sig.z_cs[i][t])
 			if err != nil {
@@ -693,7 +728,7 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 	}
 
 	// z_cps [][]*PolyCVec eta
-	for i := 0; i < ringSize; i++ {
+	for i := uint8(0); i < ringSize; i++ {
 		for t := 0; t < pp.paramK; t++ {
 			err = pp.writePolyCVecEta(w, sig.z_cps[i][t])
 			if err != nil {
@@ -707,6 +742,7 @@ func (pp *PublicParameter) serializeElrSignatureMLP(sig *ElrSignatureMLP) ([]byt
 
 // deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
 // reviewed on 2023.12.19
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*ElrSignatureMLP, error) {
 	if len(serializedSig) == 0 {
 		return nil, fmt.Errorf("deserializeElrSignatureMLP: the input serializedSig is nil/empty")
@@ -764,10 +800,11 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	}
 
 	return &ElrSignatureMLP{
-		seeds: seeds,
-		z_as:  z_as,
-		z_cs:  z_cs,
-		z_cps: z_cps,
+		ringSize: ringSize,
+		seeds:    seeds,
+		z_as:     z_as,
+		z_cs:     z_cs,
+		z_cps:    z_cps,
 	}, nil
 }
 
@@ -780,9 +817,34 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 // In this algorithm we do not check the sanity of (t) and (s),
 // and will leave the sanity-check work (e.g., t != nil ) to the corresponding simpleSignatureVerify algorithm.
 // reviewed on 2023.12.18
+// refactored and reviewed by Alice, 2024.07.02
 // todo: multi-round review
 func (pp *PublicParameter) simpleSignatureSign(t *PolyANTTVec, extTrTxCon []byte,
 	s *PolyANTTVec) (*SimpleSignatureMLP, error) {
+
+	//	Sanity-checks 	begin
+	if len(extTrTxCon) == 0 {
+		return nil, fmt.Errorf("simpleSignatureSign: the input extTrTxCon is nil/empty")
+	}
+
+	askSp, err := pp.newAddressSecretKeySpFromPolyANTTVec(s)
+	if err != nil {
+		return nil, err
+	}
+
+	ask := &AddressSecretKeyForSingle{
+		askSp,
+	}
+
+	apk := &AddressPublicKeyForSingle{
+		t: t,
+	}
+
+	validAddressKey, hints := pp.addressKeyForSingleVerify(apk, ask)
+	if !validAddressKey {
+		return nil, fmt.Errorf("simpleSignatureSign: the input (t,s) does not match: %v", hints)
+	}
+	//	Sanity-checks 	end
 
 simpleSignatureSignRestart:
 	// randomness y
@@ -828,36 +890,25 @@ simpleSignatureSignRestart:
 // reviewed on 2023.12.18
 // refactored on 2024.01.07, using err == nil or not to denote valid or invalid
 // todo: multi-round review
+// refactored and reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []byte, sig *SimpleSignatureMLP) error {
 
-	if t == nil || len(extTrTxCon) == 0 || sig == nil {
-		return fmt.Errorf("simpleSignatureVerify: at least one of the input (t, extTrTxCon, sig) is nil/empty")
+	//	sanity-checks	begin
+	if len(extTrTxCon) == 0 {
+		return fmt.Errorf("simpleSignatureVerify: the input extTrTxCon is nil/empty")
 	}
 
-	if len(t.polyANTTs) != pp.paramKA {
-		return fmt.Errorf("simpleSignatureVerify: the input t is not well-from")
+	apk := &AddressPublicKeyForSingle{
+		t: t,
 	}
-	for i := 0; i < pp.paramKA; i++ {
-		if len(t.polyANTTs[i].coeffs) != pp.paramDA {
-			return fmt.Errorf("simpleSignatureVerify: t.polyANTTs[%d] is not well-from", i)
-		}
+	if !pp.AddressPublicKeyForSingleSanityCheck(apk) {
+		return fmt.Errorf("simpleSignatureVerify: the input t *PolyANTTVec is not well-form")
 	}
 
-	if len(sig.seed_ch) != HashOutputBytesLen || sig.z == nil {
-		return fmt.Errorf("simpleSignatureVerify: sig.seed_ch or sig.z is not well-from")
+	if !pp.SimpleSignatureSanityCheck(sig) {
+		return fmt.Errorf("simpleSignatureVerify: the input sig *SimpleSignatureMLP is not well-form")
 	}
-	if len(sig.z.polyAs) != pp.paramLA {
-		return fmt.Errorf("simpleSignatureVerify: sig.z is not well-form")
-	}
-	for i := 0; i < pp.paramLA; i++ {
-		if len(sig.z.polyAs[i].coeffs) != pp.paramDA {
-			return fmt.Errorf("simpleSignatureVerify: sig.z.polyAs[%d] is not well-form", i)
-		}
-	}
-
-	if sig.z.infNorm() > pp.paramEtaA-int64(pp.paramBetaA) {
-		return fmt.Errorf("simpleSignatureVerify: sig.z.infNorm() (%v) is not in the ecpected range", sig.z.infNorm())
-	}
+	//	sanity-checks	end
 
 	ch_poly, err := pp.expandChallengeA(sig.seed_ch)
 	if err != nil {
@@ -890,6 +941,7 @@ func (pp *PublicParameter) simpleSignatureVerify(t *PolyANTTVec, extTrTxCon []by
 }
 
 // simpleSignatureSerializeSize returns the serialize size for SimpleSignatureMLP.
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) simpleSignatureSerializeSize() int {
 	length := HashOutputBytesLen + //	seed_ch []byte
 		pp.PolyAVecSerializeSizeEtaByVecLen(pp.paramLA) //	z       *PolyAVec
@@ -897,10 +949,11 @@ func (pp *PublicParameter) simpleSignatureSerializeSize() int {
 }
 
 // serializeSimpleSignature serializes the input SimpleSignatureMLP into []byte.
-// todo: review
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) serializeSimpleSignature(sig *SimpleSignatureMLP) ([]byte, error) {
-	if sig == nil || len(sig.seed_ch) == 0 || sig.z == nil {
-		return nil, fmt.Errorf("serializeSimpleSignature: there is nil pointer in the input SimpleSignatureMLP")
+
+	if !pp.SimpleSignatureSanityCheck(sig) {
+		return nil, fmt.Errorf("serializeSimpleSignature: the input sig *SimpleSignatureMLP is not well-form")
 	}
 
 	length := pp.simpleSignatureSerializeSize()
@@ -922,7 +975,7 @@ func (pp *PublicParameter) serializeSimpleSignature(sig *SimpleSignatureMLP) ([]
 }
 
 // deserializeElrSignatureMLP deserialize the input []byte to an ElrSignatureMLP.
-// todo: review
+// reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*SimpleSignatureMLP, error) {
 	if len(serializedSig) == 0 {
 		return nil, fmt.Errorf("deserializeSimpleSignature: the input serializedSig is nil/empty")
@@ -952,11 +1005,12 @@ func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*Si
 // collectBytesForSimpleSignatureChallenge collect preMsg for simpleSignatureSign, for the Fiat-Shamir transform.
 // todo: concat the system public parameter
 // reviewed on 2023.12.18
-// todo: review
+// refactored and reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(t *PolyANTTVec, extTrTxCon []byte,
 	w *PolyANTTVec) ([]byte, error) {
 
-	length := pp.paramKA*pp.paramDA*8 + //	t *PolyANTTVec
+	length := len(pp.paramParameterSeedString) + // crs
+		pp.paramKA*pp.paramDA*8 + //	t *PolyANTTVec
 		len(extTrTxCon) + //	extTrTxCon []byte
 		pp.paramKA*pp.paramDA*8 //	w *PolyANTTVec
 
@@ -975,6 +1029,9 @@ func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(t *PolyANTTVe
 		}
 	}
 
+	//	crs
+	rst = append(rst, pp.paramParameterSeedString...)
+
 	//	t *PolyANTTVec
 	for i := 0; i < len(t.polyANTTs); i++ {
 		appendPolyANTTToBytes(t.polyANTTs[i])
@@ -992,3 +1049,240 @@ func (pp *PublicParameter) collectBytesForSimpleSignatureChallenge(t *PolyANTTVe
 }
 
 //	Simple Signature	end
+
+//	helper functions	begin
+
+// newAddressSecretKeySpFromPolyANTTVec makes an AddressSecretKeySp from the input sNTT *PolyANTTVec.
+// added by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) newAddressSecretKeySpFromPolyANTTVec(sNTT *PolyANTTVec) (*AddressSecretKeySp, error) {
+
+	if sNTT == nil {
+		return nil, fmt.Errorf("newAddressSecretKeySpFromPolyANTTVec: The input sNTT *PolyANTTVec is nil/empty")
+	}
+
+	if len(sNTT.polyANTTs) != pp.paramLA {
+		return nil, fmt.Errorf("newAddressSecretKeySpFromPolyANTTVec: The input sNTT *PolyANTTVec has in incorrect size (%d)", len(sNTT.polyANTTs))
+	}
+
+	sPolyAs := make([]*PolyA, pp.paramLA)
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyANTTSanityCheck(sNTT.polyANTTs[i]) {
+			return nil, fmt.Errorf("newAddressSecretKeySpFromPolyANTTVec: The input sNTT.polyANTTs[%d] is not well-from", i)
+		}
+		// Note that the above sanity-check is necessary, since bad-form PolyANTT may cause panic in NTTInv.
+
+		sPolyAs[i] = pp.NTTInvPolyA(sNTT.polyANTTs[i])
+		if sPolyAs[i].infNorm() > 2 {
+			// Note that pp.paramGammaA = 2
+			return nil, fmt.Errorf("newAddressSecretKeySpFromPolyANTTVec: The input sNTT.polyANTTs[%d]'s poly's normal is not in the allowed scope", i)
+		}
+	}
+
+	askSp := &AddressSecretKeySp{
+		s: &PolyAVec{polyAs: sPolyAs},
+	}
+
+	return askSp, nil
+}
+
+// newAddressSecretKeySnFromPolyANTT makes an AddressSecretKeySn from the input sNTT maNTT *PolyANTT.
+// added by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) newAddressSecretKeySnFromPolyANTT(maNTT *PolyANTT) (*AddressSecretKeySn, error) {
+
+	if !pp.PolyANTTSanityCheck(maNTT) {
+		return nil, fmt.Errorf("newAddressSecretKeySnFromPolyANTT: The input maNTT *PolyANTT is not well-form")
+
+	}
+
+	askSn := &AddressSecretKeySn{
+		ma: maNTT,
+	}
+
+	return askSn, nil
+}
+
+//	helper functions	end
+
+// Sanity-checks	begin
+
+// LgrTxoRingSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from.
+// (1) lgrTxoList is not nil/empty;
+// (2) There is not repeated lgrTxoId in one ring;
+// (3) Each Txo is well-form, and coinAddressType is either CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing.
+// added by Alice, 2024.07.02
+// todo: review by 2024.07
+func (pp *PublicParameter) LgrTxoRingSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
+
+	ringLen := len(lgrTxoList)
+	if ringLen <= 0 || ringLen > int(pp.paramRingSizeMax) {
+		return false
+	}
+
+	lgrTxoIdsMap := make(map[string]int) // There should not be repeated lgrTxoId in one ring.
+	for i := 0; i < ringLen; i++ {
+		lgrTxo := lgrTxoList[i]
+		if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
+			return false
+		}
+
+		idString := hex.EncodeToString(lgrTxo.id)
+		if _, exists := lgrTxoIdsMap[idString]; exists {
+			return false
+		}
+		lgrTxoIdsMap[idString] = i
+
+		if lgrTxo.txo.CoinAddressType() != CoinAddressTypePublicKeyForRingPre &&
+			lgrTxo.txo.CoinAddressType() != CoinAddressTypePublicKeyForRing {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ElrSignatureMLPSanityCheck checks whether the input elrSignatureMLP *ElrSignatureMLP is well-form:
+// (1) elrSignatureMLP is not nil;
+// (2) elrSignatureMLP.ringSize is valid;
+// (3) elrSignatureMLP.seeds is well-form, say has ringSize seeds, and each has valid length;
+// (4) elrSignatureMLP.z_as is well-form, including the normal;
+// (5) elrSignatureMLP.z_cs is well-form, including the normal;
+// (6) elrSignatureMLP.z_cps is well-form, including the normal.
+// added by Alice, 2024.07.02
+// todo: review by 2024.07
+func (pp *PublicParameter) ElrSignatureMLPSanityCheck(elrSignatureMLP *ElrSignatureMLP) bool {
+
+	if elrSignatureMLP == nil {
+		return false
+	}
+
+	if elrSignatureMLP.ringSize <= 0 || elrSignatureMLP.ringSize > pp.paramRingSizeMax {
+		return false
+	}
+
+	if len(elrSignatureMLP.seeds) != int(elrSignatureMLP.ringSize) {
+		return false
+	}
+	for j := uint8(0); j < elrSignatureMLP.ringSize; j++ {
+		if len(elrSignatureMLP.seeds[j]) != HashOutputBytesLen {
+			return false
+		}
+	}
+
+	zBoundA := pp.paramEtaA - int64(pp.paramBetaA)
+	if len(elrSignatureMLP.z_as) != int(elrSignatureMLP.ringSize) {
+		return false
+	}
+	for j := uint8(0); j < elrSignatureMLP.ringSize; j++ {
+		if elrSignatureMLP.z_as[j] == nil {
+			return false
+		}
+		if len(elrSignatureMLP.z_as[j].polyAs) != pp.paramLA {
+			return false
+		}
+		for i := 0; i < pp.paramLA; i++ {
+			if !pp.PolyASanityCheck(elrSignatureMLP.z_as[j].polyAs[i]) {
+				return false
+			}
+
+			if elrSignatureMLP.z_as[j].polyAs[i].infNorm() > zBoundA {
+				return false
+			}
+		}
+	}
+
+	zBoundC := pp.paramEtaC - int64(pp.paramBetaC)
+	if len(elrSignatureMLP.z_cs) != int(elrSignatureMLP.ringSize) {
+		return false
+	}
+	for j := uint8(0); j < elrSignatureMLP.ringSize; j++ {
+		if len(elrSignatureMLP.z_cs[j]) != pp.paramK {
+			return false
+		}
+
+		for tau := 0; tau < pp.paramK; tau++ {
+			if elrSignatureMLP.z_cs[j][tau] == nil {
+				return false
+			}
+
+			if len(elrSignatureMLP.z_cs[j][tau].polyCs) != pp.paramLC {
+				return false
+			}
+
+			for i := 0; i < pp.paramLC; i++ {
+				if !pp.PolyCSanityCheck(elrSignatureMLP.z_cs[j][tau].polyCs[i]) {
+					return false
+				}
+
+				if elrSignatureMLP.z_cs[j][tau].polyCs[i].infNorm() > zBoundC {
+					return false
+				}
+			}
+		}
+	}
+
+	if len(elrSignatureMLP.z_cps) != int(elrSignatureMLP.ringSize) {
+		return false
+	}
+	for j := uint8(0); j < elrSignatureMLP.ringSize; j++ {
+		if len(elrSignatureMLP.z_cps[j]) != pp.paramK {
+			return false
+		}
+
+		for tau := 0; tau < pp.paramK; tau++ {
+			if elrSignatureMLP.z_cps[j][tau] == nil {
+				return false
+			}
+
+			if len(elrSignatureMLP.z_cps[j][tau].polyCs) != pp.paramLC {
+				return false
+			}
+
+			for i := 0; i < pp.paramLC; i++ {
+				if !pp.PolyCSanityCheck(elrSignatureMLP.z_cps[j][tau].polyCs[i]) {
+					return false
+				}
+
+				if elrSignatureMLP.z_cps[j][tau].polyCs[i].infNorm() > zBoundC {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
+}
+
+func (pp *PublicParameter) SimpleSignatureSanityCheck(simpleSignatureMLP *SimpleSignatureMLP) bool {
+
+	if simpleSignatureMLP == nil {
+		return false
+	}
+
+	if len(simpleSignatureMLP.seed_ch) != HashOutputBytesLen {
+		return false
+	}
+
+	if simpleSignatureMLP.z == nil {
+		return false
+	}
+
+	zBoundA := pp.paramEtaA - int64(pp.paramBetaA)
+	if len(simpleSignatureMLP.z.polyAs) != pp.paramLA {
+		return false
+	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(simpleSignatureMLP.z.polyAs[i]) {
+			return false
+		}
+
+		if simpleSignatureMLP.z.polyAs[i].infNorm() > zBoundA {
+			return false
+		}
+	}
+
+	return true
+}
+
+//	Sanity-checks	end
