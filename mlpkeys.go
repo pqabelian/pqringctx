@@ -930,45 +930,15 @@ func (pp *PublicParameter) addressKeyForRingGenSerialNumberKeyPart(coinSerialNum
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.14
 // reviewed by Alice, 2024.06.24
+// refactored and reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing, ask *AddressSecretKeyForRing) (valid bool, hints string) {
-	if apk == nil || apk.t == nil || apk.e == nil ||
-		ask == nil || ask.s == nil || ask.ma == nil {
-		return false, "addressKeyForRingVerify: there are nil points in the input (apk, ask)"
+
+	if !pp.AddressPublicKeyForRingSanityCheck(apk) {
+		return false, "addressKeyForRingVerify: the input apk *AddressPublicKeyForRing is not well-form"
 	}
 
-	// sanity-check on ask.s
-	if len(ask.s.polyAs) != pp.paramLA {
-		return false, "addressKeyForRingVerify: the input ask.s is not well-form"
-	}
-	for i := 0; i < pp.paramLA; i++ {
-		if !pp.PolyASanityCheck(ask.s.polyAs[i]) {
-			return false, "addressKeyForRingVerify: the input ask.s is not well-form"
-		}
-	}
-
-	//	verify the normal of ask.s
-	if !pp.isAddressSKspNormInBound(ask.s) {
-		return false, "addressKeyForRingVerify: the normal of ask.s is not in the expected bound"
-	}
-
-	// sanity-check on ask.ma
-	if !pp.PolyANTTSanityCheck(ask.ma) {
-		return false, "addressKeyForRingVerify: the input the input ask.ma is not well-form"
-	}
-
-	// sanity-check on apk.t
-	if len(apk.t.polyANTTs) != pp.paramKA {
-		return false, "addressKeyForRingVerify: the input apk.t is not well-form"
-	}
-	for i := 0; i < pp.paramKA; i++ {
-		if !pp.PolyANTTSanityCheck(apk.t.polyANTTs[i]) {
-			return false, "addressKeyForRingVerify: the input apk.t is not well-form"
-		}
-	}
-
-	// sanity-check on apk.e
-	if !pp.PolyANTTSanityCheck(apk.e) {
-		return false, "addressKeyForRingVerify: the input apk.e is not well-form"
+	if !pp.AddressSecretKeyForRingSanityCheck(ask) {
+		return false, "addressKeyForRingVerify: the input apk *AddressSecretKeyForRing is not well-form"
 	}
 
 	// compute t = A * s
@@ -1048,35 +1018,15 @@ func (pp *PublicParameter) addressKeyForSingleGen(coinSpendKeyRandSeed []byte) (
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// refactored and reviewed by Alice, 2024.07.01
 func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle) (valid bool, hints string) {
-	if apk == nil || apk.t == nil ||
-		ask == nil || ask.s == nil {
-		return false, "addressKeyForSingleVerify: there are nil points in the input (apk, ask)"
+
+	if !pp.AddressPublicKeyForSingleSanityCheck(apk) {
+		return false, "addressKeyForSingleVerify: the input apk *AddressPublicKeyForSingle is not well-form"
 	}
 
-	// sanity-check on ask.s
-	if len(ask.s.polyAs) != pp.paramLA {
-		return false, "addressKeyForSingleVerify: the input ask.s is not well-form"
-	}
-	for i := 0; i < pp.paramLA; i++ {
-		if !pp.PolyASanityCheck(ask.s.polyAs[i]) {
-			return false, "addressKeyForSingleVerify: the input ask.s is not well-form"
-		}
-	}
-
-	//	verify the normal of ask.s
-	if !pp.isAddressSKspNormInBound(ask.s) {
-		return false, "addressKeyForSingleVerify: the normal of the input ask.s is not in the expected bound"
-	}
-
-	// sanity-check on apk.t
-	if len(apk.t.polyANTTs) != pp.paramKA {
-		return false, "addressKeyForSingleVerify: the input apk.t is not well-form"
-	}
-	for i := 0; i < pp.paramKA; i++ {
-		if !pp.PolyANTTSanityCheck(apk.t.polyANTTs[i]) {
-			return false, "addressKeyForSingleVerify: the input apk.t is not well-form"
-		}
+	if pp.AddressSecretKeyForSingleSanityCheck(ask) {
+		return false, "addressKeyForSingleVerify: the input ask *AddressSecretKeyForSingle is not well-form"
 	}
 
 	// compute t = A * s
@@ -1494,6 +1444,45 @@ func (pp *PublicParameter) AddressPublicKeyForRingSanityCheck(addressPublicKeyFo
 	return true
 }
 
+// AddressSecretKeyForRingSanityCheck checks whether the input AddressSecretKeyForRing is well-from.
+// (1) addressSecretKeyForRing is not nil,
+// (2) addressSecretKeyForRing.AddressSecretKeySp.s is well-form, including the normal in the legal scope
+// (3) addressSecretKeyForRing.AddressSecretKeySn.ma is well-form
+// added by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) AddressSecretKeyForRingSanityCheck(addressSecretKeyForRing *AddressSecretKeyForRing) bool {
+	if addressSecretKeyForRing == nil {
+		return false
+	}
+
+	if addressSecretKeyForRing.AddressSecretKeySp == nil || addressSecretKeyForRing.AddressSecretKeySp.s == nil {
+		return false
+	}
+	if len(addressSecretKeyForRing.AddressSecretKeySp.s.polyAs) != pp.paramLA {
+		return false
+	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(addressSecretKeyForRing.AddressSecretKeySp.s.polyAs[i]) {
+			return false
+		}
+
+		if addressSecretKeyForRing.AddressSecretKeySp.s.polyAs[i].infNorm() > 2 {
+			// Note that pp.paramGammaA = 2
+			return false
+		}
+	}
+
+	if addressSecretKeyForRing.AddressSecretKeySn == nil {
+		return false
+	}
+
+	if !pp.PolyANTTSanityCheck(addressSecretKeyForRing.AddressSecretKeySn.ma) {
+		return false
+	}
+
+	return true
+}
+
 // AddressPublicKeyForSingleSanityCheck checks whether the input AddressPublicKeyForSingle is well-from.
 // (1) addressPublicKeyForSingle is not nil,
 // (2) addressPublicKeyForRing.t is not nil and is well-form
@@ -1511,6 +1500,36 @@ func (pp *PublicParameter) AddressPublicKeyForSingleSanityCheck(addressPublicKey
 	}
 	for i := 0; i < pp.paramKA; i++ {
 		if !pp.PolyANTTSanityCheck(addressPublicKeyForSingle.t.polyANTTs[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// AddressSecretKeyForSingleSanityCheck checks whether the input AddressSecretKeyForSingle is well-from.
+// (1) addressSecretKeyForSingle is not nil,
+// (2) addressSecretKeyForSingle.AddressSecretKeySp.s is well-form, including the normal in the legal scope
+// added by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) AddressSecretKeyForSingleSanityCheck(addressSecretKeyForSingle *AddressSecretKeyForSingle) bool {
+	if addressSecretKeyForSingle == nil {
+		return false
+	}
+
+	if addressSecretKeyForSingle.AddressSecretKeySp == nil || addressSecretKeyForSingle.AddressSecretKeySp.s == nil {
+		return false
+	}
+	if len(addressSecretKeyForSingle.AddressSecretKeySp.s.polyAs) != pp.paramLA {
+		return false
+	}
+	for i := 0; i < pp.paramLA; i++ {
+		if !pp.PolyASanityCheck(addressSecretKeyForSingle.AddressSecretKeySp.s.polyAs[i]) {
+			return false
+		}
+
+		if addressSecretKeyForSingle.AddressSecretKeySp.s.polyAs[i].infNorm() > 2 {
+			// Note that pp.paramGammaA = 2
 			return false
 		}
 	}
