@@ -1555,13 +1555,15 @@ func (pp *PublicParameter) genUlpPolyCNTTsMLP(rpulpType RpUlpTypeMLP, binMatrixB
 // reviewed on 2023.12.05
 // reviewed on 2023.12.18
 // reviewed by Alice, 2024.06.27
+// refactored by Alice, 2024.07.02
 func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmts []*ValueCommitment, n uint8,
 	b_hat *PolyCNTTVec, c_hats []*PolyCNTT, n2 uint8, n1 uint8,
 	rpulpType RpUlpTypeMLP, binMatrixB [][]byte, nL uint8, nR uint8, m uint8, u_hats [][]int64,
 	c_waves []*PolyCNTT, c_hat_g *PolyCNTT, cmt_ws [][]*PolyCNTTVec,
 	delta_waves [][]*PolyCNTT, delta_hats [][]*PolyCNTT, ws []*PolyCNTTVec) []byte {
 
-	length := len(message) + // message
+	length := len(pp.paramParameterSeedString) + // common reference string
+		len(message) + // message
 		int(n)*(pp.paramKC+1)*pp.paramDC*8 + // cmts []*ValueCommitment length 8, (k_c+1) PolyCNTT
 		1 + // n
 		pp.paramKC*pp.paramDC*8 + // b_hat *PolyCNTTVec, length K_c
@@ -1600,6 +1602,9 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmt
 		rst = append(rst, byte(a>>48))
 		rst = append(rst, byte(a>>56))
 	}
+
+	// crs
+	rst = append(rst, pp.paramParameterSeedString...)
 
 	// message
 	rst = append(rst, message...)
@@ -1699,11 +1704,13 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge1MLP(message []byte, cmt
 // reviewed on 2023.12.05
 // reviewed on 2023.12.18
 // reviewed by Alice, 2024.06.30
+// refactored by Alice, 2024.07.02
 func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 	preMsg []byte,
 	psi *PolyCNTT, psip *PolyCNTT, phi *PolyCNTT, phips []*PolyCNTT) []byte {
 
-	length := len(preMsg) + 3*pp.paramDC*8 + len(phips)*pp.paramDC*8
+	length := len(pp.paramParameterSeedString) +
+		len(preMsg) + 3*pp.paramDC*8 + len(phips)*pp.paramDC*8
 
 	rst := make([]byte, 0, length)
 
@@ -1719,6 +1726,9 @@ func (pp *PublicParameter) collectBytesForRPULPChallenge2MLP(
 			rst = append(rst, byte(a.coeffs[k]>>56))
 		}
 	}
+
+	// crs
+	rst = append(rst, pp.paramParameterSeedString...)
 
 	// preMsg
 	rst = append(rst, preMsg...)
@@ -2159,11 +2169,14 @@ func (pp *PublicParameter) RpulpProofSanityCheck(rpulpProof *RpulpProofMLP) bool
 		return false
 	}
 	for t := 0; t < pp.paramK; t++ {
+		if rpulpProof.zs[t] == nil {
+			return false
+		}
 		if len(rpulpProof.zs[t].polyCs) != pp.paramLC {
 			return false
 		}
 		for j := 0; j < pp.paramLC; j++ {
-			if pp.PolyCSanityCheck(rpulpProof.zs[t].polyCs[j]) {
+			if !pp.PolyCSanityCheck(rpulpProof.zs[t].polyCs[j]) {
 				return false
 			}
 
