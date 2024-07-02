@@ -1025,7 +1025,7 @@ func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSin
 		return false, "addressKeyForSingleVerify: the input apk *AddressPublicKeyForSingle is not well-form"
 	}
 
-	if pp.AddressSecretKeyForSingleSanityCheck(ask) {
+	if !pp.AddressSecretKeyForSingleSanityCheck(ask) {
 		return false, "addressKeyForSingleVerify: the input ask *AddressSecretKeyForSingle is not well-form"
 	}
 
