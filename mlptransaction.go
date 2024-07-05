@@ -1277,7 +1277,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 		}
 		return pp.verifyBalanceProofL0R1(cbTxCon, vL, cmtRs[0], bpfInst)
 
-	case *BalanceProofLmRn:
+	case *BalanceProofLmRnGeneral:
 		if txCase != TxWitnessCbTxCaseCn {
 			return fmt.Errorf("verifyBalanceProofCbTx: balanceProof is BalanceProofLmRn, but the txCase is not TxWitnessCbTxCaseCn")
 		}
@@ -1300,7 +1300,7 @@ func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int,
 	} else if outForRing == 1 {
 		return pp.balanceProofL0R1SerializeSize(), nil
 	} else { //	outForRing >= 2
-		return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
+		return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, outForRing)
 	}
 }
 
@@ -1593,7 +1593,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 				return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing) = (%d, %d), but txCase (%d) != TxWitnessTrTxCaseI0Cn", inForRing, outForRing, txCase)
 			}
 			switch bpfInst := balcenProof.(type) {
-			case *BalanceProofLmRn:
+			case *BalanceProofLmRnGeneral:
 				return pp.verifyBalanceProofL0Rn(extTrTxCon, outForRing, uint64(-vPublic), cmts_out, bpfInst)
 			default:
 				return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 0, outForRing >= 2), but the input balance proof is not BalanceProofLmRn")
@@ -1635,7 +1635,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseI1C1CAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, 1, cmts_in_p[0], cmts_out, uint64(vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 1, vPublic > 0), but the input balance proof is not BalanceProofLmRn")
@@ -1648,7 +1648,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseI1C1IAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, 1, cmts_out[0], cmts_in_p, uint64(-vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing = 1, vPublic < 0), but the input balance proof is not BalanceProofLmRn")
@@ -1662,7 +1662,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseI1CnExact", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, 0, bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic = 0), but the input balance proof is not BalanceProofLmRn")
@@ -1674,7 +1674,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseI1CnCAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, outForRing, cmts_in_p[0], cmts_out, uint64(vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic > 0), but the input balance proof is not BalanceProofLmRn")
@@ -1686,7 +1686,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseI1CnIAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing = 1, outForRing >= 2 , vPublic < 0), but the input balance proof is not BalanceProofLmRn")
@@ -1706,7 +1706,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 				return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImC0", inForRing, outForRing, vPublic, txCase)
 			}
 			switch bpfInst := balcenProof.(type) {
-			case *BalanceProofLmRn:
+			case *BalanceProofLmRnGeneral:
 				return pp.verifyBalanceProofL0Rn(extTrTxCon, inForRing, uint64(vPublic), cmts_in_p, bpfInst)
 			default:
 				return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1721,7 +1721,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImC1Exact", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, 0, bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic = 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1733,7 +1733,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImC1CAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic > 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1746,7 +1746,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImC1IAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofL1Rn(extTrTxCon, inForRing, cmts_out[0], cmts_in_p, uint64(-vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing = 1, vPublic < 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1762,7 +1762,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImCnExact", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, 0, bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic = 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1774,7 +1774,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImCnCAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofLmRn(extTrTxCon, inForRing, outForRing, cmts_in_p, cmts_out, uint64(vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic > 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1786,7 +1786,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 					return fmt.Errorf("verifyBalanceProofTrTx: the case is (inForRing, outForRing, vPublic) = (%d, %d, %v), but txCase (%d) != TxWitnessTrTxCaseImCnIAdd", inForRing, outForRing, vPublic, txCase)
 				}
 				switch bpfInst := balcenProof.(type) {
-				case *BalanceProofLmRn:
+				case *BalanceProofLmRnGeneral:
 					return pp.verifyBalanceProofLmRn(extTrTxCon, outForRing, inForRing, cmts_out, cmts_in_p, uint64(-vPublic), bpfInst)
 				default:
 					return fmt.Errorf("verifyBalanceProofTrTx: (inForRing >= 2, outForRing > 1, vPublic < 0 ), but the input balance proof is not BalanceProofLmRn")
@@ -1827,7 +1827,7 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			}
 
 			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, outForRing)
+			return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, outForRing)
 
 		}
 	} else if inForRing == 1 {
@@ -1848,24 +1848,24 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 				return pp.balanceProofL1R1SerializeSize(), nil
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		} else { //	outForRing >= 2
 			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 			} else if vPublic > 0 {
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		}
 
@@ -1878,37 +1878,37 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			}
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-			return pp.balanceProofLmRnSerializeSizeByCommNum(0, inForRing)
+			return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, inForRing)
 
 		} else if outForRing == 1 {
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 			} else { // vPublic < 0
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
 			}
 
 		} else { // outForRing >= 2
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
 			if vPublic == 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 
 			} else if vPublic > 0 {
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnSerializeSizeByCommNum(inForRing, outForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 
 			} else { // vPublic < 0
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnSerializeSizeByCommNum(outForRing, inForRing)
+				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
 			}
 		}
 	}
