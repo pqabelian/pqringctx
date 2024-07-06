@@ -6,7 +6,7 @@ import (
 )
 
 // PublicParameter is defined the alias of pqringctx.PublicParameter,
-// to enable the caller only need to import pqringctxapi and pqringctxapidao.
+// to enable the caller only need to import pqringctxapi.
 type PublicParameter = pqringctx.PublicParameter
 
 // CoinAddressType is defined to explicit distinguish different type
@@ -443,3 +443,49 @@ func DeserializeTxWitnessTrTx(pp *PublicParameter, serializedTxWitness []byte) (
 }
 
 // APIs for Witness 	end
+
+// Get functions of Transactions	begin
+
+// GetCbTxTxos
+// added by Alice, 2024.07.06
+// todo: review
+func GetCbTxTxos(cbTx *CoinbaseTxMLP) []TxoMLP {
+	return cbTx.GetTxos()
+}
+
+// GetCbTxTxWitness
+// added by Alice, 2024.07.06
+// todo: review
+func GetCbTxTxWitness(cbTx *CoinbaseTxMLP) *TxWitnessCbTx {
+	return cbTx.GetTxWitness()
+}
+
+// GetTrTxTxos
+// added by Alice, 2024.07.06
+// todo: review
+func GetTrTxTxos(trTx *TransferTxMLP) []TxoMLP {
+	return trTx.GetTxos()
+}
+
+// GetTrTxTxInputs
+// added by Alice, 2024.07.06
+// todo: review
+func GetTrTxTxInputs(trTx *TransferTxMLP) []*TxInputMLP {
+	return trTx.GetTxInputs()
+}
+
+// GetTrTxWitness
+// added by Alice, 2024.07.06
+// todo: review
+func GetTrTxWitness(trTx *TransferTxMLP) *TxWitnessTrTx {
+	return trTx.GetTxWitness()
+}
+
+// GetTxInputSerialNumber
+// added by Alice, 2024.07.06
+// todo: review
+func GetTxInputSerialNumber(txInput *TxInputMLP) []byte {
+	return txInput.GetSerialNumber()
+}
+
+//	Get functions of Transactions	end
