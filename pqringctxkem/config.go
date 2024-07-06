@@ -118,6 +118,10 @@ func VerifyKeyPair(ppkem *ParamKem, serializedPK []byte, serializedSK []byte) (v
 	return true, ""
 }
 
+// Encaps encapsulates a secret using specified public key and returns the
+// corresponding serialized cipher text and serialized shared secret
+// 1. check the version in serialized public key if it match the kem version
+// 2. perform actual encapsulation distributed by kem version
 // todo(MLP): add the sanity-check on the input pk
 func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	var serializedC, kappa []byte
@@ -169,8 +173,11 @@ func Encaps(ppkem *ParamKem, pk []byte) ([]byte, []byte, error) {
 	return retSerializedC, kappa, nil
 }
 
-// Decaps
+// Decaps de-encapsulate the serialized cipher text with specified serialized secret key
+// 1. Check version in serialized cipher text and serialized secret key if they matches kem parameter
+// 2. perform actually de-encapsulation distributed by kem version
 // todo: review by 2024.06
+// reviewed by Ocean
 func Decaps(ppkem *ParamKem, serializedC []byte, sk []byte) ([]byte, error) {
 	if len(sk) < 4 {
 		return nil, errors.New("invalid secret key")
@@ -268,6 +275,7 @@ func GetKemSecretKeyBytesLen(ppkem *ParamKem) int {
 
 // GetKemCiphertextBytesLen
 // todo: review by 2024.06
+// reviewed by Ocean
 func GetKemCiphertextBytesLen(ppkem *ParamKem) int {
 	switch ppkem.Version {
 	case KEM_KYBER:
