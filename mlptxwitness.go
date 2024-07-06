@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 )
 
 // TxWitnessCbTxCase defines the TxCase which will be used to characterize the TxWitnessCbTx.
@@ -261,7 +262,7 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 	}
 
 	serializedBpf := make([]byte, serializedBpfLen)
-	_, err = r.Read(serializedBpf)
+	_, err = io.ReadFull(r, serializedBpf)
 	if err != nil {
 		return nil, err
 	}
@@ -482,7 +483,7 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 
 // DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
 // reviewed on 2023.12.19
-// todo: reviewed by Alice, 2024.07.05
+// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
@@ -554,10 +555,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	cmts_in_p                  []*ValueCommitment
 	cmts_in_p := make([]*ValueCommitment, inForRing)
-	valueCommitmentSize := pp.ValueCommitmentSerializeSize()
+	serializedCmt := make([]byte, pp.ValueCommitmentSerializeSize())
 	for i := uint8(0); i < inForRing; i++ {
-		serializedCmt := make([]byte, valueCommitmentSize)
-		_, err = r.Read(serializedCmt)
+		_, err = io.ReadFull(r, serializedCmt)
 		if err != nil {
 			return nil, err
 		}
@@ -571,7 +571,10 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	elrSigs := make([]*ElrSignatureMLP, inForRing)
 	for i := uint8(0); i < inForRing; i++ {
 		serializedElrSig := make([]byte, pp.elrSignatureMLPSerializeSize(inRingSizes[i]))
-		_, err = r.Read(serializedElrSig)
+		_, err = io.ReadFull(r, serializedElrSig)
+		if err != nil {
+			return nil, err
+		}
 		elrSigs[i], err = pp.deserializeElrSignatureMLP(serializedElrSig)
 		if err != nil {
 			return nil, err
@@ -580,10 +583,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
 	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
-	apkForSingleSize := pp.addressPublicKeyForSingleSerializeSize()
+	serializedApk := make([]byte, pp.addressPublicKeyForSingleSerializeSize())
 	for i := uint8(0); i < inForSingleDistinct; i++ {
-		serializedApk := make([]byte, apkForSingleSize)
-		_, err = r.Read(serializedApk)
+		_, err = io.ReadFull(r, serializedApk)
 		if err != nil {
 			return nil, err
 		}
@@ -595,10 +597,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	simpleSigs                 []*SimpleSignatureMLP
 	simpleSigs := make([]*SimpleSignatureMLP, inForSingleDistinct)
-	simpleSigSize := pp.simpleSignatureSerializeSize()
+	serializedSimpleSig := make([]byte, pp.simpleSignatureSerializeSize())
 	for i := uint8(0); i < inForSingleDistinct; i++ {
-		serializedSimpleSig := make([]byte, simpleSigSize)
-		_, err = r.Read(serializedSimpleSig)
+		_, err = io.ReadFull(r, serializedSimpleSig)
 		if err != nil {
 			return nil, err
 		}
@@ -624,7 +625,7 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	}
 
 	serializedBpf := make([]byte, serializedBpfLen)
-	_, err = r.Read(serializedBpf)
+	_, err = io.ReadFull(r, serializedBpf)
 	if err != nil {
 		return nil, err
 	}
@@ -721,6 +722,13 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 			return false
 		}
 
+		if txWitnessCbTx.vL == 0 {
+			// As vL = Vin - (public value on the output side),
+			// this implies that the output ValueCommitment has value 0, which can be publicly deduced.
+			// It is banned by rules.
+			return false
+		}
+
 	} else {
 		//	txWitnessCbTx.outForRing >= 2
 		if txWitnessCbTx.txCase != TxWitnessCbTxCaseCn {
@@ -728,6 +736,13 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 		}
 
 		if txWitnessCbTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0Rn {
+			return false
+		}
+
+		if txWitnessCbTx.vL == 0 {
+			// As vL = Vin - (public value on the output side),
+			// this implies that all the output ValueCommitments has value 0, which can be publicly deduced.
+			// It is banned by rules.
 			return false
 		}
 
@@ -888,6 +903,12 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 				return false
 			}
 
+			if txWitnessTrTx.vPublic == 0 {
+				//	It can be deduced that the value in cmt_{out,0} is 0.
+				//  This case is banned by the rules.
+				return false
+			}
+
 			//  -vPublic = cmt_{out,0}
 			//	return pp.balanceProofL0R1SerializeSize(), nil
 			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI0C1 {
@@ -901,6 +922,12 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
 			if txWitnessTrTx.vPublic > 0 {
 				// assert
+				return false
+			}
+
+			if txWitnessTrTx.vPublic == 0 {
+				//	It can be deduced that all the values in cmt_{out,0},  ... , cmt_{out, outForRing-1} are 0.
+				//  This case is banned by the rules.
 				return false
 			}
 
@@ -920,6 +947,12 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			if txWitnessTrTx.vPublic < 0 {
 				// assert
 				return false
+			}
+
+			if txWitnessTrTx.vPublic == 0 {
+				//	do nothing
+				//	It can be deduced that the value in cmt_{in,0} is 0, but
+				//  the cmt_{in,0} was generated by previous transaction, we should not ban it now.
 			}
 
 			//	vPublic = cmt_{in,0}
@@ -1005,6 +1038,13 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			if txWitnessTrTx.vPublic < 0 {
 				// assert
 				return false
+			}
+
+			if txWitnessTrTx.vPublic == 0 {
+				//	do nothing
+				//	It can be deduced that all the values in cmt_{in,0}, ... , cmt_{in, inForRing-1} are 0, but
+				//  cmt_{in,0}, ... , cmt_{in, inForRing-1} were generated by previous transactions, we should not ban it now.
+				//	return false
 			}
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
@@ -1130,6 +1170,12 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 				//	assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
 			}
+
+			if vPublic == 0 {
+				//	assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic == 0")
+			}
+
 			//  -vPublic = cmt_{out,0}
 			return pp.balanceProofL0R1SerializeSize(), nil
 
@@ -1138,6 +1184,11 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			if vPublic > 0 {
 				// assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
+			}
+
+			if vPublic == 0 {
+				// assert
+				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic == 0")
 			}
 
 			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
@@ -1150,6 +1201,11 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			if vPublic < 0 {
 				// assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
+			}
+
+			if vPublic == 0 {
+				// do nothing
+				// because the cmt_{in,0} was generated by previous transaction, we should not ban it now.
 			}
 
 			//	vPublic = cmt_{in,0}
@@ -1189,6 +1245,11 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			if vPublic < 0 {
 				// assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing >= 2 and outForRing == 0, but vPublic < 0")
+			}
+
+			if vPublic == 0 {
+				// do nothing
+				// because the cmt_{in,0} + ... + cmt_{in, inForRing-1} were generated by previous transaction, we should not ban it now.
 			}
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
