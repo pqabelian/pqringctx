@@ -12,7 +12,14 @@ import (
 // reviewed on 2023.12.04
 // reviewed on 2023.12.07
 // reviewed on 2023.12.20
+// refactored and reviewed by Alice, 2024.07.06
+// todo: review by 2024.07
 func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withWitness bool) (int, error) {
+
+	if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
+		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the input cbTx *CoinbaseTxMLP is not well-form")
+	}
+
 	var length int
 
 	// Vin uint64
@@ -20,9 +27,6 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 
 	//txos []*txoMLP
 	outputNum := len(cbTx.txos)
-	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
-	}
 	length += VarIntSerializeSize(uint64(outputNum))
 	for i := 0; i < outputNum; i++ {
 		txoLen, err := pp.TxoMLPSerializeSize(cbTx.txos[i])
@@ -54,9 +58,12 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
 // reviewed on 2023.12.20
+// refactored and reviewed by Alice, 2024.07.06
+// todo: review by 2024.07
 func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
-	if cbTx == nil || len(cbTx.txos) == 0 {
-		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: there is nil pointer in the input CoinbaseTxMLP")
+
+	if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
+		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the input cbTx *CoinbaseTxMLP is not well-form")
 	}
 
 	length, err := pp.CoinbaseTxMLPSerializeSize(cbTx, withWitness)
@@ -70,9 +77,6 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 
 	//	txos []*txo
 	outputNum := len(cbTx.txos)
-	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
-	}
 	err = WriteVarInt(w, uint64(outputNum))
 	if err != nil {
 		return nil, err
@@ -115,6 +119,8 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 
 // DeserializeCoinbaseTxMLP deserialize []byte to CoinbaseTxMLP.
 // reviewed on 2023.12.20
+// refactored and reviewed by Alice, 2024.07.06
+// todo: review by 2024.07
 func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []byte, withWitness bool) (*CoinbaseTxMLP, error) {
 	if len(serializedCoinbaseTxMLP) == 0 {
 		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the input serializedTransferTxMLP is empty")
@@ -174,14 +180,22 @@ func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []by
 		if len(serializedTxWitness) != expectedTxWitnessLen {
 			return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: serializedTxWitness from serializedCoinbaseTxMLP has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
 		}
+	} else {
+		txWitness = nil
 	}
 
-	return &CoinbaseTxMLP{
+	cbTx := &CoinbaseTxMLP{
 		vin:       vin,
 		txos:      txos,
 		txMemo:    txMemo,
 		txWitness: txWitness,
-	}, nil
+	}
+
+	if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
+		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the deserialzed CoinbaseTxMLP is not well-form")
+	}
+
+	return cbTx, nil
 }
 
 // TxInputMLPSerializeSize returns the serialize size of the input TxInputMLP.

@@ -11,7 +11,7 @@ import (
 	"fmt"
 )
 
-// The rules on 0-value coin are defined as below,
+// The rules on 0-value coin (namely, 0-value-coin-rule) are defined as below,
 // where a basic principle is that the system will avoid 0-value coin as much as possible.
 // 1. For coinbaseTx, let Vin = block reward + transaction_fee,
 //	(1) Case 1 (Vin = 0):	there must be only ONE Pseudonym-Address output Txo and its value is 0.
@@ -21,24 +21,51 @@ import (
 //							so that when there is not any transferTx in the block,
 //							it should use a Pseudonym-Address as the coinbase coin address.
 //	(2) Case 2 (Vin > 0): 	(a) the value on Pseudonym-Address output Txo must > 0;
-//     						(b) if vL := Vin - sum of (public values on Pseudonym-Address output Txo) == 0,
-//								there should not have RingCT-Address. (Since the sum of them must be 0).
+//     						(b) Let vL := Vin - sum of (public values on Pseudonym-Address output Txo),
+//								if vL < the number of RingCT-Address-output, the transaction is rejected,
+//								since it can de deduced that at one least commitment has value 0.
 // 2. For transferTx,
 //							(a) the value on Pseudonym-Address output Txo must > 0;
-//							(b) If it can be deduced that the sum of the committed values on RingCT-Address is 0,
-//								there should not have RingCT-Address.
-//
+//							(b) If it can be deduced that the sum of the committed values on RingCT-Address is smaller than
+//								the number of RingCT-Address-output Txo, the transaction is rejected,
+//								since it can de deduced that at one least commitment has value 0.
+// Note: The 0-value-coin-rule is imposed on the transaction layer, including Witness Layer, not deep into BalanceProof Layer.
 
 // CoinbaseTxMLPGen generates a coinbase transaction.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
 // REVIEWED on 2023/12/31
+// reviewed by Alice, 2024.07.06
 func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
-	V := uint64(1)<<pp.paramN - 1
+
+	if uint32(len(txMemo)) > MaxAllowedTxMemoMLPSize {
+		return nil, fmt.Errorf("CoinbaseTxMLPGen: the input txMemo []byte has a size (%v) larger than the allowed maximum value", len(txMemo))
+	}
+
+	V := (uint64(1) << pp.paramN) - 1
 
 	if vin > V {
 		return nil, fmt.Errorf("CoinbaseTxMLPGen: vin (%d) is not in [0, V= %d]", vin, V)
+	}
+
+	if vin == 0 {
+		//	The special case for 0-value coin applies.
+		if len(txOutputDescMLPs) != 1 {
+			return nil, fmt.Errorf("CoinbaseTxMLPGen: vin = 0, but len(txOutputDescMLPs) (%d) is not 1", len(txOutputDescMLPs))
+		}
+
+		coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(txOutputDescMLPs[0].coinAddress)
+		if err != nil {
+			return nil, err
+		}
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+			return nil, fmt.Errorf("CoinbaseTxMLPGen: vin = 0, but txOutputDescMLPs[0].coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		}
+
+		if txOutputDescMLPs[0].value != 0 {
+			return nil, fmt.Errorf("CoinbaseTxMLPGen: vin = 0, but txOutputDescMLPs[0].value (%v) is not 0", txOutputDescMLPs[0].value)
+		}
 	}
 
 	if len(txOutputDescMLPs) == 0 || len(txOutputDescMLPs) > int(pp.paramJ)+int(pp.paramJSingle) {
@@ -130,7 +157,11 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 
 		case CoinAddressTypePublicKeyHashForSingle:
 			if txOutputDescMLP.value == 0 {
-				return nil, fmt.Errorf("CoinbaseTxMLPGen: txOutputDescMLPs[%d] has coinAddressType=CoinAddressTypePublicKeyHashForSingle, but the value is 0", j)
+				if vin != 0 {
+					// 0-value-coin-rule applies:
+					// Only if vin == 0, output Txo could have value = 0
+					return nil, fmt.Errorf("CoinbaseTxMLPGen: txOutputDescMLPs[%d] has coinAddressType=CoinAddressTypePublicKeyHashForSingle, but the value is 0", j)
+				}
 			}
 
 			txoSDN, err := pp.txoSDNGen(txOutputDescMLP.coinAddress, txOutputDescMLP.value)
@@ -152,13 +183,25 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 	}
 	vL := vin - voutPublic //	note that vout == vin above implies vL >= 0 here.
 
+	// 0-value-coin-rule applies:
+	if vL < uint64(outForRing) {
+		//	It can be deduced that at least one of the value-commitments on the output coins have value 0.
+		//	It is banned by 0-value-coin-rule.
+		return nil, fmt.Errorf("CoinbaseTxMLPGen: it attempting to generate RCT-Privacy coin with value 0")
+	}
+
 	//	TxWitness
 	serializedCbTxCon, err := pp.SerializeCoinbaseTxMLP(retCbTx, false)
 	if err != nil {
 		return nil, err
 	}
+	//	use digest as the message to be authenticated
+	cbTxConDigest, err := Hash(serializedCbTxCon)
+	if err != nil {
+		return nil, err
+	}
 
-	txCase, balanceProof, err := pp.genBalanceProofCbTx(serializedCbTxCon, vL, uint8(outForRing), cmts, cmtrs, vRs)
+	txCase, balanceProof, err := pp.genBalanceProofCbTx(cbTxConDigest, vL, uint8(outForRing), cmts, cmtrs, vRs)
 	if err != nil {
 		return nil, err
 	}
@@ -176,107 +219,31 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // CoinbaseTxMLPVerify verifies the input CoinbaseTxMLP.
 // reviewed on 2023.12.20
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
-// todo: review
+// todo: // refactored and reviewed by Alice, 2024.07.06
+// todo: review by 2024.07
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
-	if cbTx == nil || len(cbTx.txos) == 0 || cbTx.txWitness == nil {
-		return fmt.Errorf("CoinbaseTxMLPVerify: at least one of (cbTx, cbTx.txos, cbTx.txWitness) is nil/empty")
+
+	if !pp.CoinbaseTxMLPSanityCheck(cbTx, true) {
+		return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP is not well-form")
 	}
 
-	V := uint64(1)<<pp.paramN - 1
-
-	if cbTx.vin > V {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.vin (%v) exceeds the allowed maximum value (%v)", cbTx.vin, V)
-	}
-
-	//	As the following checks will use cbTx.txWitness,
-	//	here we first conduct checks on cbTx.txWitness.
-	//if cbTx.txWitness.vL != cbTx.vin {
-	//	return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.vL (%v) != cbTx.vin (%v)", cbTx.txWitness.vL, cbTx.vin)
-	//}
-
-	outputNum := len(cbTx.txos)
-	if cbTx.txWitness.outForRing > pp.paramJ {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.outForRing (%d) exceeds the allowed maximum value (%d)",
-			cbTx.txWitness.outForRing, pp.paramJ)
-	}
-	if cbTx.txWitness.outForSingle > pp.paramJSingle {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.outForSingle (%d) exceeds the allowed maximum value (%d)",
-			cbTx.txWitness.outForSingle, pp.paramJSingle)
-	}
-
-	if int(cbTx.txWitness.outForRing)+int(cbTx.txWitness.outForSingle) != outputNum {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.outForRing (%d) + cbTx.txWitness.outForSingle (%d) != len(cbTx.txos) (%d)",
-			cbTx.txWitness.outForRing, cbTx.txWitness.outForSingle, len(cbTx.txos))
-	}
-
-	if cbTx.txWitness.balanceProof == nil {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.balanceProof is nil")
-	}
-
-	//	txos
-	vOutPublic := uint64(0)
+	// As it has passed the above sanity-check, here only needs to collect the cmts_out.
+	// Note that the TxoRCTPre and TxoRCT Txos are the first outForRing ones.
 	cmts_out := make([]*ValueCommitment, cbTx.txWitness.outForRing)
-	for j := 0; j < outputNum; j++ {
-		txo := cbTx.txos[j]
-		coinAddressType := txo.CoinAddressType()
+	for j := 0; j < int(cbTx.txWitness.outForRing); j++ {
+		switch txoInst := cbTx.txos[j].(type) {
+		case *TxoRCTPre:
+			cmts_out[j] = txoInst.valueCommitment
 
-		if j < int(cbTx.txWitness.outForRing) {
-			//	outForRing
-			if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
-				return fmt.Errorf("CoinbaseTxMLPVerify: the fisrt %d txo should have RingCT-privacy, but %d-th does not", cbTx.txWitness.outForRing, j)
-			}
-			switch txoInst := txo.(type) {
-			case *TxoRCTPre:
-				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRingPre {
-					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo is TxoRCTPre, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRingPre", j, coinAddressType)
-				}
-				cmts_out[j] = txoInst.valueCommitment
+		case *TxoRCT:
+			cmts_out[j] = txoInst.valueCommitment
 
-			case *TxoRCT:
-				if txoInst.coinAddressType != CoinAddressTypePublicKeyForRing {
-					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo is TxoRCT, but the coinAddressType(%d) is not CoinAddressTypePublicKeyForRing", j, coinAddressType)
-				}
-				cmts_out[j] = txoInst.valueCommitment
-
-			default:
-				//	just assert
-				return fmt.Errorf("CoinbaseTxMLPVerify: This should not happen, where the %d -th txo is not TxoRCTPre or TxoRCT", j)
-			}
-
-		} else {
-			//	outForSingle
-			if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-				return fmt.Errorf("CoinbaseTxMLPVerify: the %d-th txo should have Pseudonym-privacy, but it does not", j)
-			}
-			switch txoInst := txo.(type) {
-			case *TxoSDN:
-				if txoInst.value == 0 {
-					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo's public value is 0", j)
-				}
-				if txoInst.value > V {
-					return fmt.Errorf("CoinbaseTxMLPVerify: the %d -th txo's public value (%v) exceeds the allowed maximum value (%v)",
-						j, txoInst.value, V)
-				}
-				vOutPublic += txoInst.value
-				if vOutPublic > V {
-					return fmt.Errorf("CoinbaseTxMLPVerify: for the first %d txos, the sum of public value (%v) exceeds the allowed maximum value (%v)",
-						j, vOutPublic, V)
-				}
-
-			default:
-				//	just assert
-				return fmt.Errorf("CoinbaseTxMLPVerify: This should not happen, where the %d -th txo is not TxoSDN", j)
-			}
+		default:
+			//	just assert
+			//	should not happen
+			return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP pass the sanity check and has outForRing (%d), but the %-th one is not TxoRCTPre or TxoRCT",
+				cbTx.txWitness.outForRing, j)
 		}
-	}
-
-	if cbTx.vin < vOutPublic {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.vin (%v) < vOutPublic (%v)", cbTx.vin, vOutPublic)
-	}
-
-	vL := cbTx.vin - vOutPublic
-	if cbTx.txWitness.vL != vL {
-		return fmt.Errorf("CoinbaseTxMLPVerify: cbTx.txWitness.vL (%v) != cbTx.vin - vOutPublic (%v)", cbTx.txWitness.vL, vL)
 	}
 
 	serializedCbTxCon, err := pp.SerializeCoinbaseTxMLP(cbTx, false)
@@ -284,8 +251,14 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 		return err
 	}
 
+	//	use digest as the message to be authenticated
+	cbTxConDigest, err := Hash(serializedCbTxCon)
+	if err != nil {
+		return err
+	}
+
 	//	verify the witness
-	err = pp.verifyBalanceProofCbTx(serializedCbTxCon, cbTx.txWitness.vL, cbTx.txWitness.outForRing, cmts_out, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
+	err = pp.verifyBalanceProofCbTx(cbTxConDigest, cbTx.txWitness.vL, cbTx.txWitness.outForRing, cmts_out, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
 	if err != nil {
 		return err
 	}
@@ -1205,6 +1178,7 @@ func (pp *PublicParameter) GetSerialNumberSerializeSize() int {
 // genBalanceProofCbTx generates BalanceProofCbTx.
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
+// refactored and reviewed by Alice, 2024.07.06
 func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
 
@@ -1243,6 +1217,7 @@ func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outFor
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
+// refactored and reviewed by Alice, 2024.07.06
 // todo: review
 func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	txCase TxWitnessCbTxCase, balanceProof BalanceProof) error {
@@ -1250,7 +1225,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 		return fmt.Errorf("verifyBalanceProofCbTx: the input cbTxCon is nil/empty")
 	}
 
-	V := uint64(1)<<pp.paramN - 1
+	V := (uint64(1) << pp.paramN) - 1
 
 	if vL > V {
 		return fmt.Errorf("verifyBalanceProofCbTx: the input vL (%v) exceeds the allowed maximum value (%v)", vL, V)
@@ -1260,12 +1235,22 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 		return fmt.Errorf("verifyBalanceProofCbTx: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 
+	//	The 0-value-coin-rule is imposed on the transaction layer, including Witness Layer, not deep into BalanceProof Layer.
+	if vL < uint64(outForRing) {
+		return fmt.Errorf("verifyBalanceProofCbTx: the input vL (%v) < outForRing (%d) implies that at least one of the RCT-privacy coin has value 0", vL, outForRing)
+	}
+
 	if len(cmtRs) != int(outForRing) {
 		return fmt.Errorf("verifyBalanceProofCbTx: len(cmtRs) (%d) != outForRing (%d)", len(cmtRs), outForRing)
 	}
+	for j := 0; j < int(outForRing); j++ {
+		if !pp.ValueCommitmentSanityCheck(cmtRs[j]) {
+			return fmt.Errorf("verifyBalanceProofCbTx: the input cmtRs[%d] is not well-form", j)
+		}
+	}
 
-	if balanceProof == nil {
-		return fmt.Errorf("verifyBalanceProofCbTx: balanceProof is nil")
+	if !pp.BalanceProofSanityCheck(balanceProof) {
+		return fmt.Errorf("verifyBalanceProofCbTx: the input balanceProof BalanceProof is not well-form")
 	}
 
 	//	here only these simple sanity-checks are conducted. This is because
@@ -1805,3 +1790,147 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 }
 
 //	helper functions	end
+
+//	Sanity-Check functions	begin
+//
+// CoinbaseTxMLPSanityCheck checks whether the input cbTx *CoinbaseTxMLP is well-from:
+// (1) cbTx is not nil;
+// (2) cbTx.vin is in the allowed scope;
+// (3) 0-value-coin-rule is obeyed;
+// (4) cbTx.txMemo has the size in the allowed scope;
+// (5) cbTx.txWitness is well-form.
+// added by Alice, 2024.07.06
+// todo: review by 2024.07
+func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWitness bool) bool {
+	if cbTx == nil {
+		return false
+	}
+
+	V := (uint64(1) << pp.paramN) - 1
+
+	if cbTx.vin > V {
+		return false
+	}
+
+	if cbTx.vin == 0 {
+		//	The special case for 0-value coin applies.
+		if len(cbTx.txos) != 1 {
+			return false
+		}
+
+		switch txoInst := cbTx.txos[0].(type) {
+		case *TxoSDN:
+			if !pp.TxoSDNSanityCheck(txoInst) {
+				return false
+			}
+
+			if txoInst.value != 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+
+	if len(cbTx.txos) == 0 || len(cbTx.txos) > int(pp.paramJ)+int(pp.paramJSingle) {
+		return false
+	}
+
+	vOutPublic := uint64(0)
+	outForRing := 0
+	outForSingle := 0
+	for i := 0; i < len(cbTx.txos); i++ {
+		switch txoInst := cbTx.txos[i].(type) {
+		case *TxoRCTPre:
+			if !pp.TxoRCTPreSanityCheck(txoInst) {
+				return false
+			}
+
+			if i == outForRing {
+				outForRing += 1
+			} else {
+				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
+				return false
+			}
+
+		case *TxoRCT:
+			if !pp.TxoRCTSanityCheck(txoInst) {
+				return false
+			}
+
+			if i == outForRing {
+				outForRing += 1
+			} else {
+				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
+				return false
+			}
+
+		case *TxoSDN:
+			if !pp.TxoSDNSanityCheck(txoInst) {
+				return false
+			}
+			outForSingle += 1
+
+			if txoInst.value > V {
+				return false
+			}
+			if txoInst.value == 0 {
+				if cbTx.vin != 0 {
+					return false
+				}
+			}
+			vOutPublic = vOutPublic + txoInst.value
+			if vOutPublic > V {
+				return false
+			}
+
+		default:
+			return false
+		}
+	}
+
+	if outForRing > int(pp.paramJ) {
+		return false
+	}
+
+	if outForSingle > int(pp.paramJSingle) {
+		return false
+	}
+
+	if outForRing+outForSingle != len(cbTx.txos) {
+		return false
+	}
+
+	if cbTx.vin < vOutPublic {
+		return false
+	}
+
+	//	Now cbTx.vin >= voutPublic
+	vL := cbTx.vin - vOutPublic
+	if vL < uint64(outForRing) {
+		return false
+	}
+
+	if uint32(len(cbTx.txMemo)) > MaxAllowedTxMemoMLPSize {
+		return false
+	}
+
+	if withWitness {
+		if !pp.TxWitnessCbTxSanityCheck(cbTx.txWitness) {
+			return false
+		}
+
+		if cbTx.txWitness.vL != vL {
+			return false
+		}
+
+		if int(cbTx.txWitness.outForRing) != outForRing ||
+			int(cbTx.txWitness.outForSingle) != outForSingle {
+			return false
+		}
+	}
+
+	return true
+}
+
+//	Sanity-Check functions	end

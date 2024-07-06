@@ -739,10 +739,9 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 			return false
 		}
 
-		if txWitnessCbTx.vL == 0 {
-			// As vL = Vin - (public value on the output side),
-			// this implies that all the output ValueCommitments has value 0, which can be publicly deduced.
-			// It is banned by rules.
+		if txWitnessCbTx.vL < uint64(txWitnessCbTx.outForRing) {
+			//	It can be deduced that at least one of the output ValueCommitments has value 0.
+			//	It is banned by rules.
 			return false
 		}
 
@@ -812,7 +811,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 	}
 
 	V := (uint64(1) << pp.paramN) - 1
-	if (txWitnessTrTx.vPublic > V) || (txWitnessTrTx.vPublic < -V) {
+	if (txWitnessTrTx.vPublic > int64(V)) || (txWitnessTrTx.vPublic < -int64(V)) {
 		return false
 	}
 
@@ -923,12 +922,17 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			if txWitnessTrTx.vPublic > 0 {
 				// assert
 				return false
-			}
-
-			if txWitnessTrTx.vPublic == 0 {
+			} else if txWitnessTrTx.vPublic == 0 {
 				//	It can be deduced that all the values in cmt_{out,0},  ... , cmt_{out, outForRing-1} are 0.
 				//  This case is banned by the rules.
 				return false
+			} else {
+				//	txWitnessTrTx.vPublic < 0
+				if (-txWitnessTrTx.vPublic) < int64(txWitnessTrTx.outForRing) {
+					//	It can be deduced that at least one of the values in cmt_{out,0},  ... , cmt_{out, outForRing-1} are 0.
+					//  This case is banned by the rules.
+					return false
+				}
 			}
 
 			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
@@ -1184,11 +1188,13 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 			if vPublic > 0 {
 				// assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
-			}
-
-			if vPublic == 0 {
+			} else if vPublic == 0 {
 				// assert
 				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic == 0")
+			} else {
+				if (-vPublic) < int64(outForRing) {
+					return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but -vPublic < outForRing")
+				}
 			}
 
 			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
