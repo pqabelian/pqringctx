@@ -3275,4 +3275,43 @@ func (pp *PublicParameter) BalanceProofLmRnSanityCheck(balanceProof *BalanceProo
 	return true
 }
 
+// BalanceProofSanityCheck checks whether the input balanceProof BalanceProof is well-form.
+// added by Alice, 2024.07.05
+// todo: review by 2024.07
+func (pp *PublicParameter) BalanceProofSanityCheck(balanceProof BalanceProof) bool {
+
+	if balanceProof == nil {
+		return false
+	}
+
+	switch bpfInst := balanceProof.(type) {
+	case *BalanceProofL0R0:
+		return pp.BalanceProofL0R0SanityCheck(bpfInst)
+
+	case *BalanceProofL0R1:
+		return pp.BalanceProofL0R1SanityCheck(bpfInst)
+
+	case *BalanceProofL1R1:
+		return pp.BalanceProofL1R1SanityCheck(bpfInst)
+
+	case *BalanceProofLmRnGeneral:
+		switch bpfInst.balanceProofCase {
+		case BalanceProofCaseL0Rn:
+			return pp.BalanceProofL0RnSanityCheck(bpfInst)
+
+		case BalanceProofCaseL1Rn:
+			return pp.BalanceProofL1RnSanityCheck(bpfInst)
+
+		case BalanceProofCaseLmRn:
+			return pp.BalanceProofLmRnSanityCheck(bpfInst)
+
+		default:
+			return false
+		}
+
+	default:
+		return false
+	}
+}
+
 //	sanity-check functions	end
