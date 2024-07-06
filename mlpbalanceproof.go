@@ -3038,10 +3038,10 @@ func (pp *PublicParameter) BalanceProofLmRnGeneralCommonSanityCheck(balanceProof
 	if balanceProof.b_hat == nil {
 		return false
 	}
-	if len(balanceProof.b_hat.polyCNTTs) != pp.paramK {
+	if len(balanceProof.b_hat.polyCNTTs) != pp.paramKC {
 		return false
 	}
-	for i := 0; i < pp.paramK; i++ {
+	for i := 0; i < pp.paramKC; i++ {
 		if !pp.PolyCNTTSanityCheck(balanceProof.b_hat.polyCNTTs[i]) {
 			return false
 		}
