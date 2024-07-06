@@ -219,7 +219,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // CoinbaseTxMLPVerify verifies the input CoinbaseTxMLP.
 // reviewed on 2023.12.20
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
-// todo: // refactored and reviewed by Alice, 2024.07.06
+// refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 
