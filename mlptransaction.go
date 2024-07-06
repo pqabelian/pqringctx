@@ -11,6 +11,24 @@ import (
 	"fmt"
 )
 
+// The rules on 0-value coin are defined as below,
+// where a basic principle is that the system will avoid 0-value coin as much as possible.
+// 1. For coinbaseTx, let Vin = block reward + transaction_fee,
+//	(1) Case 1 (Vin = 0):	there must be only ONE Pseudonym-Address output Txo and its value is 0.
+//                          (Since multiple coins with value 0 (either public value or commitment) is unnecessary.)
+//							Note that this rule requires that, when subsidy (say block reward) becomes 0,
+//							the mining module needs to improve its block template generation,
+//							so that when there is not any transferTx in the block,
+//							it should use a Pseudonym-Address as the coinbase coin address.
+//	(2) Case 2 (Vin > 0): 	(a) the value on Pseudonym-Address output Txo must > 0;
+//     						(b) if vL := Vin - sum of (public values on Pseudonym-Address output Txo) == 0,
+//								there should not have RingCT-Address. (Since the sum of them must be 0).
+// 2. For transferTx,
+//							(a) the value on Pseudonym-Address output Txo must > 0;
+//							(b) If it can be deduced that the sum of the committed values on RingCT-Address is 0,
+//								there should not have RingCT-Address.
+//
+
 // CoinbaseTxMLPGen generates a coinbase transaction.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.19
