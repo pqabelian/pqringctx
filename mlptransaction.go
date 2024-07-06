@@ -1294,6 +1294,8 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 }
 
 // balanceProofCbTxSerializeSize returns the serialize size for BalanceProofCbTx.
+// reviewed by Alice, 2024.07.05
+// todo: move to mlptxwitness.go
 func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int, error) {
 	if outForRing == 0 {
 		return pp.balanceProofL0R0SerializeSize(), nil
@@ -1799,6 +1801,8 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 
 // balanceProofTrTxSerializeSize returns the serialize for the BalanceProof for TxWitnessTrTx, according to the input (inForRing uint8, outForRing uint8, vPublic int64).
 // reviewed on 2023.12.19
+// reviewed by Alice, 2024.07.05
+// todo: move to mlptxwitness.go
 func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
 
 	if inForRing == 0 {
@@ -1923,6 +1927,7 @@ func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outFor
 // (2) lgrTxoMLP.id is not nil/empty
 // (3) lgrTxoMLP.txo is well-form
 // added and reviewed by Alice, 2024.07.01
+// todo: move to mlplgrtxo.go
 // todo: review by 2024.07
 func (pp *PublicParameter) LgrTxoMLPSanityCheck(lgrTxoMLP *LgrTxoMLP) bool {
 	if lgrTxoMLP == nil {
