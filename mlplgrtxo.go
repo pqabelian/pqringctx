@@ -276,3 +276,30 @@ func (pp *PublicParameter) expandKIDRMLP(lgrtxo *LgrTxoMLP) (*PolyANTT, error) {
 }
 
 //	LgrTxo SerialNumber	end
+
+//	Sanity-Check functions	begin
+
+// LgrTxoMLPSanityCheck checks whether the input lgrTxoMLP *LgrTxoMLP is well-from:
+// (1) lgrTxoMLP is not nil
+// (2) lgrTxoMLP.id is not nil/empty
+// (3) lgrTxoMLP.txo is well-form
+// added and reviewed by Alice, 2024.07.01
+// moved from mlptransaction.go, 2024.07.06
+// todo: review by 2024.07
+func (pp *PublicParameter) LgrTxoMLPSanityCheck(lgrTxoMLP *LgrTxoMLP) bool {
+	if lgrTxoMLP == nil {
+		return false
+	}
+
+	if len(lgrTxoMLP.id) == 0 {
+		return false
+	}
+
+	if !pp.TxoMLPSanityCheck(lgrTxoMLP.txo) {
+		return false
+	}
+
+	return true
+}
+
+//	Sanity-Check functions	end
