@@ -2,15 +2,17 @@ package pqringctx
 
 import (
 	"bytes"
-	"errors"
+	"encoding/hex"
 	"fmt"
 )
 
 // TxWitnessCbTxCase defines the TxCase which will be used to characterize the TxWitnessCbTx.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.07.05
 type TxWitnessCbTxCase uint8
 
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.07.05
 const (
 	TxWitnessCbTxCaseC0 TxWitnessCbTxCase = 0
 	TxWitnessCbTxCaseC1 TxWitnessCbTxCase = 1
@@ -19,9 +21,11 @@ const (
 
 // TxWitnessTrTxCase defines the TxCase which will be used to characterize the TxWitnessTrTx.
 // reviewed on 2023.12.18
+// reviewed by Alice, 2024.07.05
 type TxWitnessTrTxCase uint8
 
 // reviewed on 2023.12.18
+// reviewed by Alice, 2024.07.05
 const (
 	TxWitnessTrTxCaseI0C0      TxWitnessTrTxCase = 0
 	TxWitnessTrTxCaseI0C1      TxWitnessTrTxCase = 1
@@ -46,9 +50,10 @@ const (
 // vL = vin - sum of (public value on output side), it must be >= 0.
 // Note that with (outForRing),
 // we can deterministically decide txCase and balanceProof's case,
-// as well as the rpulp case of the balanceProof (if it has).
+// as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
 // reviewed on 2023.12.07
 // reviewed on 2023.12.20
+// reviewed by Alice, 2024.07.05
 type TxWitnessCbTx struct {
 	txCase       TxWitnessCbTxCase
 	vL           uint64
@@ -60,6 +65,7 @@ type TxWitnessCbTx struct {
 
 // TxCase returns TxWitnessCbTx.txCase.
 // reviewed on 2023.12.07
+// reviewed by Alice, 2024.07.05
 func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
@@ -76,8 +82,9 @@ func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // cmtL_1 + ... + cmtL_m = cmtR_1 + ... + cmtR_n + vRPub, where vRPub > 0.
 // Note that with (inForRing, inForSingle, inForSingleDistinct, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
-// as well as the rpulp case of the balanceProof (if it has).
+// as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
 // reviewed on 2023.12.18
+// reviewed by Alice, 2024.07.05
 type TxWitnessTrTx struct {
 	txCase              TxWitnessTrTxCase
 	inForRing           uint8
@@ -98,6 +105,7 @@ type TxWitnessTrTx struct {
 
 // TxCase returns the txCase of TxWitnessTrTx.
 // reviewed on 2023.12.18
+// reviewed by Alice, 2024.07.05
 func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
@@ -108,6 +116,7 @@ func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
+// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
@@ -119,7 +128,7 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, er
 	if err != nil {
 		return 0, err
 	}
-	length = length + serializedBpfLen
+	length = length + VarIntSerializeSize(uint64(serializedBpfLen)) + serializedBpfLen
 
 	return length, nil
 }
@@ -128,9 +137,11 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, er
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
+// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
-	if txWitness == nil || txWitness.balanceProof == nil {
-		return nil, errors.New("SerializeTxWitnessCbTx: there is nil pointer in the input TxWitnessCbTx")
+
+	if !pp.TxWitnessCbTxSanityCheck(txWitness) {
+		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx is not well-form")
 	}
 
 	length, err := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
@@ -169,10 +180,18 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 	if err != nil {
 		return nil, err
 	}
+	// we did not use writeVarBytes(), to avoid define the maxAllowLength used in readVarBytes().
+	// But for safety and robustness, we serialize the length of serializedBpf.
+	bpfLen := len(serializedBpf)
+	err = WriteVarInt(w, uint64(bpfLen))
+	if err != nil {
+		return nil, err
+	}
 	_, err = w.Write(serializedBpf) //	here we use fixed-length, since in the deserialization, we can call pp.balanceProofCbTxSerializeSize() to get the balance proof size.
 	if err != nil {
 		return nil, err
 	}
+
 	// an assert, could be removed when test is finished
 	serializedBpfExpectedLen, err := pp.balanceProofCbTxSerializeSize(txWitness.outForRing)
 	if err != nil {
@@ -189,6 +208,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 // reviewed on 2023.12.07
 // reviewed on 2023.12.18
 // reviewed on 2023.12.30
+// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
@@ -225,10 +245,21 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 	}
 
 	//	balanceProof BalanceProof
+	bpfLen, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
+
 	serializedBpfLen, err := pp.balanceProofCbTxSerializeSize(outForRing)
 	if err != nil {
 		return nil, err
 	}
+	if uint64(serializedBpfLen) != bpfLen {
+		//	This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized outForRing (%d)",
+			bpfLen, serializedBpfLen, outForRing)
+	}
+
 	serializedBpf := make([]byte, serializedBpfLen)
 	_, err = r.Read(serializedBpf)
 	if err != nil {
@@ -239,13 +270,20 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 		return nil, err
 	}
 
-	return &TxWitnessCbTx{
+	txWitnessCbTx := &TxWitnessCbTx{
 		txCase:       TxWitnessCbTxCase(txCase),
 		vL:           vL,
 		outForRing:   outForRing,
 		outForSingle: outForSingle,
 		balanceProof: balanceProof,
-	}, nil
+	}
+
+	if !pp.TxWitnessCbTxSanityCheck(txWitnessCbTx) {
+		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialzed TxWitnessCbTx is not well-form")
+	}
+
+	return txWitnessCbTx, nil
+
 }
 
 //	TxWitnessCbTx	end
@@ -255,6 +293,7 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 // TxWitnessTrTxSerializeSize returns the serialize size for TxWitnessTrTx.
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
+// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
 	outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
 
@@ -287,7 +326,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 	if err != nil {
 		return 0, err
 	}
-	length = length + serializedBpfLen
+	length = length + VarIntSerializeSize(uint64(serializedBpfLen)) + serializedBpfLen
 
 	return length, err
 }
@@ -295,10 +334,11 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 // SerializeTxWitnessTrTx serialize TxWitnessTrTx to []byte.
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
+// reviewed by Alice, 2024.07.06
 func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
-	if txWitness == nil {
-		return nil, err
+	if !pp.TxWitnessTrTxSanityCheck(txWitness) {
+		return nil, fmt.Errorf("SerializeTxWitnessTrTx: the input txWitness *TxWitnessTrTx is not well-form")
 	}
 
 	length, err := pp.TxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.inForSingleDistinct, txWitness.outForRing, txWitness.inRingSizes, txWitness.vPublic)
@@ -419,6 +459,13 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 	if err != nil {
 		return nil, err
 	}
+	// we did not use writeVarBytes(), to avoid define the maxAllowedLength used in readVarBytes().
+	// But for safety and robustness, we serialize the length of serializedBpf.
+	bpfLen := len(serializedBpf)
+	err = WriteVarInt(w, uint64(bpfLen))
+	if err != nil {
+		return nil, err
+	}
 	_, err = w.Write(serializedBpf) //	here we use fixed-length, since in the deserialization, we can call pp.balanceProofTrTxSerializeSize() to get the balance proof size.
 	if err != nil {
 		return nil, err
@@ -435,10 +482,11 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 
 // DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
 // reviewed on 2023.12.19
+// todo: reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
-		return nil, fmt.Errorf("deserializeTxWitnessTrTx: the input serializedTxWitness is empty")
+		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the input serializedTxWitness is empty")
 	}
 
 	r := bytes.NewReader(serializedTxWitness)
@@ -506,8 +554,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	cmts_in_p                  []*ValueCommitment
 	cmts_in_p := make([]*ValueCommitment, inForRing)
-	serializedCmt := make([]byte, pp.ValueCommitmentSerializeSize())
+	valueCommitmentSize := pp.ValueCommitmentSerializeSize()
 	for i := uint8(0); i < inForRing; i++ {
+		serializedCmt := make([]byte, valueCommitmentSize)
 		_, err = r.Read(serializedCmt)
 		if err != nil {
 			return nil, err
@@ -531,8 +580,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
 	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
-	serializedApk := make([]byte, pp.addressPublicKeyForSingleSerializeSize())
+	apkForSingleSize := pp.addressPublicKeyForSingleSerializeSize()
 	for i := uint8(0); i < inForSingleDistinct; i++ {
+		serializedApk := make([]byte, apkForSingleSize)
 		_, err = r.Read(serializedApk)
 		if err != nil {
 			return nil, err
@@ -545,8 +595,9 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 
 	//	simpleSigs                 []*SimpleSignatureMLP
 	simpleSigs := make([]*SimpleSignatureMLP, inForSingleDistinct)
-	serializedSimpleSig := make([]byte, pp.simpleSignatureSerializeSize())
+	simpleSigSize := pp.simpleSignatureSerializeSize()
 	for i := uint8(0); i < inForSingleDistinct; i++ {
+		serializedSimpleSig := make([]byte, simpleSigSize)
 		_, err = r.Read(serializedSimpleSig)
 		if err != nil {
 			return nil, err
@@ -558,10 +609,20 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 	}
 
 	//	balanceProof               BalanceProof
+	bpfLen, err := ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
 	serializedBpfLen, err := pp.balanceProofTrTxSerializeSize(inForRing, outForRing, vPublic)
 	if err != nil {
 		return nil, err
 	}
+	if uint64(serializedBpfLen) != bpfLen {
+		//	This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized (inForRing, outForRing, vPublic) (%d, %d, %v)",
+			bpfLen, serializedBpfLen, inForRing, outForRing, vPublic)
+	}
+
 	serializedBpf := make([]byte, serializedBpfLen)
 	_, err = r.Read(serializedBpf)
 	if err != nil {
@@ -572,7 +633,7 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 		return nil, err
 	}
 
-	return &TxWitnessTrTx{
+	txWitnessTrTx := &TxWitnessTrTx{
 		txCase:                     TxWitnessTrTxCase(txCase),
 		inForRing:                  inForRing,
 		inForSingle:                inForSingle,
@@ -587,7 +648,448 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 		addressPublicKeyForSingles: addressPublicKeyForSingles,
 		simpleSigs:                 simpleSigs,
 		balanceProof:               balanceProof,
-	}, nil
+	}
+
+	if !pp.TxWitnessTrTxSanityCheck(txWitnessTrTx) {
+		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialzied TxWitnessTrTx is not well-form")
+	}
+
+	return txWitnessTrTx, nil
 }
 
 //	TxWitnessTrTx	end
+
+//	Sanity-Check functions	begin
+
+// TxWitnessCbTxSanityCheck checks whether the input txWitnessCbTx *TxWitnessCbTx is well-from:
+// (1) txWitnessCbTx is not nil
+// (2) txWitnessCbTx.vL is in the allowed scope
+// (3) txWitnessCbTx.outForRing is in the allowed scope
+// (4) txWitnessCbTx.outForSingle is in the allowed scope
+// (5) txWitnessCbTx.balanceProof is well-form
+// (6) (txWitnessCbTx.vL, txWitnessCbTx.outForRing, txWitnessCbTx.outForSingle, txWitnessCbTx.balanceProof.BalanceProofCase) match the rules.
+// added and reviewed by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx) bool {
+	if txWitnessCbTx == nil {
+		return false
+	}
+
+	V := (uint64(1) << pp.paramN) - 1
+	if txWitnessCbTx.vL > V {
+		return false
+	}
+
+	if txWitnessCbTx.outForRing > pp.paramJ {
+		return false
+	}
+	if txWitnessCbTx.outForSingle > pp.paramJSingle {
+		return false
+	}
+
+	if !pp.BalanceProofSanityCheck(txWitnessCbTx.balanceProof) {
+		return false
+	}
+
+	//	matches check	begin
+	if txWitnessCbTx.outForRing == 0 {
+		if txWitnessCbTx.txCase != TxWitnessCbTxCaseC0 {
+			return false
+		}
+
+		if txWitnessCbTx.outForSingle == 0 {
+			//	There should be at least one output.
+			return false
+		}
+
+		//	all values on the output side are public.
+		if txWitnessCbTx.vL != 0 {
+			// vL = Vin - (public value on the output side) must be 0
+			return false
+		}
+
+		if txWitnessCbTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R0 {
+			return false
+		}
+
+	} else if txWitnessCbTx.outForRing == 1 {
+		if txWitnessCbTx.txCase != TxWitnessCbTxCaseC1 {
+			return false
+		}
+
+		if txWitnessCbTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R1 {
+			return false
+		}
+
+	} else {
+		//	txWitnessCbTx.outForRing >= 2
+		if txWitnessCbTx.txCase != TxWitnessCbTxCaseCn {
+			return false
+		}
+
+		if txWitnessCbTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0Rn {
+			return false
+		}
+
+	}
+
+	//	matches check	end
+
+	return true
+}
+
+// TxWitnessTrTxSanityCheck checks whether the input txWitnessTrTx *TxWitnessTrTx is well-from:
+// (1) txWitnessTrTx is not nil
+// (2) txWitnessTrTx.(inForRing, inForSingle, inForSingleDistinct, inRingSizes) are in the allowed scope, and match with each other.
+// (3) txWitnessTrTx.(outForRing, outForSingle) are in the allowed scope, and match with each other.
+// (4) txWitnessTrTx.ma_ps match with inForRing and is well-form.
+// (5) txWitnessTrTx.cmts_in_p match with inForRing and is well-form.
+// (6) txWitnessTrTx.elrSigs is well-form, and match with (inForRing, inRingSizes).
+// (7) txWitnessTrTx.addressPublicKeyForSingles match with inForSingleDistinct, and is well-form.
+// (8) txWitnessTrTx.simpleSigs  match with inForSingleDistinct, and is well-form.
+// (9) txWitnessTrTx.balanceProof is well-form
+// (10) txWitnessTrTx.(inForRing, outForRing, vPublic) match each other, and matches wih  txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
+// added and reviewed by Alice, 2024.07.01
+// todo: review by 2024.07
+func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx) bool {
+
+	if txWitnessTrTx == nil {
+		return false
+	}
+
+	if txWitnessTrTx.inForRing > pp.paramI {
+		return false
+	}
+	if txWitnessTrTx.inForSingle > pp.paramISingle {
+		return false
+	}
+	if txWitnessTrTx.inForRing == 0 && txWitnessTrTx.inForSingle == 0 {
+		return false
+	}
+
+	if txWitnessTrTx.inForSingleDistinct > pp.paramISingleDistinct {
+		return false
+	}
+	if txWitnessTrTx.inForSingleDistinct > txWitnessTrTx.inForSingle {
+		return false
+	}
+	if txWitnessTrTx.inForSingle > 0 && txWitnessTrTx.inForSingleDistinct == 0 {
+		return false
+	}
+
+	if len(txWitnessTrTx.inRingSizes) != int(txWitnessTrTx.inForRing) {
+		return false
+	}
+	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
+		if txWitnessTrTx.inRingSizes[i] == 0 || txWitnessTrTx.inRingSizes[i] > pp.paramRingSizeMax {
+			return false
+		}
+	}
+
+	if txWitnessTrTx.outForRing > pp.paramJ {
+		return false
+	}
+	if txWitnessTrTx.outForSingle > pp.paramJSingle {
+		return false
+	}
+	if txWitnessTrTx.outForRing == 0 && txWitnessTrTx.outForSingle == 0 {
+		return false
+	}
+
+	V := (uint64(1) << pp.paramN) - 1
+	if (txWitnessTrTx.vPublic > V) || (txWitnessTrTx.vPublic < -V) {
+		return false
+	}
+
+	if len(txWitnessTrTx.ma_ps) != int(txWitnessTrTx.inForRing) {
+		return false
+	}
+	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
+		if !pp.PolyANTTSanityCheck(txWitnessTrTx.ma_ps[i]) {
+			return false
+		}
+	}
+
+	if len(txWitnessTrTx.cmts_in_p) != int(txWitnessTrTx.inForRing) {
+		return false
+	}
+	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
+		if !pp.ValueCommitmentSanityCheck(txWitnessTrTx.cmts_in_p[i]) {
+			return false
+		}
+	}
+
+	if len(txWitnessTrTx.elrSigs) != int(txWitnessTrTx.inForRing) {
+		return false
+	}
+	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
+		if !pp.ElrSignatureMLPSanityCheck(txWitnessTrTx.elrSigs[i]) {
+			return false
+		}
+
+		if txWitnessTrTx.elrSigs[i].ringSize != txWitnessTrTx.inRingSizes[i] {
+			return false
+		}
+	}
+
+	if len(txWitnessTrTx.addressPublicKeyForSingles) != int(txWitnessTrTx.inForSingleDistinct) {
+		return false
+	}
+
+	addressPublicKeyStrMap := make(map[string]int) // There should not be repeated AddressPublicKeyForSingle in the distinct key list.
+	for i := uint8(0); i < txWitnessTrTx.inForSingleDistinct; i++ {
+		if !pp.AddressPublicKeyForSingleSanityCheck(txWitnessTrTx.addressPublicKeyForSingles[i]) {
+			return false
+		}
+
+		serializedApk, err := pp.serializeAddressPublicKeyForSingle(txWitnessTrTx.addressPublicKeyForSingles[i])
+		if err != nil {
+			return false
+		}
+		apkStr := hex.EncodeToString(serializedApk)
+		if _, exists := addressPublicKeyStrMap[apkStr]; exists {
+			return false
+		}
+	}
+
+	if len(txWitnessTrTx.simpleSigs) != int(txWitnessTrTx.inForSingleDistinct) {
+		return false
+	}
+	for i := uint8(0); i < txWitnessTrTx.inForSingleDistinct; i++ {
+		if !pp.SimpleSignatureSanityCheck(txWitnessTrTx.simpleSigs[i]) {
+			return false
+		}
+	}
+
+	if !pp.BalanceProofSanityCheck(txWitnessTrTx.balanceProof) {
+		return false
+	}
+
+	//	the matches check	begin
+	if txWitnessTrTx.inForRing == 0 {
+		if txWitnessTrTx.outForRing == 0 {
+			if txWitnessTrTx.vPublic != 0 {
+				//	assert
+				return false
+			}
+
+			//	return pp.balanceProofL0R0SerializeSize(), nil
+			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI0C0 {
+				return false
+			}
+			if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R0 {
+				return false
+			}
+
+		} else if txWitnessTrTx.outForRing == 1 {
+			//	0 = cmt_{out,0} + vPublic
+			if txWitnessTrTx.vPublic > 0 {
+				//	assert
+				return false
+			}
+
+			//  -vPublic = cmt_{out,0}
+			//	return pp.balanceProofL0R1SerializeSize(), nil
+			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI0C1 {
+				return false
+			}
+			if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R1 {
+				return false
+			}
+
+		} else { //	outForRing >= 2
+			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if txWitnessTrTx.vPublic > 0 {
+				// assert
+				return false
+			}
+
+			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+			//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, outForRing)
+			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI0Cn {
+				return false
+			}
+			if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0Rn {
+				return false
+			}
+
+		}
+	} else if txWitnessTrTx.inForRing == 1 {
+		if txWitnessTrTx.outForRing == 0 {
+			//	cmt_{in,0} = vPublic
+			if txWitnessTrTx.vPublic < 0 {
+				// assert
+				return false
+			}
+
+			//	vPublic = cmt_{in,0}
+			//	return pp.balanceProofL0R1SerializeSize(), nil
+			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C0 {
+				return false
+			}
+			if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R1 {
+				return false
+			}
+
+		} else if txWitnessTrTx.outForRing == 1 {
+			//	cmt_{in,0} = cmt_{out,0} + vPublic
+			if txWitnessTrTx.vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0}
+				//	return pp.balanceProofL1R1SerializeSize(), nil
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C1Exact {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1R1 {
+					return false
+				}
+
+			} else if txWitnessTrTx.vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + vPublic
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C1CAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C1IAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+			}
+		} else { //	outForRing >= 2
+			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+			if txWitnessTrTx.vPublic == 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1CnExact {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+
+			} else if txWitnessTrTx.vPublic > 0 {
+				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1CnCAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1CnIAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseLmRn {
+					return false
+				}
+			}
+		}
+
+	} else { //	inForRing >= 2
+		if txWitnessTrTx.outForRing == 0 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
+			if txWitnessTrTx.vPublic < 0 {
+				// assert
+				return false
+			}
+
+			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+			//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, inForRing)
+			if txWitnessTrTx.txCase != TxWitnessTrTxCaseImC0 {
+				return false
+			}
+			if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0Rn {
+				return false
+			}
+
+		} else if txWitnessTrTx.outForRing == 1 {
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+			if txWitnessTrTx.vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImC1Exact {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+
+			} else if txWitnessTrTx.vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImC1CAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseLmRn {
+					return false
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
+				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImC1IAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseL1Rn {
+					return false
+				}
+
+			}
+
+		} else { // outForRing >= 2
+			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+			if txWitnessTrTx.vPublic == 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImCnExact {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseLmRn {
+					return false
+				}
+
+			} else if txWitnessTrTx.vPublic > 0 {
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImCnCAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseLmRn {
+					return false
+				}
+
+			} else { // vPublic < 0
+				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
+				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
+				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
+				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImCnIAdd {
+					return false
+				}
+				if txWitnessTrTx.balanceProof.BalanceProofCase() != BalanceProofCaseLmRn {
+					return false
+				}
+			}
+		}
+	}
+	//	the matches check	end
+
+	return true
+}
+
+//	Sanity-Check functions	end
