@@ -1895,9 +1895,16 @@ func (pp *PublicParameter) deserializeBalanceProofL0R0(serializedBpfL0R0 []byte)
 		return nil, fmt.Errorf("deserializeBalanceProofL0R0: the deserialized balanceProofCase is not BalanceProofCaseL0R0")
 	}
 
-	return &BalanceProofL0R0{
+	balanceProofL0R0 := &BalanceProofL0R0{
 		balanceProofCase: BalanceProofCaseL0R0,
-	}, nil
+	}
+
+	if !pp.BalanceProofL0R0SanityCheck(balanceProofL0R0) {
+		return nil, fmt.Errorf("deserializeBalanceProofL0R0: the deserialized BalanceProofL0R0 is not well-form")
+	}
+
+	return balanceProofL0R0, nil
+
 }
 
 // balanceProofL0R1SerializeSize returns the serialized size for BalanceProofL0R1.
@@ -1967,7 +1974,7 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializedBpfL0R1 []byte)
 
 	//	chseed           []byte
 	chseed := make([]byte, HashOutputBytesLen)
-	_, err = r.Read(chseed)
+	_, err = io.ReadFull(r, chseed)
 	if err != nil {
 		return nil, err
 	}
@@ -1982,11 +1989,18 @@ func (pp *PublicParameter) deserializeBalanceProofL0R1(serializedBpfL0R1 []byte)
 		}
 	}
 
-	return &BalanceProofL0R1{
+	balanceProofL0R1 := &BalanceProofL0R1{
 		balanceProofCase: BalanceProofCaseL0R1,
 		chseed:           chseed,
 		zs:               zs,
-	}, nil
+	}
+
+	if !pp.BalanceProofL0R1SanityCheck(balanceProofL0R1) {
+		return nil, fmt.Errorf("deserializeBalanceProofL0R1: the deserialized BalanceProofL0R1 is not well-form")
+	}
+
+	return balanceProofL0R1, nil
+
 }
 
 // balanceProofL1R1SerializeSize returns the serialized size for BalanceProofL1R1.
@@ -2077,7 +2091,7 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 
 	//	chseed           []byte
 	chseed := make([]byte, HashOutputBytesLen)
-	_, err = r.Read(chseed)
+	_, err = io.ReadFull(r, chseed)
 	if err != nil {
 		return nil, err
 	}
@@ -2102,13 +2116,20 @@ func (pp *PublicParameter) deserializeBalanceProofL1R1(serializedBpfL1R1 []byte)
 		}
 	}
 
-	return &BalanceProofL1R1{
+	balanceProofL1R1 := &BalanceProofL1R1{
 		balanceProofCase: BalanceProofCaseL1R1,
 		psi:              psi,
 		chseed:           chseed,
 		z1s:              z1s,
 		z2s:              z2s,
-	}, nil
+	}
+
+	if !pp.BalanceProofL1R1SanityCheck(balanceProofL1R1) {
+		return nil, fmt.Errorf("deserializeBalanceProofL1R1: the deserialized BalanceProofL1R1 is not well-form")
+	}
+
+	return balanceProofL1R1, nil
+
 }
 
 // balanceProofLmRnGeneralSerializeSizeByCommNum returns the serialize size for BalanceProofLmRnGeneral,
@@ -2383,7 +2404,7 @@ func (pp *PublicParameter) deserializeBalanceProofLmRnGeneral(serializedBpfLmRn 
 
 	// rpulpproof       *rpulpProofMLP
 	serializedRpUlpProofBytes := make([]byte, pp.rpulpProofMLPSerializeSizeByCommNum(nL, nR))
-	_, err = r.Read(serializedRpUlpProofBytes)
+	_, err = io.ReadFull(r, serializedRpUlpProofBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -2392,7 +2413,7 @@ func (pp *PublicParameter) deserializeBalanceProofLmRnGeneral(serializedBpfLmRn 
 		return nil, err
 	}
 
-	return &BalanceProofLmRnGeneral{
+	balanceProofLmRnGeneral := &BalanceProofLmRnGeneral{
 		balanceProofCase: BalanceProofCase(balanceProofCase),
 		nL:               nL,
 		nR:               nR,
@@ -2401,7 +2422,14 @@ func (pp *PublicParameter) deserializeBalanceProofLmRnGeneral(serializedBpfLmRn 
 		c_hats:           c_hats,
 		u_p:              u_p,
 		rpulpproof:       rpUlpProof,
-	}, nil
+	}
+
+	if !pp.BalanceProofSanityCheck(balanceProofLmRnGeneral) {
+		return nil, fmt.Errorf("deserializeBalanceProofLmRnGeneral: the deserialzied BalanceProofLmRnGeneral is not well-form")
+	}
+
+	return balanceProofLmRnGeneral, nil
+
 }
 
 //	helper functions	begin
