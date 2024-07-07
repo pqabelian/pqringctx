@@ -143,6 +143,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKRingGenSerialNumberKeyPart(coinSer
 // reviewed on 2023.12.30
 // REVIEWED ON 2023/12/31
 // todo: reviewed by Alice, 2024.06.23
+// reviewed by Ocean
 func (pp *PublicParameter) CoinAddressKeyForPKRingVerify(coinAddress []byte, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -555,6 +556,7 @@ func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coi
 // we use a standalone ValueKeyGen algorithm to generate these keys.
 // reviewed on 2023.12.07
 // todo: review by 2024.06
+// reviewed by ocean
 func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (coinValuePublicKey []byte, coinValueSecretKey []byte, err error) {
 	return pqringctxkem.KeyGen(pp.paramKem, randSeed, pp.paramKeyGenSeedBytesLen)
 }
@@ -566,6 +568,7 @@ func (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) (coinValuePublicKey 
 // todo: review
 // todo: confirm the back-compatible
 // todo: review by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) CoinValueKeyVerify(coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, hints string) {
 	//	From the caller, (coinValuePublicKey []byte, coinValueSecretKey []byte) was obtained by calling (pp *PublicParameter) CoinValueKeyGen(randSeed []byte) ([]byte, []byte, error)
 	return pqringctxkem.VerifyKeyPair(pp.paramKem, coinValuePublicKey, coinValueSecretKey)
@@ -765,6 +768,7 @@ func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType Coin
 
 // GetCoinValuePublicKeySize returns the CoinValuePublicKey size
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
 	// todo(MPL): 4 + 1184
 	return pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem)
@@ -772,6 +776,7 @@ func (pp *PublicParameter) GetCoinValuePublicKeySize() int {
 
 // GetCoinValueSecretKeySize
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
 	// todo(MPL): 4 + 2400
 	return pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem)
@@ -1420,6 +1425,7 @@ func (pp *PublicParameter) coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKe
 // (2) addressPublicKeyForRing.t is not nil and is well-form
 // (3) addressPublicKeyForRing.e is well-form
 // todo: review by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) AddressPublicKeyForRingSanityCheck(addressPublicKeyForRing *AddressPublicKeyForRing) bool {
 	if addressPublicKeyForRing == nil {
 		return false
@@ -1512,6 +1518,7 @@ func (pp *PublicParameter) AddressPublicKeyForSingleSanityCheck(addressPublicKey
 // (2) addressSecretKeyForSingle.AddressSecretKeySp.s is well-form, including the normal in the legal scope
 // added by Alice, 2024.07.01
 // todo: review by 2024.07
+// reviewed by Ocean
 func (pp *PublicParameter) AddressSecretKeyForSingleSanityCheck(addressSecretKeyForSingle *AddressSecretKeyForSingle) bool {
 	if addressSecretKeyForSingle == nil {
 		return false

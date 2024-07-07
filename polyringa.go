@@ -579,6 +579,7 @@ func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool
 // Note: It does not check the normal of the coefficients, since if necessary, there will be more concrete checks on the normal.
 // added and reviewed by Alice, 2024.06.24
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) PolyASanityCheck(a *PolyA) (bl bool) {
 	if a == nil {
 		return false
@@ -596,6 +597,7 @@ func (pp *PublicParameter) PolyASanityCheck(a *PolyA) (bl bool) {
 // (2) has d_a coefficients
 // added and reviewed by Alice, 2024.06.24
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) PolyANTTSanityCheck(a *PolyANTT) (bl bool) {
 	if a == nil {
 		return false

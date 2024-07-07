@@ -241,7 +241,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 		default:
 			//	just assert
 			//	should not happen
-			return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP pass the sanity check and has outForRing (%d), but the %-th one is not TxoRCTPre or TxoRCT",
+			return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP pass the sanity check and has outForRing (%d), but the %d-th one is not TxoRCTPre or TxoRCT",
 				cbTx.txWitness.outForRing, j)
 		}
 	}
