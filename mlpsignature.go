@@ -1168,37 +1168,6 @@ func (pp *PublicParameter) LgrTxoRingForSingleSanityCheck(lgrTxoList []*LgrTxoML
 	return true
 }
 
-// LgrTxoRingBasicSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from for basic requirement.
-// (1) lgrTxoList is not nil/empty;
-// (2) There is not repeated lgrTxoId in one ring;
-// (3) Each Txo is well-form.
-// Note that compared with LgrTxoRingForRingSanityCheck, LgrTxoRingBasicSanityCheck does not check the coinAddressType of Txo.
-// added by Alice, 2024.07.07
-// todo: review by 2024.07
-func (pp *PublicParameter) LgrTxoRingBasicSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
-
-	ringLen := len(lgrTxoList)
-	if ringLen <= 0 || ringLen > int(pp.paramRingSizeMax) {
-		return false
-	}
-
-	lgrTxoIdsMap := make(map[string]int) // There should not be repeated lgrTxoId in one ring.
-	for i := 0; i < ringLen; i++ {
-		lgrTxo := lgrTxoList[i]
-		if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
-			return false
-		}
-
-		idString := hex.EncodeToString(lgrTxo.id)
-		if _, exists := lgrTxoIdsMap[idString]; exists {
-			return false
-		}
-		lgrTxoIdsMap[idString] = i
-	}
-
-	return true
-}
-
 // ElrSignatureMLPSanityCheck checks whether the input elrSignatureMLP *ElrSignatureMLP is well-form:
 // (1) elrSignatureMLP is not nil;
 // (2) elrSignatureMLP.ringSize is valid;
