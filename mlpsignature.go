@@ -43,7 +43,7 @@ func (pp *PublicParameter) elrSignatureMLPSign(
 	var err error
 
 	// sanity-checks	begin
-	if !pp.LgrTxoRingSanityCheck(lgrTxoList) {
+	if !pp.LgrTxoRingForRingSanityCheck(lgrTxoList) {
 		return nil, fmt.Errorf("elrsMLPSign: the input lgrTxoList is not well-form")
 	}
 	ringLen := uint8(len(lgrTxoList)) // well-form lgrTxoList has a valid length in scope uint8
@@ -516,7 +516,7 @@ func (pp *PublicParameter) collectBytesForElrSignatureMLPChallenge(
 // reviewed by Alice, 2024.07.02
 func (pp *PublicParameter) elrSignatureMLPVerify(lgrTxoList []*LgrTxoMLP, ma_p *PolyANTT, cmt_p *ValueCommitment, extTrTxCon []byte, sig *ElrSignatureMLP) error {
 
-	if !pp.LgrTxoRingSanityCheck(lgrTxoList) {
+	if !pp.LgrTxoRingForRingSanityCheck(lgrTxoList) {
 		return fmt.Errorf("elrSignatureMLPVerify: the input lgrTxoList []*LgrTxoMLP is not well-form")
 	}
 	ringLen := uint8(len(lgrTxoList)) // well-form LgrTxoRing has a valid length in scope uint8
@@ -1107,13 +1107,14 @@ func (pp *PublicParameter) newAddressSecretKeySnFromPolyANTT(maNTT *PolyANTT) (*
 
 // Sanity-checks	begin
 
-// LgrTxoRingSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from.
+// LgrTxoRingForRingSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from for used as Ring.
 // (1) lgrTxoList is not nil/empty;
 // (2) There is not repeated lgrTxoId in one ring;
-// (3) Each Txo is well-form, and coinAddressType is either CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing.
+// (3) Each Txo is well-form;
+// (4) Each Txo's coinAddressType is either CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing.
 // added by Alice, 2024.07.02
 // todo: review by 2024.07
-func (pp *PublicParameter) LgrTxoRingSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
+func (pp *PublicParameter) LgrTxoRingForRingSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
 
 	ringLen := len(lgrTxoList)
 	if ringLen <= 0 || ringLen > int(pp.paramRingSizeMax) {
@@ -1137,6 +1138,62 @@ func (pp *PublicParameter) LgrTxoRingSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
 			lgrTxo.txo.CoinAddressType() != CoinAddressTypePublicKeyForRing {
 			return false
 		}
+	}
+
+	return true
+}
+
+// LgrTxoRingForSingleSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from for used as Single-Ring.
+// (1) lgrTxoList is not nil/empty;
+// (2) There is only one ring-member;
+// (3) The Txo is well-form;
+// (4) The Txo's coinAddressType is CoinAddressTypePublicKeyHashForSingle.
+// added by Alice, 2024.07.07
+// todo: review by 2024.07
+func (pp *PublicParameter) LgrTxoRingForSingleSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
+
+	ringLen := len(lgrTxoList)
+	if ringLen != 1 {
+		return false
+	}
+
+	if !pp.LgrTxoMLPSanityCheck(lgrTxoList[0]) {
+		return false
+	}
+
+	if lgrTxoList[0].txo.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
+		return false
+	}
+
+	return true
+}
+
+// LgrTxoRingBasicSanityCheck checks whether the input lgrTxoList []LgrTxoMLP is well-from for basic requirement.
+// (1) lgrTxoList is not nil/empty;
+// (2) There is not repeated lgrTxoId in one ring;
+// (3) Each Txo is well-form.
+// Note that compared with LgrTxoRingForRingSanityCheck, LgrTxoRingBasicSanityCheck does not check the coinAddressType of Txo.
+// added by Alice, 2024.07.07
+// todo: review by 2024.07
+func (pp *PublicParameter) LgrTxoRingBasicSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
+
+	ringLen := len(lgrTxoList)
+	if ringLen <= 0 || ringLen > int(pp.paramRingSizeMax) {
+		return false
+	}
+
+	lgrTxoIdsMap := make(map[string]int) // There should not be repeated lgrTxoId in one ring.
+	for i := 0; i < ringLen; i++ {
+		lgrTxo := lgrTxoList[i]
+		if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
+			return false
+		}
+
+		idString := hex.EncodeToString(lgrTxo.id)
+		if _, exists := lgrTxoIdsMap[idString]; exists {
+			return false
+		}
+		lgrTxoIdsMap[idString] = i
 	}
 
 	return true
