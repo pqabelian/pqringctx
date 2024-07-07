@@ -1188,7 +1188,7 @@ func (pp *PublicParameter) TxoSDNSanityCheck(txoSDN *TxoSDN) bool {
 		return false
 	}
 
-	if txoSDN.value <= 0 || txoSDN.value > (1<<pp.paramN-1) {
+	if txoSDN.value > ((uint64(1) << pp.paramN) - 1) {
 		return false
 	}
 
