@@ -286,10 +286,12 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 // ExtractValueAndRandFromTxoMLP extract the (value, randomness) pair for txoMLP.valueCommitment.
 // added on 2023.12.13
 // reviewed by Alice, 2024.06.25
+// reviewed by Alice, 2024.07.07
 // todo: confirm the kem call, by 2024.06
 func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
-	if txoMLP == nil {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP could not be nil/empty")
+
+	if !pp.TxoMLPSanityCheck(txoMLP) {
+		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP is not well-form")
 	}
 
 	var ctKemSerialized []byte
@@ -313,21 +315,22 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 	default:
 		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP is not TxoRCTPre, TxoRCT, or TxoSDN")
 	}
+	// Note that with the previous sanity-check, (ctKemSerialized, vct, valueCommitment) are well-form.
 
-	// sanity-check on ctKemSerialized
-	if len(ctKemSerialized) != pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.ctKemSerialized is not well-form")
-	}
-
-	// sanity-check on vct
-	if len(vct) != pp.TxoValueBytesLen() {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.vct is not well-form")
-	}
-
-	// sanity-check on valueCommitment
-	if !pp.ValueCommitmentSanityCheck(valueCommitment) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.valueCommitment is not well-form")
-	}
+	//// sanity-check on ctKemSerialized
+	//if len(ctKemSerialized) != pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem) {
+	//	return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.ctKemSerialized is not well-form")
+	//}
+	//
+	//// sanity-check on vct
+	//if len(vct) != pp.TxoValueBytesLen() {
+	//	return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.vct is not well-form")
+	//}
+	//
+	//// sanity-check on valueCommitment
+	//if !pp.ValueCommitmentSanityCheck(valueCommitment) {
+	//	return 0, nil, fmt.Errorf("ExtractValueAndRandFromTxoMLP: the input txoMLP.valueCommitment is not well-form")
+	//}
 
 	//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
 	if len(coinValuePublicKey) != pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem) {
