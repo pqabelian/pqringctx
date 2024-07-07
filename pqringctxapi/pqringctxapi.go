@@ -288,11 +288,24 @@ func GetParamMACOutputBytesLen(pp *PublicParameter) int {
 func GetTxInputMaxNum(pp *PublicParameter) int {
 	return int(pp.GetTxInputMaxNumForRing()) + int(pp.GetTxInputMaxNumForSingle())
 }
+func GetTxInputMaxNumForRing(pp *PublicParameter) int {
+	return int(pp.GetTxInputMaxNumForRing())
+}
+func GetTxInputMaxNumForSingle(pp *PublicParameter) int {
+	return int(pp.GetTxInputMaxNumForSingle())
+}
 
 // GetTxOutputMaxNum returns the allowed maximum number of TxOutputs.
 // reviewed on 2024.01.01
 func GetTxOutputMaxNum(pp *PublicParameter) int {
 	return int(pp.GetTxOutputMaxNumForRing()) + int(pp.GetTxOutputMaxNumForSingle())
+}
+
+func GetTxOutputMaxNumForRing(pp *PublicParameter) int {
+	return int(pp.GetTxOutputMaxNumForRing())
+}
+func GetTxOutputMaxNumForSingle(pp *PublicParameter) int {
+	return int(pp.GetTxOutputMaxNumForSingle())
 }
 
 // APIs	for Tx-Params	end
