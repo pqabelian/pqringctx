@@ -63,9 +63,10 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 // todo: review by 2024.07
 func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
 
-	if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
-		return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the input cbTx *CoinbaseTxMLP is not well-form")
-	}
+	// As CoinbaseTxMLPSerializeSize will call CoinbaseTxMLPSanityCheck, here we can skip CoinbaseTxMLPSanityCheck safely.
+	//if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
+	//	return nil, fmt.Errorf("SerializeCoinbaseTxMLP: the input cbTx *CoinbaseTxMLP is not well-form")
+	//}
 
 	length, err := pp.CoinbaseTxMLPSerializeSize(cbTx, withWitness)
 	if err != nil {
@@ -242,9 +243,10 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 // todo: review by 2024.07
 func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, error) {
 
-	if !pp.TxInputMLPSanityCheck(txInput) {
-		return nil, fmt.Errorf("serializeTxInputMLP: there is nil pointer in the input TxInputMLP")
-	}
+	// As TxInputMLPSerializeSize will call TxInputMLPSanityCheck, here we can skpi TxInputMLPSanityCheck safely.
+	//if !pp.TxInputMLPSanityCheck(txInput) {
+	//	return nil, fmt.Errorf("serializeTxInputMLP: there is nil pointer in the input TxInputMLP")
+	//}
 	// The sanity checks here can guarantee the following codes run normally.
 
 	length, err := pp.TxInputMLPSerializeSize(txInput)
@@ -400,11 +402,12 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 // todo: review by 2024.07
 func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
 
-	err := pp.TransferTxMLPSanityCheck(trTx, withWitness)
-	if err != nil {
-		return nil, fmt.Errorf("SerializeTransferTxMLP: the input trTx *TransferTxMLP it not well-form: %s", err)
-	}
-	//	The sanity-check here can guarantee the following codes run normally.
+	//	As TransferTxMLPSerializeSize will call TransferTxMLPSanityCheck, here we skip TransferTxMLPSanityCheck safely
+	//err := pp.TransferTxMLPSanityCheck(trTx, withWitness)
+	//if err != nil {
+	//	return nil, fmt.Errorf("SerializeTransferTxMLP: the input trTx *TransferTxMLP it not well-form: %s", err)
+	//}
+	////	The sanity-check here can guarantee the following codes run normally.
 
 	length, err := pp.TransferTxMLPSerializeSize(trTx, withWitness)
 	if err != nil {
