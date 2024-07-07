@@ -2005,7 +2005,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 				}
 				vInPublic += txoInst.value
 				if vInPublic > V {
-					return fmt.Errorf("TransferTxMLPSanityCheck: the vInPublic (%v) before and trTx.txInputs[%d] exceeds tha allowed maximum value (%v)", vInPublic, V)
+					return fmt.Errorf("TransferTxMLPSanityCheck: the vInPublic (%v) before and trTx.txInputs[%d] exceeds tha allowed maximum value (%v)", vInPublic, i, V)
 				}
 
 				// collect the addressPublicKeyForSingleHashMap
