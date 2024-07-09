@@ -518,6 +518,7 @@ func (pp *PublicParameter) PolyCNTTEqualCheck(a *PolyCNTT, b *PolyCNTT) (eq bool
 // (2) has d_c coefficients
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 	if c == nil {
 		return false

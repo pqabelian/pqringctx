@@ -671,6 +671,7 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 // (6) (txWitnessCbTx.vL, txWitnessCbTx.outForRing, txWitnessCbTx.outForSingle, txWitnessCbTx.balanceProof.BalanceProofCase) match the rules.
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
+// reviewed by Ocean
 func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx) bool {
 	if txWitnessCbTx == nil {
 		return false
@@ -692,23 +693,46 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 		return false
 	}
 
+	// assume x > 1, y > 1, z > 0
+	// case summary by tuple (nRing,nSingle,vL)
+	// (0,0,0) (0,0,z)
+	// (0,1,0) (0,1,z)
+	// (0,y,0) (0,y,z)
+	// (1,0,0) (1,0,z)
+	// (1,1,0) (1,1,z)
+	// (1,y,0) (1,y,z)
+	// (x,0,0) (x,0,z)
+	// (x,1,0) (x,1,z)
+	// (x,y,0) (x,y,z)
+	//
+	// impossible (0,0,0) (0,0,z) (0,1,z) (0,y,z)
+	// banned     (1,0,0) (1,1,0) (1,y,0) (x,0,0) (x,1,0) (x,y,0) (x,0,z) & x>z (x,1,z) & x>z (x,y,z) & x>z
+	// special    (0,1,0)
+	// allowed    (0,y,0) (1,0,z) (1,1,z) (1,y,z) (x,0,z)  & x<=z (x,1,z) & x<=z (x,y,z) & x<=z
 	//	matches check	begin
 	if txWitnessCbTx.outForRing == 0 {
 		if txWitnessCbTx.txCase != TxWitnessCbTxCaseC0 {
 			return false
 		}
-
-		if txWitnessCbTx.outForSingle == 0 {
+		// (0,0,0) (0,0,z)
+		// [(0,1,0)] (0,1,z)
+		// [(0,y,0)] (0,y,z)
+		if txWitnessCbTx.outForSingle == 0 { // (0,0,0) (0,0,z)
 			//	There should be at least one output.
 			return false
 		}
 
+		// [(0,1,0)] (0,1,z)
+		// (0,y,0) (0,y,z)
 		//	all values on the output side are public.
-		if txWitnessCbTx.vL != 0 {
+		if txWitnessCbTx.vL != 0 { //  (0,1,z) (0,y,z)
 			// vL = Vin - (public value on the output side) must be 0
 			return false
 		}
+		// TODO 20240708 disallow (0,y,0)
 
+		// [(0,1,0)]
+		// [(0,y,0)]
 		if txWitnessCbTx.balanceProof.BalanceProofCase() != BalanceProofCaseL0R0 {
 			return false
 		}
@@ -722,12 +746,19 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 			return false
 		}
 
-		if txWitnessCbTx.vL == 0 {
+		// (1,0,0) [(1,0,z)]
+		// (1,1,0) [(1,1,z)]
+		// (1,y,0) [(1,y,z)]
+		if txWitnessCbTx.vL == 0 { // (1,0,0) (1,1,0) (1,y,0)
 			// As vL = Vin - (public value on the output side),
 			// this implies that the output ValueCommitment has value 0, which can be publicly deduced.
 			// It is banned by rules.
 			return false
 		}
+
+		//         [(1,0,z)]
+		//         [(1,1,z)]
+		//         [(1,y,z)]
 
 	} else {
 		//	txWitnessCbTx.outForRing >= 2
@@ -739,11 +770,22 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 			return false
 		}
 
+		// impossible
+		// banned     (x,0,0) (x,1,0) (x,y,0) (x,0,z) & x>z (x,1,z) & x>z (x,y,z) & x>z
+		// special
+		// allowed    (x,0,z)  & x<=z (x,1,z) & x<=z (x,y,z) & x<=z
+
+		// (x,0,0) (x,0,z) & x>z [(x,0,z) & x<=z]
+		// (x,1,0) (x,1,z) & x>z [(x,1,z) & x<=z]
+		// (x,y,0) (x,y,z) & x>z [(x,y,z) & x<=z]
 		if txWitnessCbTx.vL < uint64(txWitnessCbTx.outForRing) {
 			//	It can be deduced that at least one of the output ValueCommitments has value 0.
 			//	It is banned by rules.
 			return false
 		}
+		// [(x,0,z) & x<=z]
+		// [(x,1,z) & x<=z]
+		// [(x,y,z) & x<=z]
 
 	}
 
@@ -765,6 +807,7 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 // (10) txWitnessTrTx.(inForRing, outForRing, vPublic) match each other, and matches wih  txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
+// reviewed by Ocean
 func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx) bool {
 
 	if txWitnessTrTx == nil {
@@ -880,12 +923,14 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 	}
 
 	//	the matches check	begin
-	if txWitnessTrTx.inForRing == 0 {
-		if txWitnessTrTx.outForRing == 0 {
-			if txWitnessTrTx.vPublic != 0 {
+	// tuple (inForRing,outForRing,vPublic)
+	if txWitnessTrTx.inForRing == 0 { // (0,?,?)
+		if txWitnessTrTx.outForRing == 0 { // (0,0,?)
+			if txWitnessTrTx.vPublic != 0 { // (0,0,>0)
 				//	assert
 				return false
 			}
+			// (0,0,0)
 
 			//	return pp.balanceProofL0R0SerializeSize(), nil
 			if txWitnessTrTx.txCase != TxWitnessTrTxCaseI0C0 {
@@ -895,14 +940,14 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 				return false
 			}
 
-		} else if txWitnessTrTx.outForRing == 1 {
+		} else if txWitnessTrTx.outForRing == 1 { //(0,1,?)
 			//	0 = cmt_{out,0} + vPublic
-			if txWitnessTrTx.vPublic > 0 {
+			if txWitnessTrTx.vPublic > 0 { // (0,1,>0)
 				//	assert
 				return false
 			}
 
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (0,1,0)
 				//	It can be deduced that the value in cmt_{out,0} is 0.
 				//  This case is banned by the rules.
 				return false
@@ -917,16 +962,16 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 				return false
 			}
 
-		} else { //	outForRing >= 2
+		} else { //	outForRing >= 2 // (0,>=2,?)
 			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if txWitnessTrTx.vPublic > 0 {
+			if txWitnessTrTx.vPublic > 0 { // (0,>=2,>0)
 				// assert
 				return false
-			} else if txWitnessTrTx.vPublic == 0 {
+			} else if txWitnessTrTx.vPublic == 0 { // (0,>=2,0)
 				//	It can be deduced that all the values in cmt_{out,0},  ... , cmt_{out, outForRing-1} are 0.
 				//  This case is banned by the rules.
 				return false
-			} else {
+			} else { // (0,>=2,<0)
 				//	txWitnessTrTx.vPublic < 0
 				if (-txWitnessTrTx.vPublic) < int64(txWitnessTrTx.outForRing) {
 					//	It can be deduced that at least one of the values in cmt_{out,0},  ... , cmt_{out, outForRing-1} are 0.
@@ -945,19 +990,21 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			}
 
 		}
-	} else if txWitnessTrTx.inForRing == 1 {
-		if txWitnessTrTx.outForRing == 0 {
+	} else if txWitnessTrTx.inForRing == 1 { // (1,?,?)
+		if txWitnessTrTx.outForRing == 0 { // (1,0,?)
 			//	cmt_{in,0} = vPublic
-			if txWitnessTrTx.vPublic < 0 {
+			if txWitnessTrTx.vPublic < 0 { // (1,0,<0)
 				// assert
 				return false
 			}
 
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (1,0,0)
 				//	do nothing
 				//	It can be deduced that the value in cmt_{in,0} is 0, but
 				//  the cmt_{in,0} was generated by previous transaction, we should not ban it now.
 			}
+
+			// (1,0,>=0)
 
 			//	vPublic = cmt_{in,0}
 			//	return pp.balanceProofL0R1SerializeSize(), nil
@@ -968,9 +1015,9 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 				return false
 			}
 
-		} else if txWitnessTrTx.outForRing == 1 {
+		} else if txWitnessTrTx.outForRing == 1 { // (1,1,?)
 			//	cmt_{in,0} = cmt_{out,0} + vPublic
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (1,1,0)
 				//	cmt_{in,0} = cmt_{out,0}
 				//	return pp.balanceProofL1R1SerializeSize(), nil
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C1Exact {
@@ -980,7 +1027,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else if txWitnessTrTx.vPublic > 0 {
+			} else if txWitnessTrTx.vPublic > 0 { // (1,1,>0)
 				//	cmt_{in,0} = cmt_{out,0} + vPublic
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1C1CAdd {
@@ -990,7 +1037,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else { // vPublic < 0
+			} else { // vPublic < 0 // (1,1,<0)
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
@@ -1001,9 +1048,9 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 			}
-		} else { //	outForRing >= 2
+		} else { //	outForRing >= 2 // (1,2,?)
 			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (1,2,0)
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1CnExact {
@@ -1013,7 +1060,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else if txWitnessTrTx.vPublic > 0 {
+			} else if txWitnessTrTx.vPublic > 0 { // (1,2,>0)
 				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseI1CnCAdd {
@@ -1023,7 +1070,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else { // vPublic < 0
+			} else { // vPublic < 0 // (1,2,<0)
 				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
@@ -1036,20 +1083,21 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			}
 		}
 
-	} else { //	inForRing >= 2
-		if txWitnessTrTx.outForRing == 0 {
+	} else { //	inForRing >= 2 // (>=2,?,?)
+		if txWitnessTrTx.outForRing == 0 { // (>=2,0,?)
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
-			if txWitnessTrTx.vPublic < 0 {
+			if txWitnessTrTx.vPublic < 0 { // (>=2,0,<0)
 				// assert
 				return false
 			}
 
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (>=2,0,0)
 				//	do nothing
 				//	It can be deduced that all the values in cmt_{in,0}, ... , cmt_{in, inForRing-1} are 0, but
 				//  cmt_{in,0}, ... , cmt_{in, inForRing-1} were generated by previous transactions, we should not ban it now.
 				//	return false
 			}
+			// (>=2,0,>=0)
 
 			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
 			//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, inForRing)
@@ -1060,9 +1108,9 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 				return false
 			}
 
-		} else if txWitnessTrTx.outForRing == 1 {
+		} else if txWitnessTrTx.outForRing == 1 { //(>=2,1,?)
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { //(>=2,1,0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
@@ -1073,7 +1121,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else if txWitnessTrTx.vPublic > 0 {
+			} else if txWitnessTrTx.vPublic > 0 { //(>=2,1,>0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImC1CAdd {
@@ -1083,7 +1131,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else { // vPublic < 0
+			} else { // vPublic < 0 //(>=2,1,<0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
 				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
@@ -1096,9 +1144,9 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 
 			}
 
-		} else { // outForRing >= 2
+		} else { // outForRing >= 2 // (>=2,>=2,?)
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if txWitnessTrTx.vPublic == 0 {
+			if txWitnessTrTx.vPublic == 0 { // (>=2,>=2,0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImCnExact {
@@ -1108,7 +1156,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else if txWitnessTrTx.vPublic > 0 {
+			} else if txWitnessTrTx.vPublic > 0 { // (>=2,>=2,>0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
 				if txWitnessTrTx.txCase != TxWitnessTrTxCaseImCnCAdd {
@@ -1118,7 +1166,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 					return false
 				}
 
-			} else { // vPublic < 0
+			} else { // vPublic < 0  // (>=2,>=2,<0)
 				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
 				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
 				//	return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)

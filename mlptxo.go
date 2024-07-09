@@ -1060,6 +1060,7 @@ func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []b
 // TxoMLPSanityCheck conducts sanity-check on the input TxoMLP.
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
+// reviewed
 func (pp *PublicParameter) TxoMLPSanityCheck(txoMLP TxoMLP) bool {
 	if txoMLP == nil {
 		return false
@@ -1088,6 +1089,7 @@ func (pp *PublicParameter) TxoMLPSanityCheck(txoMLP TxoMLP) bool {
 // (5) txoRCTPre.vct has correct length
 // (6) txoRCTPre.ctKemSerialized has correct length.
 // todo: review by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) TxoRCTPreSanityCheck(txoRCTPre *TxoRCTPre) bool {
 	if txoRCTPre == nil {
 		return false
@@ -1126,6 +1128,7 @@ func (pp *PublicParameter) TxoRCTPreSanityCheck(txoRCTPre *TxoRCTPre) bool {
 // (7) txoRCT.vct has correct length
 // (8) txoRCT.ctKemSerialized has correct length.
 // todo: review by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) TxoRCTSanityCheck(txoRCT *TxoRCT) bool {
 	if txoRCT == nil {
 		return false
@@ -1170,6 +1173,7 @@ func (pp *PublicParameter) TxoRCTSanityCheck(txoRCT *TxoRCT) bool {
 // (5) TxoSDN.detectorTag has the correct length
 // (6) TxoSDN.value is in the correct scope [1, 2^N-1] (note that TxoSDN.value is public and could not be 0).
 // todo: review by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) TxoSDNSanityCheck(txoSDN *TxoSDN) bool {
 	if txoSDN == nil {
 		return false

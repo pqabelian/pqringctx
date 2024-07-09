@@ -1150,6 +1150,7 @@ func (pp *PublicParameter) LgrTxoRingForRingSanityCheck(lgrTxoList []*LgrTxoMLP)
 // (4) The Txo's coinAddressType is CoinAddressTypePublicKeyHashForSingle.
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
+// reviewed by Ocean
 func (pp *PublicParameter) LgrTxoRingForSingleSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
 
 	ringLen := len(lgrTxoList)

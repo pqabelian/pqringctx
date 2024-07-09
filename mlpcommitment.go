@@ -123,6 +123,7 @@ func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint
 // (3) cmt.c is well-form
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
+// reviewed by Ocean
 func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) bool {
 	if cmt == nil {
 		return false

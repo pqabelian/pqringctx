@@ -1863,13 +1863,14 @@ func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWit
 }
 
 // TransferTxMLPSanityCheck checks whether the input trTx *TransferTxMLP is well-from:
-// (1) cbTx is not nil;
-// (2) cbTx.vin is in the allowed scope;
+// (1) trTx is not nil;
+// (2) trTx.vin is in the allowed scope;
 // (3) 0-value-coin-rule is obeyed;
-// (4) cbTx.txMemo has the size in the allowed scope;
-// (5) cbTx.txWitness is well-form.
+// (4) trTx.txMemo has the size in the allowed scope;
+// (5) trTx.txWitness is well-form.
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
+// reviewed by Ocean
 func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWitness bool) error {
 	if trTx == nil {
 		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx *TransferTxMLP is nil")
