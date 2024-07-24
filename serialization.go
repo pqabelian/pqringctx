@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cryptosuite/pqringctx/pqringctxkem"
+	"github.com/pqabelian/pqringctx/pqringctxkem"
 	"io"
 )
 
