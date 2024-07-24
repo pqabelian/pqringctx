@@ -2,7 +2,7 @@ package pqringctxapi
 
 import (
 	"fmt"
-	"github.com/cryptosuite/pqringctx"
+	"github.com/pqabelian/pqringctx"
 )
 
 // PublicParameter is defined the alias of pqringctx.PublicParameter,

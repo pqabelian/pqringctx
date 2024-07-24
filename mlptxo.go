@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/cryptosuite/pqringctx/pqringctxkem"
+	"github.com/pqabelian/pqringctx/pqringctxkem"
 )
 
 // TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.

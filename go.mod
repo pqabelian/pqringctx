@@ -1,4 +1,4 @@
-module github.com/cryptosuite/pqringctx
+module github.com/pqabelian/pqringctx
 
 go 1.17
 

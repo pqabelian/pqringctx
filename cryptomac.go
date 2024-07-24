@@ -3,7 +3,7 @@ package pqringctx
 import (
 	"crypto/hmac"
 	"fmt"
-	"github.com/cryptosuite/pqringctx/internal"
+	"github.com/pqabelian/pqringctx/internal"
 )
 
 const (

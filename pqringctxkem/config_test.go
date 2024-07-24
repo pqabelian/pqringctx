@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/cryptosuite/kyber-go/kyber"
-	"github.com/cryptosuite/pqringctx/pqringctxkem/pqringctOQSKem"
+	"github.com/pqabelian/pqringctx/pqringctxkem/pqringctOQSKem"
 	"testing"
 )
 
