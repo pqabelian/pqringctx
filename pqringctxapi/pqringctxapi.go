@@ -337,7 +337,7 @@ func GetSerialNumberSerializeSize(pp *PublicParameter) int {
 func GetTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
 	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
 }
