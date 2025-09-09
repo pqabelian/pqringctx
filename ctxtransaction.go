@@ -37,7 +37,7 @@ import (
 // reviewed on 2023.12.20
 // REVIEWED on 2023/12/31
 // reviewed by Alice, 2024.07.06
-func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
+func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
 
 	if int64(len(txMemo)) > int64(MaxAllowedTxMemoMLPSize) {
 		return nil, fmt.Errorf("CoinbaseTxMLPGen: the input txMemo []byte has a size (%v) larger than the allowed maximum value", len(txMemo))
@@ -221,7 +221,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
-func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
+func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CoinbaseTxMLP) error {
 
 	if !pp.CoinbaseTxMLPSanityCheck(cbTx, true) {
 		return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP is not well-form")
@@ -275,7 +275,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: review pp.CoinValueKeyVerify
-func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
+func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
 	inputNum := len(txInputDescs)
@@ -802,7 +802,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: multi-round review
-func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
+func (pp *PublicParameter) CtxTransferTxVerify(trTx *TransferTxMLP) error {
 
 	err := pp.TransferTxMLPSanityCheck(trTx, true)
 	if err != nil {
@@ -969,7 +969,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 // GetTxWitnessCbTxSerializeSizeByDesc returns the serialize size for TxWitnessCbTx according to the input coinAddressList.
 // reviewed on 2024.01.01, by Alice
 // reviewed by Alice, 2024.07.07
-func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
+func (pp *PublicParameter) CtxGetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
 	if len(coinAddressList) == 0 {
 		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the input coinAddressList is empty")
 	}
@@ -1009,7 +1009,7 @@ func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [
 // GetTxWitnessTrTxSerializeSizeByDesc returns the serialize size for TxWitnessTrTx according to the input description information, say (inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic).
 // reviewed by Alice, 2024.07.07
 // todo: review
-func (pp *PublicParameter) GetTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
+func (pp *PublicParameter) CtxGetTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
 	if inForRing > pp.paramI {
 		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
@@ -1046,7 +1046,7 @@ func (pp *PublicParameter) GetTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, 
 // Note that this must keep the same as pqringct.GetNullSerialNumber.
 // reviewed on 2023.12.07.
 // reviewed by Alice, 2024.07.07
-func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
+func (pp *PublicParameter) CtxGetNullSerialNumberMLP() []byte {
 	snSize := pp.ledgerTxoSerialNumberSerializeSizeMLP()
 	nullSn := make([]byte, snSize)
 	for i := 0; i < snSize; i++ {
@@ -1057,7 +1057,7 @@ func (pp *PublicParameter) GetNullSerialNumberMLP() []byte {
 
 // GetSerialNumberSerializeSize
 // reviewed by Alice, 2024.07.07
-func (pp *PublicParameter) GetSerialNumberSerializeSize() int {
+func (pp *PublicParameter) CtxGetSerialNumberSerializeSize() int {
 	return pp.ledgerTxoSerialNumberSerializeSizeMLP()
 }
 
@@ -1069,7 +1069,7 @@ func (pp *PublicParameter) GetSerialNumberSerializeSize() int {
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
 // refactored and reviewed by Alice, 2024.07.06
-func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+func (pp *PublicParameter) CtxgenBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	cmtrRs []*PolyCNTTVec, vRs []uint64) (TxWitnessCbTxCase, BalanceProof, error) {
 
 	//	generation algorithm does not conduct sanity-check on the inputs. This is because
@@ -1109,7 +1109,7 @@ func (pp *PublicParameter) genBalanceProofCbTx(cbTxCon []byte, vL uint64, outFor
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review
-func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
+func (pp *PublicParameter) CtxverifyBalanceProofCbTx(cbTxCon []byte, vL uint64, outForRing uint8, cmtRs []*ValueCommitment,
 	txCase TxWitnessCbTxCase, balanceProof BalanceProof) error {
 	if len(cbTxCon) == 0 {
 		return fmt.Errorf("verifyBalanceProofCbTx: the input cbTxCon is nil/empty")
@@ -1192,7 +1192,7 @@ func (pp *PublicParameter) verifyBalanceProofCbTx(cbTxCon []byte, vL uint64, out
 // reviewed on 2023.12.19
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07.07
-func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon []byte, cmts_in_p []*ValueCommitment) ([]byte, error) {
+func (pp *PublicParameter) CtxextendSerializedTransferTxContent(serializedTrTxCon []byte, cmts_in_p []*ValueCommitment) ([]byte, error) {
 
 	length := len(serializedTrTxCon) + len(cmts_in_p)*pp.ValueCommitmentSerializeSize()
 
@@ -1218,7 +1218,7 @@ func (pp *PublicParameter) extendSerializedTransferTxContent(serializedTrTxCon [
 // reviewed on 2023.12.19
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8,
+func (pp *PublicParameter) CtxgenBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8,
 	cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	cmtrs_in_p []*PolyCNTTVec, values_in []uint64, cmtrs_out []*PolyCNTTVec, values_out []uint64) (TxWitnessTrTxCase, BalanceProof, error) {
 
@@ -1421,7 +1421,7 @@ func (pp *PublicParameter) genBalanceProofTrTx(extTrTxCon []byte, inForRing uint
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
+func (pp *PublicParameter) CtxverifyBalanceProofTrTx(extTrTxCon []byte, inForRing uint8, outForRing uint8, cmts_in_p []*ValueCommitment, cmts_out []*ValueCommitment, vPublic int64,
 	txCase TxWitnessTrTxCase, balcenProof BalanceProof) error {
 
 	//	sanity-checks	begin
@@ -1736,7 +1736,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 // (5) cbTx.txWitness is well-form.
 // added by Alice, 2024.07.06
 // todo: review by 2024.07
-func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWitness bool) bool {
+func (pp *PublicParameter) CtxCoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWitness bool) bool {
 	if cbTx == nil {
 		return false
 	}
@@ -1871,7 +1871,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWit
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
 // reviewed by Ocean
-func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWitness bool) error {
+func (pp *PublicParameter) CtxTransferTxMLPSanityCheck(trTx *TransferTxMLP, withWitness bool) error {
 	if trTx == nil {
 		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx *TransferTxMLP is nil")
 	}
@@ -2107,7 +2107,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 // (3) txInputMLP.lgrTxoList is either a single-member-ring-for-pseudonym or a normal ring.
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) TxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
+func (pp *PublicParameter) CtxTxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
 	if txInputMLP == nil {
 		return false
 	}
