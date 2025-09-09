@@ -9,17 +9,17 @@ const (
 
 // CoinbaseTxMLP is defined for coinbaseTx.
 type CtxCoinbaseTx struct {
-	vin          uint64
-	txos         []CtxTxo
-	balanceProof BalanceProof
+	vin       uint64
+	txos      []CtxTxo
+	txWitness *CtxTxWitnessCbTx
 }
 
 // CtxTransferTx handles only the balance proof between the input side and output side.
 type CtxTransferTx struct {
 	//	Version uint32	//	crypto-layer does not care the (actually does not have the concept of) version of transferTx.
-	txInputs     []CtxTxo
-	txos         []CtxTxo
-	balanceProof BalanceProof
+	txInputs  []CtxTxo
+	txos      []CtxTxo
+	txWitness *CtxTxWitnessTrTx
 }
 
 // TxOutputDescMLP describes the information for generating TxoMLP, for generating CoinbaseTxMLP and TransferTxMLP.
@@ -70,20 +70,20 @@ func NewCtxTxInputDesc(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecret
 // New and Get functions for Transactions	begin
 
 // NewTransferTxMLP constructs a new TransferTxMLP using the input (txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitness *TxWitnessTrTx).
-func NewCtxCoinbaseTx(vin uint64, txos []CtxTxo, balanceProof BalanceProof) *CtxCoinbaseTx {
+func NewCtxCoinbaseTx(vin uint64, txos []CtxTxo, txWitnessCbTx *CtxTxWitnessCbTx) *CtxCoinbaseTx {
 	return &CtxCoinbaseTx{
-		vin:          vin,
-		txos:         txos,
-		balanceProof: balanceProof,
+		vin:       vin,
+		txos:      txos,
+		txWitness: txWitnessCbTx,
 	}
 }
 
 // NewTransferTxMLP constructs a new TransferTxMLP using the input (txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitness *TxWitnessTrTx).
-func NewCtxTransferTx(txInputs []CtxTxo, txos []CtxTxo, balanceProof BalanceProof) *CtxTransferTx {
+func NewCtxTransferTx(txInputs []CtxTxo, txos []CtxTxo, txWitnessTrTx *CtxTxWitnessTrTx) *CtxTransferTx {
 	return &CtxTransferTx{
-		txInputs:     txInputs,
-		txos:         txos,
-		balanceProof: balanceProof,
+		txInputs:  txInputs,
+		txos:      txos,
+		txWitness: txWitnessTrTx,
 	}
 }
 
@@ -93,8 +93,8 @@ func (ctxCoinbaseTx *CtxCoinbaseTx) GetTxos() []CtxTxo {
 }
 
 // GetTxWitness returns the handler CoinbaseTxMLP's txWitness.
-func (ctxCoinbaseTx *CtxCoinbaseTx) GetTxWitness() BalanceProof {
-	return ctxCoinbaseTx.balanceProof
+func (ctxCoinbaseTx *CtxCoinbaseTx) GetTxWitness() *CtxTxWitnessCbTx {
+	return ctxCoinbaseTx.txWitness
 }
 
 // GetTxos returns the txos of TransferTxMLP.
@@ -103,8 +103,8 @@ func (ctxTransferTx *CtxTransferTx) GetTxos() []CtxTxo {
 }
 
 // GetTxWitness returns the txWitness of TransferTxMLP.
-func (ctxTransferTx *CtxTransferTx) GetTxWitness() BalanceProof {
-	return ctxTransferTx.balanceProof
+func (ctxTransferTx *CtxTransferTx) GetTxWitness() *CtxTxWitnessTrTx {
+	return ctxTransferTx.txWitness
 }
 
 //	New and Get functions for Transactions	end
