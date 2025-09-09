@@ -15,7 +15,7 @@ import (
 // reviewed on 2023.12.20
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
-func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withWitness bool) (int, error) {
+func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CoinbaseTxMLP, withWitness bool) (int, error) {
 
 	if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
 		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the input cbTx *CoinbaseTxMLP is not well-form")
@@ -61,7 +61,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSerializeSize(cbTx *CoinbaseTxMLP, withW
 // reviewed on 2023.12.20
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
-func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
+func (pp *PublicParameter) SerializeCtxCoinbaseTx(cbTx *CoinbaseTxMLP, withWitness bool) ([]byte, error) {
 
 	// As CoinbaseTxMLPSerializeSize will call CoinbaseTxMLPSanityCheck, here we can skip CoinbaseTxMLPSanityCheck safely.
 	//if !pp.CoinbaseTxMLPSanityCheck(cbTx, withWitness) {
@@ -123,7 +123,7 @@ func (pp *PublicParameter) SerializeCoinbaseTxMLP(cbTx *CoinbaseTxMLP, withWitne
 // reviewed on 2023.12.20
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
-func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []byte, withWitness bool) (*CoinbaseTxMLP, error) {
+func (pp *PublicParameter) DeserializeCtxCoinbaseTxMLP(serializedCoinbaseTxMLP []byte, withWitness bool) (*CoinbaseTxMLP, error) {
 	if len(serializedCoinbaseTxMLP) == 0 {
 		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the input serializedTransferTxMLP is empty")
 	}
@@ -206,7 +206,7 @@ func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []by
 // reviewed onn2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, error) {
+func (pp *PublicParameter) CtxTxInputMLPSerializeSize(txInput *TxInputMLP) (int, error) {
 
 	if !pp.TxInputMLPSanityCheck(txInput) {
 		return 0, fmt.Errorf("TxInputMLPSerializeSize: there is nil pointer in the input TxInputMLP")
@@ -241,7 +241,7 @@ func (pp *PublicParameter) TxInputMLPSerializeSize(txInput *TxInputMLP) (int, er
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, error) {
+func (pp *PublicParameter) serializeCtxTxInputMLP(txInput *TxInputMLP) ([]byte, error) {
 
 	// As TxInputMLPSerializeSize will call TxInputMLPSanityCheck, here we can skpi TxInputMLPSanityCheck safely.
 	//if !pp.TxInputMLPSanityCheck(txInput) {
@@ -289,7 +289,7 @@ func (pp *PublicParameter) serializeTxInputMLP(txInput *TxInputMLP) ([]byte, err
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*TxInputMLP, error) {
+func (pp *PublicParameter) deserializeCtxTxInputMLP(serializedTxInputMLP []byte) (*TxInputMLP, error) {
 
 	r := bytes.NewReader(serializedTxInputMLP)
 
@@ -339,7 +339,7 @@ func (pp *PublicParameter) deserializeTxInputMLP(serializedTxInputMLP []byte) (*
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withWitness bool) (int, error) {
+func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *TransferTxMLP, withWitness bool) (int, error) {
 	err := pp.TransferTxMLPSanityCheck(trTx, withWitness)
 	if err != nil {
 		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the input trTx *TransferTxMLP is not well-form: %s", err)
@@ -400,7 +400,7 @@ func (pp *PublicParameter) TransferTxMLPSerializeSize(trTx *TransferTxMLP, withW
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
+func (pp *PublicParameter) SerializeCtxTransferTx(trTx *TransferTxMLP, withWitness bool) ([]byte, error) {
 
 	//	As TransferTxMLPSerializeSize will call TransferTxMLPSanityCheck, here we skip TransferTxMLPSanityCheck safely
 	//err := pp.TransferTxMLPSanityCheck(trTx, withWitness)
@@ -486,7 +486,7 @@ func (pp *PublicParameter) SerializeTransferTxMLP(trTx *TransferTxMLP, withWitne
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
-func (pp *PublicParameter) DeserializeTransferTxMLP(serializedTransferTxMLP []byte, withWitness bool) (*TransferTxMLP, error) {
+func (pp *PublicParameter) DeserializeCtxTransferTx(serializedTransferTxMLP []byte, withWitness bool) (*TransferTxMLP, error) {
 	if len(serializedTransferTxMLP) == 0 {
 		return nil, fmt.Errorf("DeserializeTransferTxMLP: the input serializedTransferTxMLP is empty")
 	}
