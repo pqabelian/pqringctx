@@ -115,10 +115,10 @@ func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, 
 //	TXO	Gen		end
 
 // ExtractValueAndRandFromTxoMLP extract the (value, randomness) pair for txoMLP.valueCommitment.
-func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
+func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, cmt *ValueCommitment, err error) {
 
 	if !pp.CtxTxoSanityCheck(ctxTxo) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input ctxTxo is not well-form")
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input ctxTxo is not well-form")
 	}
 
 	var ctKemSerialized []byte
@@ -132,44 +132,44 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 		valueCommitment = txoInst.valueCommitment
 
 	case *CtxTxoPublic:
-		return txoInst.value, nil, nil
+		return txoInst.value, nil, nil, nil
 
 	default:
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input ctxTxo is not CtxTxoHidden or CtxTxoPublic")
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input ctxTxo is not CtxTxoHidden or CtxTxoPublic")
 	}
 	// Note that with the previous sanity-check, (ctKemSerialized, vct, valueCommitment) are well-form.
 
 	//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
 	if len(coinValuePublicKey) != pqringctxkem.GetKemPublicKeyBytesLen(pp.paramKem) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input coinValuePublicKey is not well-form")
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input coinValuePublicKey is not well-form")
 	}
 
 	if len(coinValueSecretKey) != pqringctxkem.GetKemSecretKeyBytesLen(pp.paramKem) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input coinValueSecretKey is not well-form")
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input coinValueSecretKey is not well-form")
 	}
 
 	copiedCoinValueSecretKey := make([]byte, len(coinValueSecretKey))
 	copy(copiedCoinValueSecretKey, coinValueSecretKey)
 	validValueKey, hints := pp.CoinValueKeyVerify(coinValuePublicKey, copiedCoinValueSecretKey)
 	if !validValueKey {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input (coinValuePublicKey, coinValueSecretKey) is not a valid key pair: %v", hints)
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the input (coinValuePublicKey, coinValueSecretKey) is not a valid key pair: %v", hints)
 	}
 	copy(copiedCoinValueSecretKey, coinValueSecretKey)
 
 	//	decaps to have the K
 	kappa, err := pqringctxkem.Decaps(pp.paramKem, ctKemSerialized, copiedCoinValueSecretKey)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 
 	//	decrypt vct to obtain the value
 	//	vpt = vct ^ sk
 	sk, err := pp.expandValuePadRandomness(kappa)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	if len(sk) != pp.TxoValueBytesLen() {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the expanded sk for value pad has a wrong length (%d)", len(sk))
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: the expanded sk for value pad has a wrong length (%d)", len(sk))
 	}
 
 	vpt := make([]byte, pp.TxoValueBytesLen())
@@ -181,13 +181,13 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 
 	value, err = pp.decodeTxoValueFromBytes(vpt)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 
 	//	expand cmtr and open the commitment
 	cmtr_poly, err := pp.expandValueCmtRandomness(kappa)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	cmtr = pp.NTTPolyCVec(cmtr_poly)
 
@@ -201,10 +201,10 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 	)
 
 	if !pp.PolyCNTTVecEqualCheck(b, valueCommitment.b) || !pp.PolyCNTTEqualCheck(c, valueCommitment.c) {
-		return 0, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: reject when using the recoverd (value, randomness) to open the commitment")
+		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: reject when using the recoverd (value, randomness) to open the commitment")
 	}
 
-	return value, cmtr, nil
+	return value, cmtr, cmt, nil
 }
 
 // GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a TxoMLP for the input coinAddressType.
