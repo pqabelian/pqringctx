@@ -956,6 +956,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 		}
 	}
 
+	// Note that the validity between trTx.txWitness's fields and trTx's fields have been checked in TransferTxMLPSanityCheck.
 	err = pp.verifyBalanceProofTrTx(extTrTxConDigest, trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.cmts_in_p, cmts_out, trTx.txWitness.vPublic, trTx.txWitness.txCase, trTx.txWitness.balanceProof)
 	if err != nil {
 		return err
