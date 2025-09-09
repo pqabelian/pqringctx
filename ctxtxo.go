@@ -105,7 +105,7 @@ func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint
 // Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
-func (pp *PublicParameter) ctxTxoPublicGen(coinAddress []byte, value uint64) (ctxTxo *CtxTxoPublic, err error) {
+func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, err error) {
 	return &CtxTxoPublic{
 		ctxTxoType: CtxTxoTypePublic,
 		value:      value,
