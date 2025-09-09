@@ -7,46 +7,6 @@ import (
 	"io"
 )
 
-// TxWitnessCbTxCase defines the TxCase which will be used to characterize the TxWitnessCbTx.
-// reviewed on 2023.12.07
-// reviewed by Alice, 2024.07.05
-type TxWitnessCbTxCase uint8
-
-// reviewed on 2023.12.07
-// reviewed by Alice, 2024.07.05
-const (
-	TxWitnessCbTxCaseC0 TxWitnessCbTxCase = 0
-	TxWitnessCbTxCaseC1 TxWitnessCbTxCase = 1
-	TxWitnessCbTxCaseCn TxWitnessCbTxCase = 2
-)
-
-// TxWitnessTrTxCase defines the TxCase which will be used to characterize the TxWitnessTrTx.
-// reviewed on 2023.12.18
-// reviewed by Alice, 2024.07.05
-type TxWitnessTrTxCase uint8
-
-// reviewed on 2023.12.18
-// reviewed by Alice, 2024.07.05
-const (
-	TxWitnessTrTxCaseI0C0      TxWitnessTrTxCase = 0
-	TxWitnessTrTxCaseI0C1      TxWitnessTrTxCase = 1
-	TxWitnessTrTxCaseI0Cn      TxWitnessTrTxCase = 2
-	TxWitnessTrTxCaseI1C0      TxWitnessTrTxCase = 3
-	TxWitnessTrTxCaseI1C1Exact TxWitnessTrTxCase = 4
-	TxWitnessTrTxCaseI1C1CAdd  TxWitnessTrTxCase = 5
-	TxWitnessTrTxCaseI1C1IAdd  TxWitnessTrTxCase = 6
-	TxWitnessTrTxCaseI1CnExact TxWitnessTrTxCase = 7
-	TxWitnessTrTxCaseI1CnCAdd  TxWitnessTrTxCase = 8
-	TxWitnessTrTxCaseI1CnIAdd  TxWitnessTrTxCase = 9
-	TxWitnessTrTxCaseImC0      TxWitnessTrTxCase = 10
-	TxWitnessTrTxCaseImC1Exact TxWitnessTrTxCase = 11
-	TxWitnessTrTxCaseImC1CAdd  TxWitnessTrTxCase = 12
-	TxWitnessTrTxCaseImC1IAdd  TxWitnessTrTxCase = 13
-	TxWitnessTrTxCaseImCnExact TxWitnessTrTxCase = 14
-	TxWitnessTrTxCaseImCnCAdd  TxWitnessTrTxCase = 15
-	TxWitnessTrTxCaseImCnIAdd  TxWitnessTrTxCase = 16
-)
-
 // TxWitnessCbTx defines the TxWitness for coinbase-transaction.
 // vL = vin - sum of (public value on output side), it must be >= 0.
 // Note that with (outForRing),
@@ -55,7 +15,7 @@ const (
 // reviewed on 2023.12.07
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.05
-type TxWitnessCbTx struct {
+type CtxTxWitnessCbTx struct {
 	txCase       TxWitnessCbTxCase
 	vL           uint64
 	outForRing   uint8
@@ -67,7 +27,7 @@ type TxWitnessCbTx struct {
 // TxCase returns TxWitnessCbTx.txCase.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.07.05
-func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
+func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
 
@@ -86,7 +46,7 @@ func (txWitness *TxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
 // reviewed on 2023.12.18
 // reviewed by Alice, 2024.07.05
-type TxWitnessTrTx struct {
+type CtxTxWitnessTrTx struct {
 	txCase              TxWitnessTrTxCase
 	inForRing           uint8
 	inForSingle         uint8
@@ -107,7 +67,7 @@ type TxWitnessTrTx struct {
 // TxCase returns the txCase of TxWitnessTrTx.
 // reviewed on 2023.12.18
 // reviewed by Alice, 2024.07.05
-func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
+func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
 
@@ -118,7 +78,7 @@ func (txWitness *TxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
+func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
 		1 + //	outForRing   uint8
@@ -139,7 +99,7 @@ func (pp *PublicParameter) TxWitnessCbTxSerializeSize(outForRing uint8) (int, er
 // reviewed on 2023.12.18
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
+func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.TxWitnessCbTxSanityCheck(txWitness) {
 		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx is not well-form")
@@ -210,7 +170,7 @@ func (pp *PublicParameter) SerializeTxWitnessCbTx(txWitness *TxWitnessCbTx) (ser
 // reviewed on 2023.12.18
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
+func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
 	}
@@ -295,7 +255,7 @@ func (pp *PublicParameter) DeserializeTxWitnessCbTx(serializedTxWitness []byte) 
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
+func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
 	outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
 
 	if len(inRingSizes) != int(inForRing) {
@@ -336,7 +296,7 @@ func (pp *PublicParameter) TxWitnessTrTxSerializeSize(inForRing uint8, inForSing
 // reviewed on 2023.12.19
 // reviewed on 2023.12.20
 // reviewed by Alice, 2024.07.06
-func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
+func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.TxWitnessTrTxSanityCheck(txWitness) {
 		return nil, fmt.Errorf("SerializeTxWitnessTrTx: the input txWitness *TxWitnessTrTx is not well-form")
@@ -484,7 +444,7 @@ func (pp *PublicParameter) SerializeTxWitnessTrTx(txWitness *TxWitnessTrTx) (ser
 // DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
 // reviewed on 2023.12.19
 // reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
+func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the input serializedTxWitness is empty")
@@ -672,7 +632,7 @@ func (pp *PublicParameter) DeserializeTxWitnessTrTx(serializedTxWitness []byte) 
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
 // reviewed by Ocean
-func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx) bool {
+func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx) bool {
 	if txWitnessCbTx == nil {
 		return false
 	}
@@ -808,7 +768,7 @@ func (pp *PublicParameter) TxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
 // reviewed by Ocean
-func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx) bool {
+func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx) bool {
 
 	if txWitnessTrTx == nil {
 		return false
@@ -1083,7 +1043,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 			}
 		}
 
-	} else { //	inForRing >= 2 // (>=2,?,?)
+	} else {                               //	inForRing >= 2 // (>=2,?,?)
 		if txWitnessTrTx.outForRing == 0 { // (>=2,0,?)
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
 			if txWitnessTrTx.vPublic < 0 { // (>=2,0,<0)
@@ -1191,7 +1151,7 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 // balanceProofCbTxSerializeSize returns the serialize size for BalanceProofCbTx.
 // reviewed by Alice, 2024.07.05
 // moved from mlptransaction.go, 2024.07.06
-func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int, error) {
+func (pp *PublicParameter) CtxbalanceProofCbTxSerializeSize(outForRing uint8) (int, error) {
 	if outForRing == 0 {
 		return pp.balanceProofL0R0SerializeSize(), nil
 	} else if outForRing == 1 {
@@ -1205,7 +1165,7 @@ func (pp *PublicParameter) balanceProofCbTxSerializeSize(outForRing uint8) (int,
 // reviewed on 2023.12.19
 // reviewed by Alice, 2024.07.05
 // moved from mlptransaction.go, 2024.07.06
-func (pp *PublicParameter) balanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
+func (pp *PublicParameter) CtxbalanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
 
 	if inForRing == 0 {
 		if outForRing == 0 {
