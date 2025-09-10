@@ -512,7 +512,11 @@ func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) b
 		return false
 	}
 
-	if !pp.ValueSanityCheck(ctxTxoPublic.value) {
+	if ctxTxoPublic.value == 0 {
+		return false
+	}
+
+	if !pp.ValueMaxSanityCheck(ctxTxoPublic.value) {
 		return false
 	}
 
@@ -522,7 +526,7 @@ func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) b
 // common functions	begin
 
 // ValueSanityCheck checks whether the passed value in the scope [0, 2^N-1].
-func (pp *PublicParameter) ValueSanityCheck(value uint64) bool {
+func (pp *PublicParameter) ValueMaxSanityCheck(value uint64) bool {
 	if value > ((uint64(1) << pp.paramN) - 1) {
 		return false
 	}
