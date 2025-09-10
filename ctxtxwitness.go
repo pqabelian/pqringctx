@@ -2,7 +2,6 @@ package pqringctx
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"io"
 )
@@ -12,9 +11,6 @@ import (
 // Note that with (outForRing),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
-// reviewed on 2023.12.07
-// reviewed on 2023.12.20
-// reviewed by Alice, 2024.07.05
 type CtxTxWitnessCbTx struct {
 	txCase       TxWitnessCbTxCase
 	vL           uint64
@@ -25,8 +21,6 @@ type CtxTxWitnessCbTx struct {
 }
 
 // TxCase returns TxWitnessCbTx.txCase.
-// reviewed on 2023.12.07
-// reviewed by Alice, 2024.07.05
 func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
@@ -44,24 +38,14 @@ func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // Note that with (inForRing, inForSingle, inForSingleDistinct, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
-// reviewed on 2023.12.18
-// reviewed by Alice, 2024.07.05
 type CtxTxWitnessTrTx struct {
-	txCase              TxWitnessTrTxCase
-	inForRing           uint8
-	inForSingle         uint8
-	inForSingleDistinct uint8
-	inRingSizes         []uint8 // length inForRing
-	outForRing          uint8
-	outForSingle        uint8
-	vPublic             int64
-	//	abf
-	ma_ps                      []*PolyANTT                  // length inForRing, each for one RingCT-privacy Input. The key-image of the signing key, and is the pre-image of SerialNumber.
-	cmts_in_p                  []*ValueCommitment           // length inForRing, each for one RingCT-privacy Input. It commits the same value as the consumed TxoMLP.
-	elrSigs                    []*ElrSignatureMLP           // length inForRing, each for one RingCT-privacy Input.
-	addressPublicKeyForSingles []*AddressPublicKeyForSingle // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	simpleSigs                 []*SimpleSignatureMLP        // length inForSingleDistinct, each for one distinct CoinAddress in pseudonym-privacy Inputs.
-	balanceProof               BalanceProof
+	txCase       TxWitnessTrTxCase
+	inForRing    uint8
+	inForSingle  uint8
+	outForRing   uint8
+	outForSingle uint8
+	vPublic      int64
+	balanceProof BalanceProof
 }
 
 // TxCase returns the txCase of TxWitnessTrTx.
@@ -74,10 +58,6 @@ func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 // TxWitnessCbTx	begin
 
 // TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
-// reviewed on 2023.12.07
-// reviewed on 2023.12.18
-// reviewed on 2023.12.20
-// reviewed by Alice, 2024.07.05
 func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
@@ -95,17 +75,13 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int,
 }
 
 // SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
-// reviewed on 2023.12.07
-// reviewed on 2023.12.18
-// reviewed on 2023.12.20
-// reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *TxWitnessCbTx) (serializedTxWitness []byte, err error) {
+func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx) (serializedTxWitness []byte, err error) {
 
-	if !pp.TxWitnessCbTxSanityCheck(txWitness) {
+	if !pp.CtxTxWitnessCbTxSanityCheck(txWitness) {
 		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx is not well-form")
 	}
 
-	length, err := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
+	length, err := pp.CtxTxWitnessCbTxSerializeSize(txWitness.outForRing)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +118,8 @@ func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *TxWitnessCbTx) (
 		return nil, err
 	}
 	// we did not use writeVarBytes(), to avoid define the maxAllowLength used in readVarBytes().
-	// But for safety and robustness, we serialize the length of serializedBpf.
+	// But for safety and robustness, we serialize the length of serializedBpf,
+	// and in the corresponding deserialization, a length check is performed.
 	bpfLen := len(serializedBpf)
 	err = WriteVarInt(w, uint64(bpfLen))
 	if err != nil {
@@ -166,11 +143,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *TxWitnessCbTx) (
 }
 
 // DeserializeTxWitnessCbTx deserialize the input []byte to TxWitnessCbTx.
-// reviewed on 2023.12.07
-// reviewed on 2023.12.18
-// reviewed on 2023.12.30
-// reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byte) (txWitness *TxWitnessCbTx, err error) {
+func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byte) (txWitness *CtxTxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
 	}
@@ -216,7 +189,8 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 		return nil, err
 	}
 	if uint64(serializedBpfLen) != bpfLen {
-		//	This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		// This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		// do not remove this check, since it provides some safe guarantee that the bpfLen is not too large.
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized outForRing (%d)",
 			bpfLen, serializedBpfLen, outForRing)
 	}
@@ -231,7 +205,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 		return nil, err
 	}
 
-	txWitnessCbTx := &TxWitnessCbTx{
+	txWitnessCbTx := &CtxTxWitnessCbTx{
 		txCase:       TxWitnessCbTxCase(txCase),
 		vL:           vL,
 		outForRing:   outForRing,
@@ -239,7 +213,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 		balanceProof: balanceProof,
 	}
 
-	if !pp.TxWitnessCbTxSanityCheck(txWitnessCbTx) {
+	if !pp.CtxTxWitnessCbTxSanityCheck(txWitnessCbTx) {
 		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialzed TxWitnessCbTx is not well-form")
 	}
 
@@ -252,35 +226,12 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 // TxWitnessTrTx	begin
 
 // TxWitnessTrTxSerializeSize returns the serialize size for TxWitnessTrTx.
-// reviewed on 2023.12.19
-// reviewed on 2023.12.20
-// reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, inForSingleDistinct uint8,
-	outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
-
-	if len(inRingSizes) != int(inForRing) {
-		return 0, fmt.Errorf("TxWitnessTrTxSerializeSize: the length of ringSizes[] (%d) is differnet from inForRing (%d)", len(inRingSizes), inForRing)
-	}
+func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
 
 	length := 1 + //	txCase                     TxWitnessTrTxCase
-		3 + //	inForRing uint8, inForSingle uint8, inForSingleDistinct uint8,
-		int(inForRing)*1 + // inRingSizes                []uint8
+		2 + //	inForRing uint8, inForSingle uint8
 		2 + // outForRing uint8, outForSingle uint8
-		8 + //	vPublic                    int64
-		int(inForRing)*pp.PolyANTTSerializeSize() + //	ma_ps                      []*PolyANTT
-		int(inForRing)*pp.ValueCommitmentSerializeSize() //	cmts_in_p                  []*ValueCommitment
-
-	//	elrSigs                    []*ElrSignatureMLP
-	for i := 0; i < int(inForRing); i++ {
-		elrSigSize := pp.elrSignatureMLPSerializeSize(inRingSizes[i])
-		length = length + elrSigSize
-	}
-
-	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
-	length = length + int(inForSingleDistinct)*pp.addressPublicKeyForSingleSerializeSize()
-
-	//	simpleSigs                 []*SimpleSignatureMLP
-	length = length + int(inForSingleDistinct)*pp.simpleSignatureSerializeSize()
+		8 //	vPublic                    int64
 
 	//	balanceProof               BalanceProof
 	serializedBpfLen, err := pp.balanceProofTrTxSerializeSize(inForRing, outForRing, vPublic)
@@ -293,16 +244,13 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, inForS
 }
 
 // SerializeTxWitnessTrTx serialize TxWitnessTrTx to []byte.
-// reviewed on 2023.12.19
-// reviewed on 2023.12.20
-// reviewed by Alice, 2024.07.06
-func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *TxWitnessTrTx) (serializedTxWitness []byte, err error) {
+func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
-	if !pp.TxWitnessTrTxSanityCheck(txWitness) {
+	if !pp.CtxTxWitnessTrTxSanityCheck(txWitness) {
 		return nil, fmt.Errorf("SerializeTxWitnessTrTx: the input txWitness *TxWitnessTrTx is not well-form")
 	}
 
-	length, err := pp.TxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.inForSingleDistinct, txWitness.outForRing, txWitness.inRingSizes, txWitness.vPublic)
+	length, err := pp.CtxTxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
 	if err != nil {
 		return nil, err
 	}
@@ -327,20 +275,6 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *TxWitnessTrTx) (
 		return nil, err
 	}
 
-	//	inForSingleDistinct        uint8
-	err = w.WriteByte(txWitness.inForSingleDistinct)
-	if err != nil {
-		return nil, err
-	}
-
-	//	inRingSizes                []uint8
-	for i := uint8(0); i < txWitness.inForRing; i++ {
-		err = w.WriteByte(txWitness.inRingSizes[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	//	outForRing                 uint8
 	err = w.WriteByte(txWitness.outForRing)
 	if err != nil {
@@ -357,62 +291,6 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *TxWitnessTrTx) (
 	err = binarySerializer.PutUint64(w, littleEndian, uint64(txWitness.vPublic))
 	if err != nil {
 		return nil, err
-	}
-
-	//	ma_ps                      []*PolyANTT
-	for i := uint8(0); i < txWitness.inForRing; i++ {
-		err = pp.writePolyANTT(w, txWitness.ma_ps[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	cmts_in_p                  []*ValueCommitment
-	for i := uint8(0); i < txWitness.inForRing; i++ {
-		serializedCmt, err := pp.SerializeValueCommitment(txWitness.cmts_in_p[i])
-		if err != nil {
-			return nil, err
-		}
-		_, err = w.Write(serializedCmt)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	elrSigs                    []*ElrSignatureMLP
-	for i := uint8(0); i < txWitness.inForRing; i++ {
-		serializedElrSig, err := pp.serializeElrSignatureMLP(txWitness.elrSigs[i])
-		if err != nil {
-			return nil, err
-		}
-		_, err = w.Write(serializedElrSig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
-	for i := uint8(0); i < txWitness.inForSingleDistinct; i++ {
-		serializedApk, err := pp.serializeAddressPublicKeyForSingle(txWitness.addressPublicKeyForSingles[i])
-		if err != nil {
-			return nil, err
-		}
-		_, err = w.Write(serializedApk)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	simpleSigs                 []*SimpleSignatureMLP
-	for i := uint8(0); i < txWitness.inForSingleDistinct; i++ {
-		serializedSimpleSig, err := pp.serializeSimpleSignature(txWitness.simpleSigs[i])
-		if err != nil {
-			return nil, err
-		}
-		_, err = w.Write(serializedSimpleSig)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	//	balanceProof               BalanceProof
@@ -442,9 +320,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *TxWitnessTrTx) (
 }
 
 // DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
-// reviewed on 2023.12.19
-// reviewed by Alice, 2024.07.05
-func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byte) (*TxWitnessTrTx, error) {
+func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byte) (*CtxTxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the input serializedTxWitness is empty")
@@ -470,21 +346,6 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 		return nil, err
 	}
 
-	//	inForSingleDistinct        uint8
-	inForSingleDistinct, err := r.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-
-	//	inRingSizes                []uint8
-	inRingSizes := make([]uint8, inForRing)
-	for i := uint8(0); i < inForRing; i++ {
-		inRingSizes[i], err = r.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	//	outForRing                 uint8
 	outForRing, err := r.ReadByte()
 	if err != nil {
@@ -504,71 +365,6 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 	}
 	vPublic := int64(vPublicRead)
 
-	//	ma_ps                      []*PolyANTT
-	ma_ps := make([]*PolyANTT, inForRing)
-	for i := uint8(0); i < inForRing; i++ {
-		ma_ps[i], err = pp.readPolyANTT(r)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	cmts_in_p                  []*ValueCommitment
-	cmts_in_p := make([]*ValueCommitment, inForRing)
-	serializedCmt := make([]byte, pp.ValueCommitmentSerializeSize())
-	for i := uint8(0); i < inForRing; i++ {
-		_, err = io.ReadFull(r, serializedCmt)
-		if err != nil {
-			return nil, err
-		}
-		cmts_in_p[i], err = pp.DeserializeValueCommitment(serializedCmt)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	elrSigs                    []*ElrSignatureMLP
-	elrSigs := make([]*ElrSignatureMLP, inForRing)
-	for i := uint8(0); i < inForRing; i++ {
-		serializedElrSig := make([]byte, pp.elrSignatureMLPSerializeSize(inRingSizes[i]))
-		_, err = io.ReadFull(r, serializedElrSig)
-		if err != nil {
-			return nil, err
-		}
-		elrSigs[i], err = pp.deserializeElrSignatureMLP(serializedElrSig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	addressPublicKeyForSingles []*AddressPublicKeyForSingle
-	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
-	serializedApk := make([]byte, pp.addressPublicKeyForSingleSerializeSize())
-	for i := uint8(0); i < inForSingleDistinct; i++ {
-		_, err = io.ReadFull(r, serializedApk)
-		if err != nil {
-			return nil, err
-		}
-		addressPublicKeyForSingles[i], err = pp.deserializeAddressPublicKeyForSingle(serializedApk)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	//	simpleSigs                 []*SimpleSignatureMLP
-	simpleSigs := make([]*SimpleSignatureMLP, inForSingleDistinct)
-	serializedSimpleSig := make([]byte, pp.simpleSignatureSerializeSize())
-	for i := uint8(0); i < inForSingleDistinct; i++ {
-		_, err = io.ReadFull(r, serializedSimpleSig)
-		if err != nil {
-			return nil, err
-		}
-		simpleSigs[i], err = pp.deserializeSimpleSignature(serializedSimpleSig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	//	balanceProof               BalanceProof
 	bpfLen, err := ReadVarInt(r)
 	if err != nil {
@@ -579,7 +375,8 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 		return nil, err
 	}
 	if uint64(serializedBpfLen) != bpfLen {
-		//	This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		// This is to check the length. Actually, we can remove this check, and directly use bpfLen.
+		// This check is necessary, as it guarantees that bpfLen is not too large.
 		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized (inForRing, outForRing, vPublic) (%d, %d, %v)",
 			bpfLen, serializedBpfLen, inForRing, outForRing, vPublic)
 	}
@@ -594,24 +391,17 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 		return nil, err
 	}
 
-	txWitnessTrTx := &TxWitnessTrTx{
-		txCase:                     TxWitnessTrTxCase(txCase),
-		inForRing:                  inForRing,
-		inForSingle:                inForSingle,
-		inForSingleDistinct:        inForSingleDistinct,
-		inRingSizes:                inRingSizes,
-		outForRing:                 outForRing,
-		outForSingle:               outForSingle,
-		vPublic:                    vPublic,
-		ma_ps:                      ma_ps,
-		cmts_in_p:                  cmts_in_p,
-		elrSigs:                    elrSigs,
-		addressPublicKeyForSingles: addressPublicKeyForSingles,
-		simpleSigs:                 simpleSigs,
-		balanceProof:               balanceProof,
+	txWitnessTrTx := &CtxTxWitnessTrTx{
+		txCase:       TxWitnessTrTxCase(txCase),
+		inForRing:    inForRing,
+		inForSingle:  inForSingle,
+		outForRing:   outForRing,
+		outForSingle: outForSingle,
+		vPublic:      vPublic,
+		balanceProof: balanceProof,
 	}
 
-	if !pp.TxWitnessTrTxSanityCheck(txWitnessTrTx) {
+	if !pp.CtxTxWitnessTrTxSanityCheck(txWitnessTrTx) {
 		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialzied TxWitnessTrTx is not well-form")
 	}
 
@@ -629,10 +419,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 // (4) txWitnessCbTx.outForSingle is in the allowed scope
 // (5) txWitnessCbTx.balanceProof is well-form
 // (6) (txWitnessCbTx.vL, txWitnessCbTx.outForRing, txWitnessCbTx.outForSingle, txWitnessCbTx.balanceProof.BalanceProofCase) match the rules.
-// added and reviewed by Alice, 2024.07.01
-// todo: review by 2024.07
-// reviewed by Ocean
-func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessCbTx) bool {
+func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *CtxTxWitnessCbTx) bool {
 	if txWitnessCbTx == nil {
 		return false
 	}
@@ -765,10 +552,7 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *TxWitnessC
 // (8) txWitnessTrTx.simpleSigs  match with inForSingleDistinct, and is well-form.
 // (9) txWitnessTrTx.balanceProof is well-form
 // (10) txWitnessTrTx.(inForRing, outForRing, vPublic) match each other, and matches wih  txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
-// added and reviewed by Alice, 2024.07.01
-// todo: review by 2024.07
-// reviewed by Ocean
-func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx) bool {
+func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *CtxTxWitnessTrTx) bool {
 
 	if txWitnessTrTx == nil {
 		return false
@@ -784,25 +568,6 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessT
 		return false
 	}
 
-	if txWitnessTrTx.inForSingleDistinct > pp.paramISingleDistinct {
-		return false
-	}
-	if txWitnessTrTx.inForSingleDistinct > txWitnessTrTx.inForSingle {
-		return false
-	}
-	if txWitnessTrTx.inForSingle > 0 && txWitnessTrTx.inForSingleDistinct == 0 {
-		return false
-	}
-
-	if len(txWitnessTrTx.inRingSizes) != int(txWitnessTrTx.inForRing) {
-		return false
-	}
-	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
-		if txWitnessTrTx.inRingSizes[i] == 0 || txWitnessTrTx.inRingSizes[i] > pp.paramRingSizeMax {
-			return false
-		}
-	}
-
 	if txWitnessTrTx.outForRing > pp.paramJ {
 		return false
 	}
@@ -816,66 +581,6 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessT
 	V := (uint64(1) << pp.paramN) - 1
 	if (txWitnessTrTx.vPublic > int64(V)) || (txWitnessTrTx.vPublic < -int64(V)) {
 		return false
-	}
-
-	if len(txWitnessTrTx.ma_ps) != int(txWitnessTrTx.inForRing) {
-		return false
-	}
-	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
-		if !pp.PolyANTTSanityCheck(txWitnessTrTx.ma_ps[i]) {
-			return false
-		}
-	}
-
-	if len(txWitnessTrTx.cmts_in_p) != int(txWitnessTrTx.inForRing) {
-		return false
-	}
-	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
-		if !pp.ValueCommitmentSanityCheck(txWitnessTrTx.cmts_in_p[i]) {
-			return false
-		}
-	}
-
-	if len(txWitnessTrTx.elrSigs) != int(txWitnessTrTx.inForRing) {
-		return false
-	}
-	for i := uint8(0); i < txWitnessTrTx.inForRing; i++ {
-		if !pp.ElrSignatureMLPSanityCheck(txWitnessTrTx.elrSigs[i]) {
-			return false
-		}
-
-		if txWitnessTrTx.elrSigs[i].ringSize != txWitnessTrTx.inRingSizes[i] {
-			return false
-		}
-	}
-
-	if len(txWitnessTrTx.addressPublicKeyForSingles) != int(txWitnessTrTx.inForSingleDistinct) {
-		return false
-	}
-
-	addressPublicKeyStrMap := make(map[string]int) // There should not be repeated AddressPublicKeyForSingle in the distinct key list.
-	for i := uint8(0); i < txWitnessTrTx.inForSingleDistinct; i++ {
-		if !pp.AddressPublicKeyForSingleSanityCheck(txWitnessTrTx.addressPublicKeyForSingles[i]) {
-			return false
-		}
-
-		serializedApk, err := pp.serializeAddressPublicKeyForSingle(txWitnessTrTx.addressPublicKeyForSingles[i])
-		if err != nil {
-			return false
-		}
-		apkStr := hex.EncodeToString(serializedApk)
-		if _, exists := addressPublicKeyStrMap[apkStr]; exists {
-			return false
-		}
-	}
-
-	if len(txWitnessTrTx.simpleSigs) != int(txWitnessTrTx.inForSingleDistinct) {
-		return false
-	}
-	for i := uint8(0); i < txWitnessTrTx.inForSingleDistinct; i++ {
-		if !pp.SimpleSignatureSanityCheck(txWitnessTrTx.simpleSigs[i]) {
-			return false
-		}
 	}
 
 	if !pp.BalanceProofSanityCheck(txWitnessTrTx.balanceProof) {
@@ -1147,160 +852,5 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessT
 //	Sanity-Check functions	end
 
 //	helper functions 	begin
-
-// balanceProofCbTxSerializeSize returns the serialize size for BalanceProofCbTx.
-// reviewed by Alice, 2024.07.05
-// moved from mlptransaction.go, 2024.07.06
-func (pp *PublicParameter) CtxbalanceProofCbTxSerializeSize(outForRing uint8) (int, error) {
-	if outForRing == 0 {
-		return pp.balanceProofL0R0SerializeSize(), nil
-	} else if outForRing == 1 {
-		return pp.balanceProofL0R1SerializeSize(), nil
-	} else { //	outForRing >= 2
-		return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, outForRing)
-	}
-}
-
-// balanceProofTrTxSerializeSize returns the serialize for the BalanceProof for TxWitnessTrTx, according to the input (inForRing uint8, outForRing uint8, vPublic int64).
-// reviewed on 2023.12.19
-// reviewed by Alice, 2024.07.05
-// moved from mlptransaction.go, 2024.07.06
-func (pp *PublicParameter) CtxbalanceProofTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
-
-	if inForRing == 0 {
-		if outForRing == 0 {
-			if vPublic != 0 {
-				//	assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 0, but vPublic != 0")
-			}
-
-			return pp.balanceProofL0R0SerializeSize(), nil
-
-		} else if outForRing == 1 {
-			//	0 = cmt_{out,0} + vPublic
-			if vPublic > 0 {
-				//	assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic > 0")
-			}
-
-			if vPublic == 0 {
-				//	assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing == 1, but vPublic == 0")
-			}
-
-			//  -vPublic = cmt_{out,0}
-			return pp.balanceProofL0R1SerializeSize(), nil
-
-		} else { //	outForRing >= 2
-			//	0 = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if vPublic > 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic > 0")
-			} else if vPublic == 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but vPublic == 0")
-			} else {
-				if (-vPublic) < int64(outForRing) {
-					return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 0 and outForRing >= 2, but -vPublic < outForRing")
-				}
-			}
-
-			//	(-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-			return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, outForRing)
-
-		}
-	} else if inForRing == 1 {
-		if outForRing == 0 {
-			//	cmt_{in,0} = vPublic
-			if vPublic < 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing == 1 and outForRing == 0, but vPublic < 0")
-			}
-
-			if vPublic == 0 {
-				// do nothing
-				// because the cmt_{in,0} was generated by previous transaction, we should not ban it now.
-			}
-
-			//	vPublic = cmt_{in,0}
-			return pp.balanceProofL0R1SerializeSize(), nil
-
-		} else if outForRing == 1 {
-			//	cmt_{in,0} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0}
-				return pp.balanceProofL1R1SerializeSize(), nil
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
-			}
-		} else { //	outForRing >= 2
-			//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-			} else if vPublic > 0 {
-				//	cmt_{in,0} = cmt_{out,0} + ...+ cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-			} else { // vPublic < 0
-				//	cmt_{in,0} + (-vPublic) = cmt_{out,0} + ...+ cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ...+ cmt_{out, outForRing-1} = cmt_{in,0} + (-vPublic)
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
-			}
-		}
-
-	} else { //	inForRing >= 2
-		if outForRing == 0 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
-			if vPublic < 0 {
-				// assert
-				return 0, fmt.Errorf("balanceProofTrTxSerializeSize: this should not happen, where inForRing >= 2 and outForRing == 0, but vPublic < 0")
-			}
-
-			if vPublic == 0 {
-				// do nothing
-				// because the cmt_{in,0} + ... + cmt_{in, inForRing-1} were generated by previous transaction, we should not ban it now.
-			}
-
-			//	vPublic = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-			return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(0, inForRing)
-
-		} else if outForRing == 1 {
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1}
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + vPublic
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0}
-				//	cmt_{out,0} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
-			}
-
-		} else { // outForRing >= 2
-			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-			if vPublic == 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-
-			} else if vPublic > 0 {
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = cmt_{out,0} + ... + cmt_{out, outForRing-1} + vPublic
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(inForRing, outForRing)
-
-			} else { // vPublic < 0
-				//	cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic) = cmt_{out,0} + ... + cmt_{out, outForRing-1}
-				//	cmt_{out,0} + ... + cmt_{out, outForRing-1} = cmt_{in,0} + ... + cmt_{in, inForRing-1} + (-vPublic)
-				return pp.balanceProofLmRnGeneralSerializeSizeByCommNum(outForRing, inForRing)
-			}
-		}
-	}
-}
 
 //	helper functions 	end
