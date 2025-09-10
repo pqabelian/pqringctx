@@ -748,7 +748,7 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *CtxTxWitne
 			}
 		}
 
-	} else {                               //	inForRing >= 2 // (>=2,?,?)
+	} else {                               // inForRing >= 2	// (>=2, ?, ?)
 		if txWitnessTrTx.outForRing == 0 { // (>=2,0,?)
 			//	cmt_{in,0} + ... + cmt_{in, inForRing-1} = vPublic
 			if txWitnessTrTx.vPublic < 0 { // (>=2,0,<0)
