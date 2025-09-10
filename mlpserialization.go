@@ -177,7 +177,7 @@ func (pp *PublicParameter) DeserializeCoinbaseTxMLP(serializedCoinbaseTxMLP []by
 		//	an assert/double-check
 		expectedTxWitnessLen, err1 := pp.TxWitnessCbTxSerializeSize(txWitness.outForRing)
 		if err1 != nil {
-			return nil, err
+			return nil, err1
 		}
 		if len(serializedTxWitness) != expectedTxWitnessLen {
 			return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: serializedTxWitness from serializedCoinbaseTxMLP has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
