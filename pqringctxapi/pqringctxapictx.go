@@ -28,6 +28,10 @@ type CtxCoinbaseTx = pqringctx.CtxCoinbaseTx
 // TransferTxMLP defined the transfer transaction
 type CtxTransferTx = pqringctx.CtxTransferTx
 
+// TxWitnessCbTx / TxWitnessTrTx is witness for difference type of transaction
+type CtxTxWitnessCbTx = pqringctx.CtxTxWitnessCbTx
+type CtxTxWitnessTrTx = pqringctx.CtxTxWitnessTrTx
+
 // NewTxOutputDescMLP constructs a new TxOutputDescMLP from the input coinAddress, serializedVPK, and value.
 // To support Multi-Level Privacy (MLP), the value public key field can be nil
 // reviewed on 2023.12.07
@@ -46,48 +50,38 @@ func CtxCoinbaseTxGen(pp *PublicParameter, vin uint64, txOutputDescs []*CtxTxOut
 
 // NewCoinbaseTxMLP constructs a new CoinbaseTxMLP from the input (vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *TxWitnessCbTx).
 // reviewed on 2023.12.07
-func NewCtxCoinbaseTx(vin uint64, txos []TxoMLP, txMemo []byte, txWitnessCbTx *TxWitnessCbTx) (cbTx *CoinbaseTxMLP) {
-	return pqringctx.NewCoinbaseTxMLP(vin, txos, txMemo, txWitnessCbTx)
+func NewCtxCoinbaseTx(vin uint64, txos []CtxTxo, txWitnessCbTx *CtxTxWitnessCbTx) (cbTx *CtxCoinbaseTx) {
+	return pqringctx.NewCtxCoinbaseTx(vin, txos, txWitnessCbTx)
 }
 
 // CoinbaseTxVerify verify whether the input CoinbaseTxMLP is valid.
 // todo: review
-func CtxCoinbaseTxVerify(pp *PublicParameter, cbTx *CoinbaseTxMLP) error {
-	return pp.CoinbaseTxMLPVerify(cbTx)
+func CtxCoinbaseTxVerify(pp *PublicParameter, cbTx *CtxCoinbaseTx) error {
+	return pp.CtxCoinbaseTxVerify(cbTx)
 }
 
 // NewTxInputDescMLP constructs a TxInputDescMLP, using the same inputs.
 // reviewed on 2023.12.21
-func NewCtxTxInputDesc(lgrTxoList []*LgrTxoMLP, sidx uint8, coinSpendSecretKey []byte, coinSerialNumberSecretKey []byte,
-	coinValuePublicKey []byte, coinValueSecretKey []byte, coinDetectorKey []byte, value uint64) *TxInputDescMLP {
-	return pqringctx.NewTxInputDescMLP(lgrTxoList, sidx, coinSpendSecretKey, coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey, coinDetectorKey, value)
+func NewCtxTxInputDesc(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte, value uint64) *CtxTxInputDesc {
+	return pqringctx.NewCtxTxInputDesc(ctxTxo, coinValuePublicKey, coinValueSecretKey, value)
 }
 
 // TransferTxGen generates TransferTxMLP.
 // As the caller may decompose the components of the generated TransferTx
 // to make a chain-layer transaction,
 // TransferTxGen outputs a pqringctxapidao.TransferTxMLP, rather than a serialized Tx.
-// reviewed on 2023.12.21
-func CtxTransferTxGen(pp *PublicParameter, txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (trTx *TransferTxMLP, err error) {
-	return pp.TransferTxMLPGen(txInputDescs, txOutputDescs, fee, txMemo)
-}
-
-// NewTxInputMLP constructs a new TxInputMLP using the input (lgrTxoList []*LgrTxoMLP, serialNumber []byte).
-// reviewed on 2023.12.21
-func NewCtxTxInput(lgrTxoList []*LgrTxoMLP, serialNumber []byte) (txInputMLP *TxInputMLP) {
-	return pqringctx.NewTxInputMLP(lgrTxoList, serialNumber)
+func CtxTransferTxGen(pp *PublicParameter, txInputDescs []*CtxTxInputDesc, txOutputDescs []*CtxTxOutputDesc) (trTx *CtxTransferTx, err error) {
+	return pp.CtxTransferTxGen(txInputDescs, txOutputDescs)
 }
 
 // NewTransferTxMLP constructs a new TransferTxMLP using the input (txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitnessTrTx *TxWitnessTrTx).
-// reviewed on 2023.12.21
-func NewCtxTransferTx(txInputs []*TxInputMLP, txos []TxoMLP, fee uint64, txMemo []byte, txWitnessTrTx *TxWitnessTrTx) (trTx *TransferTxMLP) {
-	return pqringctx.NewTransferTxMLP(txInputs, txos, fee, txMemo, txWitnessTrTx)
+func NewCtxTransferTx(txInputs []CtxTxo, txos []CtxTxo, txWitnessTrTx *CtxTxWitnessTrTx) (trTx *CtxTransferTx) {
+	return pqringctx.NewCtxTransferTx(txInputs, txos, txWitnessTrTx)
 }
 
 // TransferTxVerify verifies TransferTxMLP.
-// todo: review
-func CtxTransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) error {
-	return pp.TransferTxMLPVerify(trTx)
+func CtxTransferTxVerify(pp *PublicParameter, trTx *CtxTransferTx) error {
+	return pp.CtxTransferTxVerify(trTx)
 }
 
 // APIs	for Txo	begin
@@ -98,30 +92,26 @@ func CtxTransferTxVerify(pp *PublicParameter, trTx *TransferTxMLP) error {
 // GetTxoSerializeSize return the size of a Txo on the input coinAddress.
 // Note that the Txos on coinAddresses with different types may have different formats and sizes.
 // reviewed on 2023.12.07
-func GetCtxTxoSerializeSize(pp *PublicParameter, coinAddress []byte) (int, error) {
-	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
-	if err != nil {
-		return 0, err
-	}
-	return pp.GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType)
+func GetCtxTxoSerializeSize(pp *PublicParameter, ctxTxoType CtxTxoType) (int, error) {
+	return pp.GetCtxTxoSerializeSizeByCtxTxoType(ctxTxoType)
 }
 
 // SerializeTxo serializes the input TxoMLP to []byte.
-// reviewed on 2023.12.07
-func SerializeCtxTxo(pp *PublicParameter, txo TxoMLP) ([]byte, error) {
-	return pp.SerializeTxoMLP(txo)
+func SerializeCtxTxo(pp *PublicParameter, txo CtxTxo) ([]byte, error) {
+	return pp.SerializeCtxTxo(txo)
 }
 
 // DeserializeTxo deserialize the input []byte to a TxoMLP.
 // reviewed on 2023.12.07
-func DeserializeCtxTxo(pp *PublicParameter, serializedTxo []byte) (TxoMLP, error) {
-	return pp.DeserializeTxoMLP(serializedTxo)
+func DeserializeCtxTxo(pp *PublicParameter, serializedTxo []byte) (CtxTxo, error) {
+	return pp.DeserializeCtxTxo(serializedTxo)
 }
 
 // TxoCoinReceive
 // todo: review
-func CtxTxoCoinReceive(pp *PublicParameter, txo TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, value uint64, err error) {
-	return pp.TxoMLPCoinReceive(txo, coinAddress, coinValuePublicKey, coinValueSecretKey)
+func ExtractValueFromCtxTxo(pp *PublicParameter, txo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, err error) {
+	value, _, _, err = pp.ExtractValueAndRandFromCtxTxo(txo, coinValuePublicKey, coinValueSecretKey)
+	return value, err
 }
 
 // PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
@@ -137,38 +127,38 @@ func PseudonymCtxTxoCoinParse(pp *PublicParameter, txo TxoMLP) (coinAddress []by
 
 // GetTxWitnessCbTxSerializeSizeByDesc return the accurate size of the TxWitness for a coinbaseTx, according to the coinAddressListPayTo.
 // reviewed on 2024.01.01, by Alice
-func GetCtxTxWitnessCbTxSerializeSizeByDesc(pp *PublicParameter, coinAddressListPayTo [][]byte) (int, error) {
-	return pp.GetTxWitnessCbTxSerializeSizeByDesc(coinAddressListPayTo)
+func GetCtxTxWitnessCbTxSerializeSizeByDesc(pp *PublicParameter, outNumForHidde uint8) (int, error) {
+	return pp.GetCtxTxWitnessCbTxSerializeSizeByDesc(outNumForHidde)
 }
 
 // SerializeTxWitnessCbTx serializes the input TxWitnessCbTx into []byte.
 // reviewed on 2023.12.07
-func SerializeCtxTxWitnessCbTx(pp *PublicParameter, txWitness *TxWitnessCbTx) ([]byte, error) {
-	return pp.SerializeTxWitnessCbTx(txWitness)
+func SerializeCtxTxWitnessCbTx(pp *PublicParameter, txWitness *CtxTxWitnessCbTx) ([]byte, error) {
+	return pp.SerializeCtxTxWitnessCbTx(txWitness)
 }
 
 // DeserializeTxWitnessCbTx deserializes the input []byte to a TxWitnessCbTx.
 // reviewed on 2023.12.07
-func DeserializeCtxTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessCbTx, error) {
-	return pp.DeserializeTxWitnessCbTx(serializedTxWitness)
+func DeserializeCtxTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte) (*CtxTxWitnessCbTx, error) {
+	return pp.DeserializeCtxTxWitnessCbTx(serializedTxWitness)
 }
 
 // GetTxWitnessTrTxSerializeSizeByDesc returns the serialize size for TxWitnessTrTx according to the input description information, say (inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic).
-// todo: review
-func GetCtxTxWitnessTrTxSerializeSizeByDesc(pp *PublicParameter, inForRing uint8, inForSingleDistinct uint8, outForRing uint8, inRingSizes []uint8, vPublic int64) (int, error) {
-	return pp.GetTxWitnessTrTxSerializeSizeByDesc(inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic)
+// todo: vPublic = (sum of public value for out) - (sum of public value for in)
+func GetCtxTxWitnessTrTxSerializeSizeByDesc(pp *PublicParameter, inNumForHidden uint8, outNumForHidden uint8, vPublic int64) (int, error) {
+	return pp.GetCtxTxWitnessTrTxSerializeSizeByDesc(inNumForHidden, outNumForHidden, vPublic)
 }
 
 // SerializeTxWitnessTrTx serializes TxWitnessTrTx to []byte.
 // reviewed on 2023.12.21
-func SerializeCtxTxWitnessTrTx(pp *PublicParameter, txWitness *TxWitnessTrTx) ([]byte, error) {
-	return pp.SerializeTxWitnessTrTx(txWitness)
+func SerializeCtxTxWitnessTrTx(pp *PublicParameter, txWitness *CtxTxWitnessTrTx) ([]byte, error) {
+	return pp.SerializeCtxTxWitnessTrTx(txWitness)
 }
 
 // DeserializeTxWitnessTrTx deserializes the input []byte to a TxWitnessTrTx.
 // todo: review
-func DeserializeCtxTxWitnessTrTx(pp *PublicParameter, serializedTxWitness []byte) (*TxWitnessTrTx, error) {
-	return pp.DeserializeTxWitnessTrTx(serializedTxWitness)
+func DeserializeCtxTxWitnessTrTx(pp *PublicParameter, serializedTxWitness []byte) (*CtxTxWitnessTrTx, error) {
+	return pp.DeserializeCtxTxWitnessTrTx(serializedTxWitness)
 }
 
 // APIs for Witness 	end
@@ -176,37 +166,22 @@ func DeserializeCtxTxWitnessTrTx(pp *PublicParameter, serializedTxWitness []byte
 // Get functions of Transactions	begin
 
 // GetCbTxTxos
-// added by Alice, 2024.07.06
-// todo: review
-func GetCtxCbTxTxos(cbTx *CoinbaseTxMLP) []TxoMLP {
+func GetCtxCoinbaseTxTxos(cbTx *CtxCoinbaseTx) []CtxTxo {
 	return cbTx.GetTxos()
 }
 
 // GetCbTxTxWitness
-// added by Alice, 2024.07.06
-// todo: review
-func GetCtxCbTxTxWitness(cbTx *CoinbaseTxMLP) *TxWitnessCbTx {
+func GetCtxCoinbaseTxTxWitness(cbTx *CtxCoinbaseTx) *CtxTxWitnessCbTx {
 	return cbTx.GetTxWitness()
 }
 
 // GetTrTxTxos
-// added by Alice, 2024.07.06
-// todo: review
-func GetCtxTrTxTxos(trTx *TransferTxMLP) []TxoMLP {
+func GetCtxTransferTxTxos(trTx *CtxTransferTx) []CtxTxo {
 	return trTx.GetTxos()
 }
 
-// GetTrTxTxInputs
-// added by Alice, 2024.07.06
-// todo: review
-func GetCtxTrTxTxInputs(trTx *TransferTxMLP) []*TxInputMLP {
-	return trTx.GetTxInputs()
-}
-
 // GetTrTxWitness
-// added by Alice, 2024.07.06
-// todo: review
-func GetCtxTrTxWitness(trTx *TransferTxMLP) *TxWitnessTrTx {
+func GetCtxTransferTxTxWitness(trTx *CtxTransferTx) *CtxTxWitnessTrTx {
 	return trTx.GetTxWitness()
 }
 
