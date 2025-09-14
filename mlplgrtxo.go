@@ -158,8 +158,9 @@ func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSeria
 
 	} else {
 
-		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
+			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty,"+
+				"while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT", coinAddressType)
 		}
 
 		ma_p = m_r

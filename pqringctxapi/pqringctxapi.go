@@ -14,9 +14,10 @@ type PublicParameter = pqringctx.PublicParameter
 type CoinAddressType = pqringctx.CoinAddressType
 
 const (
-	CoinAddressTypePublicKeyForRingPre    = pqringctx.CoinAddressTypePublicKeyForRingPre
-	CoinAddressTypePublicKeyForRing       = pqringctx.CoinAddressTypePublicKeyForRing
-	CoinAddressTypePublicKeyHashForSingle = pqringctx.CoinAddressTypePublicKeyHashForSingle
+	CoinAddressTypePublicKeyForRingPre      = pqringctx.CoinAddressTypePublicKeyForRingPre
+	CoinAddressTypePublicKeyForRing         = pqringctx.CoinAddressTypePublicKeyForRing
+	CoinAddressTypePublicKeyHashForSingle   = pqringctx.CoinAddressTypePublicKeyHashForSingle
+	CoinAddressTypePublicKeyHashForSingleCT = pqringctx.CoinAddressTypePublicKeyHashForSingleCT
 )
 
 // TxOutputDescMLP is used to collect output information
@@ -83,13 +84,13 @@ func CoinAddressKeyForPKRingGenSerialNumberKeyPart(pp *PublicParameter, coinSeri
 // and packages the cryptographic details in pqringctx.
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
-func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
-	return pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
+func CoinAddressKeyForPKHSingleGen(pp *PublicParameter, coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte, coinAddressType CoinAddressType) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
+	return pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand, coinAddressType)
 	//	return nil, nil, err
 }
 
-func CoinAddressKeyForPKHSingleVerify(pp *PublicParameter, coinAddress []byte, coinSpendSecretKey []byte, coinDetectorKey []byte) (bool, error) {
-	return pp.CoinAddressKeyForPKHSingleVerify(coinAddress, coinSpendSecretKey, coinDetectorKey)
+func CoinAddressKeyForPKHSingleVerify(pp *PublicParameter, coinAddress []byte, coinSpendSecretKey []byte, coinDetectorKey []byte, coinAddressType CoinAddressType) (bool, error) {
+	return pp.CoinAddressKeyForPKHSingleVerify(coinAddress, coinSpendSecretKey, coinDetectorKey, coinAddressType)
 }
 
 // CoinValueKeyGen generates serializedValuePublicKey and serializedValueSecretKey,
@@ -216,7 +217,8 @@ func CoinAddressSizeByCoinAddressKeyForPKRingGen(pp *PublicParameter) (int, erro
 // reviewed on 2023.12.12
 // refactor function name, 2024.01.24
 func CoinAddressSizeByCoinAddressKeyForPKHSingleGen(pp *PublicParameter) (int, error) {
-	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
+	//return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
+	return pp.GetCoinAddressSize(pqringctx.CoinAddressTypePublicKeyHashForSingleCT)
 }
 
 // CoinSpendSecretKeySizeByCoinAddressKeyForPKRingGen returns the size of CoinSpendSecretKey,

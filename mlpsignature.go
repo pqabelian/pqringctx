@@ -1162,7 +1162,8 @@ func (pp *PublicParameter) LgrTxoRingForSingleSanityCheck(lgrTxoList []*LgrTxoML
 		return false
 	}
 
-	if lgrTxoList[0].txo.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
+	if lgrTxoList[0].txo.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle &&
+		lgrTxoList[0].txo.CoinAddressType() != CoinAddressTypePublicKeyHashForSingleCT {
 		return false
 	}
 

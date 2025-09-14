@@ -3,9 +3,10 @@ package pqringctx
 type CoinAddressType uint8
 
 const (
-	CoinAddressTypePublicKeyForRingPre    CoinAddressType = 0
-	CoinAddressTypePublicKeyForRing       CoinAddressType = 1
-	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 2
+	CoinAddressTypePublicKeyForRingPre      CoinAddressType = 0
+	CoinAddressTypePublicKeyForRing         CoinAddressType = 1
+	CoinAddressTypePublicKeyHashForSingle   CoinAddressType = 2
+	CoinAddressTypePublicKeyHashForSingleCT CoinAddressType = 3
 )
 
 // LgrTxoMLP consists of a TxoMLP and a txoId-in-ledger, which is the unique identifier of a TxoMLP in the ledger/blockchain/database.
