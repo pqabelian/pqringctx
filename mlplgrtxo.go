@@ -144,11 +144,30 @@ func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSeria
 	coinAddressType := lgrTxo.txo.CoinAddressType()
 
 	var ma_p *PolyANTT
-	if len(coinSerialNumberSecretKey) != 0 {
-		if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
-			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is not nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing", coinAddressType)
-		}
+	//if len(coinSerialNumberSecretKey) != 0 {
+	//	if coinAddressType != CoinAddressTypePublicKeyForRingPre && coinAddressType != CoinAddressTypePublicKeyForRing {
+	//		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is not nil/empty, while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing", coinAddressType)
+	//	}
+	//
+	//	askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	ma_p = pp.PolyANTTAdd(askSn.ma, m_r)
+	//
+	//} else {
+	//
+	//	if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
+	//		return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty,"+
+	//			"while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT", coinAddressType)
+	//	}
+	//
+	//	ma_p = m_r
+	//}
 
+	switch coinAddressType {
+	case CoinAddressTypePublicKeyForRingPre, CoinAddressTypePublicKeyForRing:
 		askSn, err := pp.coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey)
 		if err != nil {
 			return nil, err
@@ -156,13 +175,7 @@ func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSeria
 
 		ma_p = pp.PolyANTTAdd(askSn.ma, m_r)
 
-	} else {
-
-		if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
-			return nil, fmt.Errorf("LedgerTxoSerialNumberGen: the input coinSerialNumberSecretKey is nil/empty,"+
-				"while the input lgrTxo's CoinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT", coinAddressType)
-		}
-
+	case CoinAddressTypePublicKeyHashForSingle, CoinAddressTypePublicKeyHashForSingleCT:
 		ma_p = m_r
 	}
 

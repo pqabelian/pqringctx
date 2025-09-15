@@ -234,7 +234,7 @@ func CoinSpendSecretKeySizeByCoinAddressKeyForPKRingGen(pp *PublicParameter) (in
 // reviewed on 2023.12.12
 // refactor function name on 2024.01.24
 func CoinSpendSecretKeySizeByCoinAddressKeyForPKHSingleGen(pp *PublicParameter) (int, error) {
-	return pp.GetCoinSpendSecretKeySize(pqringctx.CoinAddressTypePublicKeyHashForSingle)
+	return pp.GetCoinSpendSecretKeySize(pqringctx.CoinAddressTypePublicKeyHashForSingleCT)
 }
 
 // CoinSerialNumberSecretKeySizeByCoinAddressKeyForPKRingGen returns the size of CoinSerialNumberSecretKey,
@@ -260,6 +260,8 @@ func GetCoinValueSecretKeySize(pp *PublicParameter) int {
 //	API for AddressKeys	end
 
 // API for CryptoSchemeParams	begin
+
+// GetParamSeedBytesLen returns the ParamSeedBytesLen.
 // reviewed on 2023.12.07
 func GetParamSeedBytesLen(pp *PublicParameter) int {
 	return pp.GetParamSeedBytesLen()

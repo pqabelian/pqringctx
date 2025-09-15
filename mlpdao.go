@@ -7,6 +7,7 @@ const (
 	CoinAddressTypePublicKeyForRing         CoinAddressType = 1
 	CoinAddressTypePublicKeyHashForSingle   CoinAddressType = 2
 	CoinAddressTypePublicKeyHashForSingleCT CoinAddressType = 3
+	// CoinAddressTypePublicKeyHashForSingleCT can be regarded as an updated alias for CoinAddressTypePublicKeyHashForSingle.
 )
 
 // LgrTxoMLP consists of a TxoMLP and a txoId-in-ledger, which is the unique identifier of a TxoMLP in the ledger/blockchain/database.

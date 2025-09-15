@@ -849,7 +849,8 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 		return nil, err
 	}
 	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingle && CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingleCT {
-		return nil, fmt.Errorf("deserializeTxoSDN: the deserialized coinAddressType is not CoinAddressTypePublicKeyHashForSingle")
+		return nil, fmt.Errorf("deserializeTxoSDN: the deserialized coinAddressType" +
+			"is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT")
 	}
 
 	apkHash := make([]byte, HashOutputBytesLen)

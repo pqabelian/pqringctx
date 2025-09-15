@@ -289,7 +289,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: The input txInputDescs []*TxInputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
+		return nil, fmt.Errorf("TransferTxMLPGen: The input txOutputDescs []*TxOutputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 
 	V := (uint64(1) << pp.paramN) - 1
