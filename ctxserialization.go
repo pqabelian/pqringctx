@@ -36,7 +36,7 @@ func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withW
 		if cbTx.txWitness == nil {
 			return 0, fmt.Errorf("CtxCoinbaseTxSerializeSize: withWitness = true while cbTx.txWitness is nil")
 		}
-		witnessLen, err := pp.CtxTxWitnessCbTxSerializeSize(cbTx.txWitness.outForRing)
+		witnessLen, err := pp.CtxTxWitnessCbTxSerializeSizeByDesc(cbTx.txWitness.outForRing)
 		if err != nil {
 			return 0, err
 		}
@@ -207,7 +207,7 @@ func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withW
 		if trTx.txWitness == nil {
 			return 0, fmt.Errorf("CtxTransferTxSerializeSize: withWitness = true while trTx.txWitness is nil")
 		}
-		witnessLen, err := pp.CtxTxWitnessTrTxSerializeSize(trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.vPublic)
+		witnessLen, err := pp.CtxTxWitnessTrTxSerializeSizeByDesc(trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.vPublic)
 		if err != nil {
 			return 0, err
 		}
@@ -353,7 +353,7 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 			return nil, err
 		}
 		//	an assert/double-check
-		expectedTxWitnessLen, err1 := pp.CtxTxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
+		expectedTxWitnessLen, err1 := pp.CtxTxWitnessTrTxSerializeSizeByDesc(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
 		if err1 != nil {
 			return nil, err1
 		}

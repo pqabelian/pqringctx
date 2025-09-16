@@ -106,7 +106,7 @@ func ExtractValueFromCtxTxo(pp *PublicParameter, txo CtxTxo, coinValuePublicKey 
 // GetCtxTxWitnessCbTxSerializeSizeByDesc return the accurate size of the CtxTxWitnessCbTx,
 // according to the input outNumForHidden.
 func GetCtxTxWitnessCbTxSerializeSizeByDesc(pp *PublicParameter, outNumForHidden uint8) (int, error) {
-	return pp.CtxTxWitnessCbTxSerializeSize(outNumForHidden)
+	return pp.CtxTxWitnessCbTxSerializeSizeByDesc(outNumForHidden)
 }
 
 // SerializeCtxTxWitnessCbTx serializes the input CtxTxWitnessCbTx into []byte.
@@ -123,7 +123,7 @@ func DeserializeCtxTxWitnessCbTx(pp *PublicParameter, serializedTxWitness []byte
 // according to the input description information, say (inNumForHidden, outNumForHidden, vPublic),
 // where vPublic = (sum of public value for out) - (sum of public value for in).
 func GetCtxTxWitnessTrTxSerializeSizeByDesc(pp *PublicParameter, inNumForHidden uint8, outNumForHidden uint8, vPublic int64) (int, error) {
-	return pp.CtxTxWitnessTrTxSerializeSize(inNumForHidden, outNumForHidden, vPublic)
+	return pp.CtxTxWitnessTrTxSerializeSizeByDesc(inNumForHidden, outNumForHidden, vPublic)
 }
 
 // SerializeCtxTxWitnessTrTx serializes CtxTxWitnessTrTx to []byte.

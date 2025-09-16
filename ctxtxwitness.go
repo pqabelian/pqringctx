@@ -55,10 +55,11 @@ func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 
 // TxWitnessCbTx	begin
 
-// CtxTxWitnessCbTxSerializeSize returns the serialized size for the input CtxTxWitnessCbTx.
-func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
+// CtxTxWitnessCbTxSerializeSizeByDesc returns the serialized size CtxTxWitnessCbTx,
+// according to the input description information.
+func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSizeByDesc(outForRing uint8) (int, error) {
 	if outForRing > pp.paramJ {
-		return 0, fmt.Errorf("CtxTxWitnessCbTxSerializeSize: the input outForRing exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
+		return 0, fmt.Errorf("CtxTxWitnessCbTxSerializeSizeByDesc: the input outForRing exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
 	}
 
 	length := 1 + // txCase       TxWitnessCbTxCase
@@ -83,7 +84,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx
 		return nil, fmt.Errorf("SerializeCtxTxWitnessCbTx: the input CtxTxWitnessCbTx is not well-form")
 	}
 
-	length, err := pp.CtxTxWitnessCbTxSerializeSize(txWitness.outForRing)
+	length, err := pp.CtxTxWitnessCbTxSerializeSizeByDesc(txWitness.outForRing)
 	if err != nil {
 		return nil, err
 	}
@@ -227,15 +228,16 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 
 // TxWitnessTrTx	begin
 
-// CtxTxWitnessTrTxSerializeSize returns the serialize size for CtxTxWitnessTrTx.
-func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
+// CtxTxWitnessTrTxSerializeSizeByDesc returns the serialize size for CtxTxWitnessTrTx,
+// according to the input description information.
+func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
 
 	if inForRing > pp.paramI {
-		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSize: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
+		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSizeByDesc: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
 
 	if outForRing > pp.paramJ {
-		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSize: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
+		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSizeByDesc: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 
 	length := 1 + //	txCase                     TxWitnessTrTxCase
@@ -260,7 +262,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx
 		return nil, fmt.Errorf("SerializeCtxTxWitnessTrTx: the input txWitness *CtxTxWitnessTrTx is not well-form")
 	}
 
-	length, err := pp.CtxTxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
+	length, err := pp.CtxTxWitnessTrTxSerializeSizeByDesc(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
 	if err != nil {
 		return nil, err
 	}
