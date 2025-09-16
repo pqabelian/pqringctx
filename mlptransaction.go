@@ -1961,7 +1961,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 		return fmt.Errorf("TransferTxMLPSanityCheck: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 	if outForSingle > int(pp.paramJSingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJSingle)
+		return fmt.Errorf("TransferTxMLPSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
 	}
 	if outForRing+outForSingle != outputNum {
 		// assert
