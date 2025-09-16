@@ -1019,6 +1019,10 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 		return false, 0, fmt.Errorf("TxoMLPCoinReceive: the input txoMLP is nil")
 	}
 
+	if len(coinAddress) == 0 {
+		return false, 0, fmt.Errorf("TxoMLPCoinReceive: the input coinAddress is nil/empty")
+	}
+
 	coinAddressInTxo, err := pp.GetCoinAddressFromTxoMLP(txoMLP)
 	if err != nil {
 		return false, 0, err
