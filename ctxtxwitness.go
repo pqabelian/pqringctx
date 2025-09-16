@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// TxWitnessCbTx defines the TxWitness for coinbase-transaction.
+// CtxTxWitnessCbTx defines the TxWitness for CtxCoinbaseTX.
 // vL = vin - sum of (public value on output side), it must be >= 0.
 // Note that with (outForRing),
 // we can deterministically decide txCase and balanceProof's case,
@@ -20,22 +20,22 @@ type CtxTxWitnessCbTx struct {
 	balanceProof BalanceProof
 }
 
-// TxCase returns TxWitnessCbTx.txCase.
+// TxCase returns CtxTxWitnessCbTx.txCase.
 func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
 
-// TxWitnessTrTx defines the TxWitness for Transfer-transaction.
-// vPub = sum of (public value on output side) + fee - sum of (public value on input side).
+// CtxTxWitnessTrTx defines the TxWitness for CtxTransferTx.
+// vPub = sum of (public value on output side) - sum of (public value on input side).
 // vPub captures that in TrTX, normally, we have
-// cmtIn_1 + ... + cmtIn_m + sum of (public value on input side) = cmtOut_1 + ... + cmtOut_n + sum of (public value on output side) + fee,
+// cmtIn_1 + ... + cmtIn_m + sum of (public value on input side) = cmtOut_1 + ... + cmtOut_n + sum of (public value on output side),
 // i.e., cmtIn_1 + ... + cmtIn_m = cmtOut_1 + ... + cmtOut_n + vPub.
 // If vPub > 0, we will set "(left=in, right=out)".
 // If vPub < 0, we will set "(left=out, right=in)".
 // If vPub = 0, we will set "(left, right)" based on the number of (m,n).
 // Such a setting, will guarantee that when vPub != 0, we will always have
 // cmtL_1 + ... + cmtL_m = cmtR_1 + ... + cmtR_n + vRPub, where vRPub > 0.
-// Note that with (inForRing, inForSingle, inForSingleDistinct, outForRing, outForSingle, vPub),
+// Note that with (inForRing, inForSingle, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
 type CtxTxWitnessTrTx struct {
@@ -48,17 +48,19 @@ type CtxTxWitnessTrTx struct {
 	balanceProof BalanceProof
 }
 
-// TxCase returns the txCase of TxWitnessTrTx.
-// reviewed on 2023.12.18
-// reviewed by Alice, 2024.07.05
+// TxCase returns the txCase of CtxTxWitnessTrTx.
 func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
 
 // TxWitnessCbTx	begin
 
-// TxWitnessCbTxSerializeSize returns the serialized size for the input TxWitnessCbTx.
+// CtxTxWitnessCbTxSerializeSize returns the serialized size for the input CtxTxWitnessCbTx.
 func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int, error) {
+	if outForRing > pp.paramJ {
+		return 0, fmt.Errorf("CtxTxWitnessCbTxSerializeSize: the input outForRing exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
+	}
+
 	length := 1 + // txCase       TxWitnessCbTxCase
 		8 + //	vL           uint64
 		1 + //	outForRing   uint8
@@ -74,11 +76,11 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSize(outForRing uint8) (int,
 	return length, nil
 }
 
-// SerializeTxWitnessCbTx serialize the input TxWitnessCbTx to []byte.
+// SerializeCtxTxWitnessCbTx serialize the input CtxTxWitnessCbTx to []byte.
 func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.CtxTxWitnessCbTxSanityCheck(txWitness) {
-		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the input TxWitnessCbTx is not well-form")
+		return nil, fmt.Errorf("SerializeCtxTxWitnessCbTx: the input CtxTxWitnessCbTx is not well-form")
 	}
 
 	length, err := pp.CtxTxWitnessCbTxSerializeSize(txWitness.outForRing)
@@ -136,16 +138,16 @@ func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx
 		return nil, err
 	}
 	if len(serializedBpf) != serializedBpfExpectedLen {
-		return nil, fmt.Errorf("SerializeTxWitnessCbTx: the length of serializedBpfExpectedLen is not the same as expected")
+		return nil, fmt.Errorf("SerializeCtxTxWitnessCbTx: the length of serializedBpfExpectedLen is not the same as expected")
 	}
 
 	return w.Bytes(), nil
 }
 
-// DeserializeTxWitnessCbTx deserialize the input []byte to TxWitnessCbTx.
+// DeserializeCtxTxWitnessCbTx deserialize the input []byte to CtxTxWitnessCbTx.
 func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byte) (txWitness *CtxTxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
-		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the input serializedTxWitness is empty")
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessCbTx: the input serializedTxWitness is empty")
 	}
 
 	r := bytes.NewReader(serializedTxWitness)
@@ -191,7 +193,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 	if uint64(serializedBpfLen) != bpfLen {
 		// This is to check the length. Actually, we can remove this check, and directly use bpfLen.
 		// do not remove this check, since it provides some safe guarantee that the bpfLen is not too large.
-		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized outForRing (%d)",
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessCbTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized outForRing (%d)",
 			bpfLen, serializedBpfLen, outForRing)
 	}
 
@@ -214,7 +216,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 	}
 
 	if !pp.CtxTxWitnessCbTxSanityCheck(txWitnessCbTx) {
-		return nil, fmt.Errorf("DeserializeTxWitnessCbTx: the deserialzed TxWitnessCbTx is not well-form")
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessCbTx: the deserialzed TxWitnessCbTx is not well-form")
 	}
 
 	return txWitnessCbTx, nil
@@ -225,8 +227,16 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 
 // TxWitnessTrTx	begin
 
-// TxWitnessTrTxSerializeSize returns the serialize size for TxWitnessTrTx.
+// CtxTxWitnessTrTxSerializeSize returns the serialize size for CtxTxWitnessTrTx.
 func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
+
+	if inForRing > pp.paramI {
+		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSize: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
+	}
+
+	if outForRing > pp.paramJ {
+		return 0, fmt.Errorf("CtxTxWitnessTrTxSerializeSize: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
+	}
 
 	length := 1 + //	txCase                     TxWitnessTrTxCase
 		2 + //	inForRing uint8, inForSingle uint8
@@ -243,11 +253,11 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSize(inForRing uint8, outFor
 	return length, err
 }
 
-// SerializeTxWitnessTrTx serialize TxWitnessTrTx to []byte.
+// SerializeCtxTxWitnessTrTx serialize CtxTxWitnessTrTx to []byte.
 func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.CtxTxWitnessTrTxSanityCheck(txWitness) {
-		return nil, fmt.Errorf("SerializeTxWitnessTrTx: the input txWitness *TxWitnessTrTx is not well-form")
+		return nil, fmt.Errorf("SerializeCtxTxWitnessTrTx: the input txWitness *CtxTxWitnessTrTx is not well-form")
 	}
 
 	length, err := pp.CtxTxWitnessTrTxSerializeSize(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
@@ -313,17 +323,17 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx
 	// an assert, could be removed when test is finished
 	serializedBpfExpectedLen, err := pp.balanceProofTrTxSerializeSize(txWitness.inForRing, txWitness.outForRing, txWitness.vPublic)
 	if len(serializedBpf) != serializedBpfExpectedLen {
-		return nil, fmt.Errorf("SerializeTxWitnessTrTx: the length of serializedBpfExpectedLen is not the same as expected")
+		return nil, fmt.Errorf("SerializeCtxTxWitnessTrTx: the length of serializedBpfExpectedLen is not the same as expected")
 	}
 
 	return w.Bytes(), err
 }
 
-// DeserializeTxWitnessTrTx deserialize the input []byte to TxWitnessTrTx.
+// DeserializeCtxTxWitnessTrTx deserialize the input []byte to CtxTxWitnessTrTx.
 func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byte) (*CtxTxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
-		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the input serializedTxWitness is empty")
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessTrTx: the input serializedTxWitness is empty")
 	}
 
 	r := bytes.NewReader(serializedTxWitness)
@@ -377,7 +387,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 	if uint64(serializedBpfLen) != bpfLen {
 		// This is to check the length. Actually, we can remove this check, and directly use bpfLen.
 		// This check is necessary, as it guarantees that bpfLen is not too large.
-		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized (inForRing, outForRing, vPublic) (%d, %d, %v)",
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessTrTx: the deserialized bpfLen (%v) does not match with the length (%v) implied by the deserialized (inForRing, outForRing, vPublic) (%d, %d, %v)",
 			bpfLen, serializedBpfLen, inForRing, outForRing, vPublic)
 	}
 
@@ -402,7 +412,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 	}
 
 	if !pp.CtxTxWitnessTrTxSanityCheck(txWitnessTrTx) {
-		return nil, fmt.Errorf("DeserializeTxWitnessTrTx: the deserialzied TxWitnessTrTx is not well-form")
+		return nil, fmt.Errorf("DeserializeCtxTxWitnessTrTx: the deserialzied TxWitnessTrTx is not well-form")
 	}
 
 	return txWitnessTrTx, nil
@@ -412,7 +422,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 
 //	Sanity-Check functions	begin
 
-// TxWitnessCbTxSanityCheck checks whether the input txWitnessCbTx *TxWitnessCbTx is well-from:
+// CtxTxWitnessCbTxSanityCheck checks whether the input txWitnessCbTx *CtxTxWitnessCbTx is well-from:
 // (1) txWitnessCbTx is not nil
 // (2) txWitnessCbTx.vL is in the allowed scope
 // (3) txWitnessCbTx.outForRing is in the allowed scope
@@ -541,17 +551,12 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *CtxTxWitne
 	return true
 }
 
-// TxWitnessTrTxSanityCheck checks whether the input txWitnessTrTx *TxWitnessTrTx is well-from:
+// CtxTxWitnessTrTxSanityCheck checks whether the input txWitnessTrTx *CtxTxWitnessTrTx is well-from:
 // (1) txWitnessTrTx is not nil
-// (2) txWitnessTrTx.(inForRing, inForSingle, inForSingleDistinct, inRingSizes) are in the allowed scope, and match with each other.
+// (2) txWitnessTrTx.(inForRing, inForSingle) are in the allowed scope, and match with each other.
 // (3) txWitnessTrTx.(outForRing, outForSingle) are in the allowed scope, and match with each other.
-// (4) txWitnessTrTx.ma_ps match with inForRing and is well-form.
-// (5) txWitnessTrTx.cmts_in_p match with inForRing and is well-form.
-// (6) txWitnessTrTx.elrSigs is well-form, and match with (inForRing, inRingSizes).
-// (7) txWitnessTrTx.addressPublicKeyForSingles match with inForSingleDistinct, and is well-form.
-// (8) txWitnessTrTx.simpleSigs  match with inForSingleDistinct, and is well-form.
-// (9) txWitnessTrTx.balanceProof is well-form
-// (10) txWitnessTrTx.(inForRing, outForRing, vPublic) match each other, and matches wih  txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
+// (4) txWitnessTrTx.balanceProof is well-form
+// (5) txWitnessTrTx.(inForRing, outForRing, vPublic) matches wih txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
 func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *CtxTxWitnessTrTx) bool {
 
 	if txWitnessTrTx == nil {

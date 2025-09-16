@@ -8,11 +8,11 @@ import (
 
 // Tx Serialization	begin
 
-// CoinbaseTxMLPSerializeSize compute the serializedSize for CoinbaseTxMLP.
+// CtxCoinbaseTxSerializeSize compute the serializedSize for CtxCoinbaseTx.
 func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withWitness bool) (int, error) {
 
 	if !pp.CtxCoinbaseTxSanityCheck(cbTx, withWitness) {
-		return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: the input cbTx *CoinbaseTxMLP is not well-form")
+		return 0, fmt.Errorf("CtxCoinbaseTxSerializeSize: the input cbTx *CoinbaseTxMLP is not well-form")
 	}
 
 	var length int
@@ -34,7 +34,7 @@ func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withW
 	// TxWitness
 	if withWitness {
 		if cbTx.txWitness == nil {
-			return 0, fmt.Errorf("CoinbaseTxMLPSerializeSize: withWitness = true while cbTx.txWitness is nil")
+			return 0, fmt.Errorf("CtxCoinbaseTxSerializeSize: withWitness = true while cbTx.txWitness is nil")
 		}
 		witnessLen, err := pp.CtxTxWitnessCbTxSerializeSize(cbTx.txWitness.outForRing)
 		if err != nil {
@@ -46,7 +46,7 @@ func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withW
 	return length, nil
 }
 
-// SerializeCoinbaseTxMLP serialize the input CoinbaseTxMLP to []byte.
+// SerializeCtxCoinbaseTx serialize the input CtxCoinbaseTx to []byte.
 func (pp *PublicParameter) SerializeCtxCoinbaseTx(cbTx *CtxCoinbaseTx, withWitness bool) ([]byte, error) {
 
 	//// As CtxCoinbaseTxSerializeSize will call CtxCoinbaseTxSanityCheck, here we can skip CtxCoinbaseTxSanityCheck safely.
@@ -99,10 +99,10 @@ func (pp *PublicParameter) SerializeCtxCoinbaseTx(cbTx *CtxCoinbaseTx, withWitne
 	return w.Bytes(), nil
 }
 
-// DeserializeCoinbaseTxMLP deserialize []byte to CoinbaseTxMLP.
+// DeserializeCtxCoinbaseTx deserialize []byte to CtxCoinbaseTx.
 func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []byte, withWitness bool) (*CtxCoinbaseTx, error) {
 	if len(serializedCtxCoinbaseTx) == 0 {
-		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the input serializedTransferTxMLP is empty")
+		return nil, fmt.Errorf("DeserializeCtxCoinbaseTx: the input serializedCtxCoinbaseTx is empty")
 	}
 
 	r := bytes.NewReader(serializedCtxCoinbaseTx)
@@ -119,7 +119,7 @@ func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []by
 		return nil, err
 	}
 	if outputNum > uint64(pp.paramJ)+uint64(pp.paramJSingle) {
-		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
+		return nil, fmt.Errorf("DeserializeCtxCoinbaseTx: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
 	}
 	txos := make([]CtxTxo, outputNum)
 	for i := 0; i < int(outputNum); i++ {
@@ -151,7 +151,7 @@ func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []by
 			return nil, err1
 		}
 		if len(serializedTxWitness) != expectedTxWitnessLen {
-			return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: serializedTxWitness from serializedCoinbaseTxMLP has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
+			return nil, fmt.Errorf("DeserializeCtxCoinbaseTx: serializedTxWitness from serializedCtxCoinbaseTx has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
 		}
 	} else {
 		txWitness = nil
@@ -164,17 +164,17 @@ func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []by
 	}
 
 	if !pp.CtxCoinbaseTxSanityCheck(cbTx, withWitness) {
-		return nil, fmt.Errorf("DeserializeCoinbaseTxMLP: the deserialzed CoinbaseTxMLP is not well-form")
+		return nil, fmt.Errorf("DeserializeCtxCoinbaseTx: the deserialzed CtxCoinbaseTx is not well-form")
 	}
 
 	return cbTx, nil
 }
 
-// TransferTxMLPSerializeSize returns the serialize size for the input TransferTxMLP.
+// CtxTransferTxSerializeSize returns the serialize size for the input CtxTransferTx.
 func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withWitness bool) (int, error) {
 	err := pp.CtxTransferTxSanityCheck(trTx, withWitness)
 	if err != nil {
-		return 0, fmt.Errorf("TransferTxMLPSerializeSize: the input trTx *TransferTxMLP is not well-form: %s", err)
+		return 0, fmt.Errorf("CtxTransferTxSerializeSize: the input trTx *CtxTransferTx is not well-form: %s", err)
 	}
 	// This sanity-check can guarantee the following codes run normally.
 
@@ -205,7 +205,7 @@ func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withW
 	//	txWitness *CtxTxWitnessTrTx
 	if withWitness {
 		if trTx.txWitness == nil {
-			return 0, fmt.Errorf("TransferTxMLPSerializeSize: withWitness = true while trTx.txWitness is nil")
+			return 0, fmt.Errorf("CtxTransferTxSerializeSize: withWitness = true while trTx.txWitness is nil")
 		}
 		witnessLen, err := pp.CtxTxWitnessTrTxSerializeSize(trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.vPublic)
 		if err != nil {
@@ -220,8 +220,7 @@ func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withW
 	return length, nil
 }
 
-// SerializeTransferTxMLP serialize the input TransferTxMLP to []byte.
-// Note that SerializeTransferTxMLP serializes the details bytes of the input and out Txos.
+// SerializeCtxTransferTx serialize the input CtxTransferTx to []byte.
 func (pp *PublicParameter) SerializeCtxTransferTx(trTx *CtxTransferTx, withWitness bool) ([]byte, error) {
 
 	//// As CtxTransferTxSerializeSize will call CtxTransferTxSanityCheck, here we skip CtxTransferTxSanityCheck safely.
@@ -275,7 +274,7 @@ func (pp *PublicParameter) SerializeCtxTransferTx(trTx *CtxTransferTx, withWitne
 	//	txWitness *CtxTxWitnessTrTx
 	if withWitness {
 		if trTx.txWitness == nil {
-			return nil, fmt.Errorf("SerializeTransferTxMLP: withWitness = true while trTx.txWitness is nil")
+			return nil, fmt.Errorf("SerializeCtxTransferTx: withWitness = true while trTx.txWitness is nil")
 		}
 
 		serializedWitness, err := pp.SerializeCtxTxWitnessTrTx(trTx.txWitness)
@@ -292,10 +291,10 @@ func (pp *PublicParameter) SerializeCtxTransferTx(trTx *CtxTransferTx, withWitne
 	return w.Bytes(), nil
 }
 
-// DeserializeTransferTxMLP deserialize []byte to TransferTxMLP.
+// DeserializeCtxTransferTx deserialize []byte to CtxTransferTx.
 func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []byte, withWitness bool) (*CtxTransferTx, error) {
 	if len(serializedCtxTransferTx) == 0 {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the input serializedTransferTxMLP is empty")
+		return nil, fmt.Errorf("DeserializeCtxTransferTx: the input serializedCtxTransferTx is empty")
 	}
 
 	r := bytes.NewReader(serializedCtxTransferTx)
@@ -306,7 +305,7 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 		return nil, err
 	}
 	if inputNum > uint64(pp.paramI)+uint64(pp.paramISingle) {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, uint64(pp.paramI)+uint64(pp.paramISingle))
+		return nil, fmt.Errorf("DeserializeCtxTransferTx: the inputNum (%d) exceeds the allowed maximum value (%d)", inputNum, uint64(pp.paramI)+uint64(pp.paramISingle))
 	}
 
 	txInputs := make([]CtxTxo, inputNum)
@@ -327,7 +326,7 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 		return nil, err
 	}
 	if outputNum > uint64(pp.paramJ)+uint64(pp.paramJSingle) {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
+		return nil, fmt.Errorf("DeserializeCtxTransferTx: the outputNum (%d) exceeds the allowed maximum value (%d)", outputNum, uint64(pp.paramJ)+uint64(pp.paramJSingle))
 	}
 	txos := make([]CtxTxo, outputNum)
 	for i := 0; i < int(outputNum); i++ {
@@ -359,7 +358,7 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 			return nil, err1
 		}
 		if len(serializedTxWitness) != expectedTxWitnessLen {
-			return nil, fmt.Errorf("DeserializeTransferTxMLP: readed serializedWitness from serializedTransferTxMLP has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
+			return nil, fmt.Errorf("DeserializeCtxTransferTx: readed serializedTxWitness from serializedCtxTransferTx has length %d, while the obtained txWitness has length %d", len(serializedTxWitness), expectedTxWitnessLen)
 		}
 	}
 
@@ -371,7 +370,7 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 
 	err = pp.CtxTransferTxSanityCheck(transferTx, withWitness)
 	if err != nil {
-		return nil, fmt.Errorf("DeserializeTransferTxMLP: the deserialized TransferTxMLP is not well-form, %s", err)
+		return nil, fmt.Errorf("DeserializeCtxTransferTx: the deserialized CtxTransferTx is not well-form, %s", err)
 	}
 
 	return transferTx, nil

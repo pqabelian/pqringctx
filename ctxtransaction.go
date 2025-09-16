@@ -29,7 +29,7 @@ import (
 //								since it can de deduced that at one least commitment has value 0.
 // Note: The 0-value-coin-rule is imposed on the transaction layer, including Witness Layer, not deep into BalanceProof Layer.
 
-// CoinbaseTxMLPGen generates a coinbase transaction.
+// CtxCoinbaseTxGen generates a CtxCoinbaseTx.
 func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOutputDesc) (*CtxCoinbaseTx, error) {
 
 	V := (uint64(1) << pp.paramN) - 1
@@ -51,12 +51,12 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 			if i == outForRing {
 				outForRing += 1
 			} else {
-				//	The ctxTxOutputDesc for CtxTxoHidden should be at the fist successive positions.
-				return nil, fmt.Errorf("CtxCoinbaseTxGen: the ctxTxOutputDesc for CtxTxoHidden should be at the fist successive positions, but the %d -th one is not", i)
+				//	The CtxTxOutputDesc for CtxTxoHidden should be at the fist successive positions.
+				return nil, fmt.Errorf("CtxCoinbaseTxGen: the CtxTxOutputDesc for CtxTxoHidden should be at the fist successive positions, but the %d -th one is not", i)
 			}
 
 			if len(txOutputDescs[i].coinValuePublicKey) == 0 {
-				return nil, fmt.Errorf("CtxCoinbaseTxGen: the ctxTxOutputDesc for CtxTxoHidden should have coinValuePublicKey, but the %d -th one does not", i)
+				return nil, fmt.Errorf("CtxCoinbaseTxGen: the CtxTxOutputDesc for CtxTxoHidden should have coinValuePublicKey, but the %d -th one does not", i)
 			}
 
 		} else if ctxTxoType == CtxTxoTypePublic {
@@ -74,11 +74,11 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 		}
 	}
 	if outForRing > int(pp.paramJ) {
-		return nil, fmt.Errorf("CtxCoinbaseTxGen: the number of RingCT-Privacy coinAddresses in the input ctxTxOutputDescs %d exceeds the allowd maxumim %d", outForRing, pp.paramJ)
+		return nil, fmt.Errorf("CtxCoinbaseTxGen: the number of CtxTxoTypeHidden in the input ctxTxOutputDescs %d exceeds the allowd maxumim %d", outForRing, pp.paramJ)
 	}
 
 	if outForSingle > int(pp.paramJSingle) {
-		return nil, fmt.Errorf("CoinbaseTxMLPGen: the number of CtxTxoTypeHidden in the input ctxTxOutputDescs %d exceeds the allowd maxumim %d", outForSingle, pp.paramJSingle)
+		return nil, fmt.Errorf("CtxCoinbaseTxGen: the number of CtxTxoTypePublic in the input ctxTxOutputDescs %d exceeds the allowd maxumim %d", outForSingle, pp.paramJSingle)
 	}
 
 	retCbTx := &CtxCoinbaseTx{}
@@ -94,11 +94,11 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 	// generate the output using txoGen
 	for j, txOutputDescItem := range txOutputDescs {
 		if txOutputDescItem.value > V {
-			return nil, fmt.Errorf("CoinbaseTxMLPGen: txOutputDescMLPs[%d].value (%d) is not in [0, %d]", j, txOutputDescItem.value, V)
+			return nil, fmt.Errorf("CtxCoinbaseTxGen: txOutputDescs[%d].value (%d) is not in [0, %d]", j, txOutputDescItem.value, V)
 		}
 		vout += txOutputDescItem.value
 		if vout > V {
-			return nil, fmt.Errorf("CoinbaseTxMLPGen: the total output value is not in [0, %d]", V)
+			return nil, fmt.Errorf("CtxCoinbaseTxGen: the total output value of the fist %d output is not in [0, %d]", j+1, V)
 		}
 
 		switch txOutputDescItem.ctxTxoType {
@@ -114,7 +114,7 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 
 		case CtxTxoTypePublic:
 			if txOutputDescItem.value == 0 {
-				return nil, fmt.Errorf("CoinbaseTxMLPGen: txOutputDescMLPs[%d] has coinAddressType=CoinAddressTypePublicKeyHashForSingle, but the value is 0", j)
+				return nil, fmt.Errorf("CtxCoinbaseTxGen: txOutputDescs[%d] has ctxTxoType=CtxTxoTypePublic, but the value is 0", j)
 			}
 
 			txoPublic, err := pp.ctxTxoPublicGen(txOutputDescItem.value)
@@ -129,11 +129,11 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 			voutPublic += txOutputDescItem.value
 
 		default:
-			return nil, fmt.Errorf("CoinbaseTxMLPGen: the CtxTxoType of the %d -th input txOutputDescMLPs (%d) is not supported", j, txOutputDescItem.ctxTxoType)
+			return nil, fmt.Errorf("CtxCoinbaseTxGen: the CtxTxoType of the %d -th input txOutputDescs (%d) is not supported", j, txOutputDescItem.ctxTxoType)
 		}
 	}
 	if vout != vin {
-		return nil, fmt.Errorf("CoinbaseTxMLPGen: the output value (%d) and the input value (%d) are not equal", vout, vin)
+		return nil, fmt.Errorf("CtxCoinbaseTxGen: the total output value (%d) and the toal input value (%d) are not equal", vout, vin)
 	}
 	vL := vin - voutPublic //	note that vout == vin above implies vL >= 0 here.
 
@@ -141,7 +141,7 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 	if vL < uint64(outForRing) {
 		//	It can be deduced that at least one of the value-commitments on the output coins have value 0.
 		//	It is banned by 0-value-coin-rule.
-		return nil, fmt.Errorf("CoinbaseTxMLPGen: it attempting to generate RCT-Privacy coin with value 0")
+		return nil, fmt.Errorf("CtxCoinbaseTxGen: it attempting to generate CtxTxoPublic with value 0")
 	}
 
 	//	TxWitness
@@ -171,15 +171,17 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 	return retCbTx, nil
 }
 
-// CoinbaseTxMLPVerify verifies the input CoinbaseTxMLP.
+// CtxCoinbaseTxVerify verifies the input CtxCoinbaseTx.
 func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 
 	if !pp.CtxCoinbaseTxSanityCheck(cbTx, true) {
-		return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP is not well-form")
+		return fmt.Errorf("CtxCoinbaseTxVerify: the input cbTx *CtxCoinbaseTx is not well-form")
 	}
+	// Note that CtxCoinbaseTxSanityCheck has guaranteed that the data in CtxCoinbaseTx.txWitness are
+	// consistent with CtxCoinbaseTx.
 
 	// As it has passed the above sanity-check, here only needs to collect the cmts_out.
-	// Note that the TxoRCTPre and TxoRCT Txos are the first outForRing ones.
+	// Note that the CtxTxoHidden Txos are the first outForRing ones.
 	cmts_out := make([]*ValueCommitment, cbTx.txWitness.outForRing)
 	for j := 0; j < int(cbTx.txWitness.outForRing); j++ {
 		switch txoInst := cbTx.txos[j].(type) {
@@ -190,7 +192,7 @@ func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 		default:
 			//	just assert
 			//	should not happen
-			return fmt.Errorf("CoinbaseTxMLPVerify: the input cbTx *CoinbaseTxMLP pass the sanity check and has outForRing (%d), but the %d-th one is not TxoRCTPre or TxoRCT",
+			return fmt.Errorf("CtxCoinbaseTxVerify: the input cbTx *CtxCoinbaseTx pass the sanity check and has outForRing (%d), but the %d-th one is not CtxTxoHidden",
 				cbTx.txWitness.outForRing, j)
 		}
 	}
@@ -201,7 +203,7 @@ func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 	}
 
 	if len(serializedCbTxConOriginal) == 0 {
-		return fmt.Errorf("CoinbaseTxMLPVerify: serializedCbTxCon is empty/nil")
+		return fmt.Errorf("CtxCoinbaseTxVerify: serializedCbTxCon is empty/nil")
 	}
 
 	//	use digest as the message to be authenticated
@@ -211,6 +213,8 @@ func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 	}
 
 	//	verify the witness
+	// Note that CtxCoinbaseTxSanityCheck has guaranteed that the data in CtxCoinbaseTx.txWitness are
+	// consistent with CtxCoinbaseTx.
 	err = pp.verifyBalanceProofCbTx(cbTxConDigest, cbTx.txWitness.vL, cbTx.txWitness.outForRing, cmts_out, cbTx.txWitness.txCase, cbTx.txWitness.balanceProof)
 	if err != nil {
 		return err
@@ -219,21 +223,21 @@ func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 	return nil
 }
 
-// TransferTxMLPGen generates TransferTxMLP.
+// CtxTransferTxGen generates CtxTransferTx.
 func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOutputDescs []*CtxTxOutputDesc) (*CtxTransferTx, error) {
 
 	//	check the well-form of the inputs and outputs
 	inputNum := len(txInputDescs)
 	outputNum := len(txOutputDescs)
 	if inputNum == 0 || outputNum == 0 {
-		return nil, fmt.Errorf("TransferTxMLPGen: neither txInputDescs or txOutputDescs could be empty")
+		return nil, fmt.Errorf("CtxTransferTxGen: neither txInputDescs or txOutputDescs could be empty")
 	}
 	if inputNum > int(pp.paramI)+int(pp.paramISingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: The input txInputDescs []*TxInputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", inputNum, int(pp.paramI)+int(pp.paramISingle))
+		return nil, fmt.Errorf("CtxTransferTxGen: The input txInputDescs []*CtxTxInputDesc has a size (%d) exceeds the allowed maximum value (%d)", inputNum, int(pp.paramI)+int(pp.paramISingle))
 	}
 
 	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: The input txInputDescs []*TxInputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
+		return nil, fmt.Errorf("CtxTransferTxGen: The input txInputDescs []*CtxTxOutputDesc has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 
 	V := (uint64(1) << pp.paramN) - 1
@@ -246,27 +250,27 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 	for j := 0; j < outputNum; j++ {
 		txOutputDescItem := txOutputDescs[j]
 		if txOutputDescItem.value > V {
-			return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].value (%d) is not in the scope [0,V(%d)]", j, txOutputDescItem.value, V)
+			return nil, fmt.Errorf("CtxTransferTxGen: txOutputDescs[%d].value (%d) is not in the scope [0,V(%d)]", j, txOutputDescItem.value, V)
 		}
 		vOutTotal += txOutputDescItem.value
 		if vOutTotal > V {
-			return nil, fmt.Errorf("TransferTxMLPGen: the vOutTotal of the first %d txOutputDescs[].value, say %d, exceeds V(%d)", j+1, vOutTotal, V)
+			return nil, fmt.Errorf("CtxTransferTxGen: the vOutTotal of the first %d txOutputDescs[].value, say %d, exceeds V(%d)", j+1, vOutTotal, V)
 		}
 
 		if txOutputDescItem.ctxTxoType == CtxTxoTypeHidden {
 			if j == outForRing {
 				outForRing += 1
 			} else {
-				//	The coinAddresses for RingCT-Privacy output should be at the fist successive positions.
-				return nil, fmt.Errorf("TransferTxMLPGen: on the output side, the coinAddresses for RingCT-Privacy should be at the fist successive positions, but the %d -th one is not", j)
+				//	The CtxTxoTypeHidden should be at the fist successive positions.
+				return nil, fmt.Errorf("CtxTransferTxGen: on the output side, the CtxTxoTypeHidden should be at the fist successive positions, but the %d -th one is not", j)
 			}
 
 			if len(txOutputDescItem.coinValuePublicKey) == 0 {
-				// The coinValuePublicKey for RingCT-Privacy output could not be nil.
-				return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress has coinAddressType=%d, but txOutputDescs[%d].coinValuePublicKey is nil/empty", j, txOutputDescItem.ctxTxoType, j)
+				// The coinValuePublicKey for CtxTxoTypeHidden could not be nil.
+				return nil, fmt.Errorf("CtxTransferTxGen: txOutputDescs[%d].ctxTxoType = %d, but the coinValuePublicKey is nil/empty", j, txOutputDescItem.ctxTxoType)
 			}
 
-			// For RCT-privacy coin, we do not apply the 0-value-coin-rule here,
+			// For CtxTxoTypeHidden, we do not apply the 0-value-coin-rule here,
 			// and only apply it by public information.
 
 		} else if txOutputDescItem.ctxTxoType == CtxTxoTypePublic {
@@ -277,19 +281,19 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 
 			// apply the 0-value-coin-rule.
 			if txOutputDescItem.value == 0 {
-				return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress has coinAddressType=%d, but txOutputDescs[%d].value is 0", j, txOutputDescItem.ctxTxoType, j)
+				return nil, fmt.Errorf("CtxTransferTxGen: txOutputDescs[%d].ctxTxoType =%d, but the value is 0", j, txOutputDescItem.ctxTxoType)
 			}
 
 		} else {
-			return nil, fmt.Errorf("TransferTxMLPGen: txOutputDescs[%d].coinAddress's coinAddressType(%d) is not supported", j, txOutputDescItem.ctxTxoType)
+			return nil, fmt.Errorf("CtxTransferTxGen: txOutputDescs[%d].ctxTxoType (%d) is not supported", j, txOutputDescItem.ctxTxoType)
 		}
 	}
 
 	if outForRing > int(pp.paramJ) {
-		return nil, fmt.Errorf("TransferTxMLPGen: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
+		return nil, fmt.Errorf("CtxTransferTxGen: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 	if outForSingle > int(pp.paramJSingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: outForSingle (%d) exceeds the the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
+		return nil, fmt.Errorf("CtxTransferTxGen: outForSingle (%d) exceeds the the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
 	}
 
 	// check the txInputDescs
@@ -307,16 +311,16 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 
 		//	check the value
 		if txInputDescItem.value > V {
-			return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].value (%d) is not in the scope [0, V(%d)]", i, txInputDescItem.value, V)
+			return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].value (%d) is not in the scope [0, V(%d)]", i, txInputDescItem.value, V)
 		}
 		vInTotal += txInputDescItem.value
 		if vInTotal > V {
-			return nil, fmt.Errorf("TransferTxMLPGen: the vInTotal of the first %d txInputDescs[].value, say %d, exceeds V (%d)", i+1, vInTotal, V)
+			return nil, fmt.Errorf("CtxTransferTxGen: the vInTotal of the first %d txInputDescs[].value, say %d, exceeds V (%d)", i+1, vInTotal, V)
 		}
 
 		//	Note that here we do not know this is a ring for ring or pseudonym-ring.
 		if !pp.CtxTxoSanityCheck(txInputDescItem.ctxTxo) {
-			return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList is not well-form", i)
+			return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].ctxTxo is not well-form", i)
 		}
 
 		//	identify inForRing, inForSingle
@@ -326,13 +330,13 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 			if i == inForRing {
 				inForRing += 1
 			} else {
-				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return nil, fmt.Errorf("TransferTxMLPGen: on the input side, the coins-to-spend with RingCT-Privacy should be at the first successive positions, but the %d -th one is not", i)
+				//	The CtxTxoTypeHidden should be at the fist successive positions.
+				return nil, fmt.Errorf("CtxTransferTxGen: on the input side, the CtxTxoTypeHidden coins-to-spend should be at the first successive positions, but the %d -th one is not", i)
 			}
 
-			//	To spend a coin with RingCT-Privacy, none of the (coinSerialNumberSecretKey, coinValuePublicKey, coinValueSecretKey) could be nil.
+			//	To spend a CtxTxoTypeHidden coin, none of the (coinValuePublicKey, coinValueSecretKey) could be nil.
 			if len(txInputDescItem.coinValuePublicKey) == 0 || len(txInputDescItem.coinValueSecretKey) == 0 {
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].ctxTxoType is CtxTxoTypeHidden, but there is nil in (coinValuePublicKey, coinValueSecretKey)", i)
+				return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].ctxTxoType is CtxTxoTypeHidden, but there is nil in (coinValuePublicKey, coinValueSecretKey)", i)
 			}
 
 			//	Check the validity of (coinValuePublicKey, coinValueSecretKey)
@@ -340,7 +344,7 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 			copy(copiedCoinValueSecretKey, txInputDescItem.coinValueSecretKey)
 			validValueKey, hints := pp.CoinValueKeyVerify(txInputDescItem.coinValuePublicKey, copiedCoinValueSecretKey)
 			if !validValueKey {
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin value key pair for %d-th coin to spend, say txInputDescs[%d].coinValuePublicKey and txInputDescs[%d].coinValueSecretKey, does not match. Hints = %s", i, i, i, hints)
+				return nil, fmt.Errorf("CtxTransferTxGen: the coin value key pair for %d-th coin to spend does not match. Hints = %s", i, hints)
 			}
 
 			//	Check the value-commitment and value-ciphertext
@@ -350,7 +354,8 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 				return nil, err
 			}
 			if valueInCmt != txInputDescItem.value {
-				return nil, fmt.Errorf("TransferTxMLPGen: for the %d -th coin to spend, txInputDescs[%d].value (%d) is different from the extratced value from the commitment", i, i, txInputDescs[i].value)
+				return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].value (%d) is different from the extratced value from the commitment (%d)",
+					i, txInputDescs[i].value, valueInCmt)
 			}
 
 			//	collect the cmt, randomness, value for coin-to-spend in inForRing
@@ -358,86 +363,43 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 			cmtrs_in = append(cmtrs_in, cmtr)
 			values_in = append(values_in, valueInCmt)
 
-			// In one ring,
-			// (1) there should not be repeated lgrTxoId,
-			// (2) the txos should have the 'same' coinAddressType (which imply the same privacy-level)
-			// Note that these checks are conducted in previous pp.LgrTxoRingForRingSanityCheck(txInputDescItem.lgrTxoList).
-			//lgrTxoIdsMap := make(map[string]int)
-			//for t := 0; t < len(txInputDescItem.lgrTxoList); t++ {
-			//	if len(txInputDescItem.lgrTxoList[t].id) == 0 {
-			//		return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList[%d].id is nil/empty", i, t)
-			//	}
-			//	idString := hex.EncodeToString(txInputDescItem.lgrTxoList[t].id)
-			//	if index, exists := lgrTxoIdsMap[idString]; exists {
-			//		return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList contains repeated lgrTxoIds, say %d-th and %d-th", i, index, t)
-			//	}
-			//	lgrTxoIdsMap[idString] = t
-			//
-			//	if txInputDescItem.lgrTxoList[t].txo == nil {
-			//		return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList[%d].txo is nil", i, t)
-			//	}
-			//	coinAddressTypeInRingMember := txInputDescItem.lgrTxoList[t].txo.CoinAddressType()
-			//	if coinAddressTypeInRingMember != coinAddressType {
-			//		//	The case of (CoinAddressTypePublicKeyForRingPre, CoinAddressTypePublicKeyForRing) is allowed
-			//		if (coinAddressTypeInRingMember == CoinAddressTypePublicKeyForRingPre && coinAddressType == CoinAddressTypePublicKeyForRing) ||
-			//			(coinAddressTypeInRingMember == CoinAddressTypePublicKeyForRing && coinAddressType == CoinAddressTypePublicKeyForRingPre) {
-			//			//	allowed
-			//		} else {
-			//			return nil, fmt.Errorf("TransferTxMLPGen: txInputDescs[%d].lgrTxoList[%d].txo has differnet coinAddressType from the coin-to-spend, say txInputDescs[%d].lgrTxoList[%d]", i, t, i, txInputDescItem.sidx)
-			//		}
-			//	}
-			//}
-
 		} else if inCtxTxoType == CtxTxoTypePublic {
 			inForSingle += 1
 			vInPublic += txInputDescItem.value
 
-			////	for the CoinAddressTypePublicKeyHashForSingle, the ring must have size 1
-			//if len(txInputDescItem.lgrTxoList) != 1 {
-			//	return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has Pseudonym-Privacy, but the size of txInputDescs[%d].lgrTxoList is not 1", i, txInputDescItem.sidx, i)
-			//}
-
-			//	check the keys
-			//	coinSpendSecretKey        []byte
-			//	coinSerialNumberSecretKey []byte	// 	this is skipped, to allow the caller to use a dummy one
 			//	coinValuePublicKey        []byte	//	this is skipped, to allow the caller to use a dummy one
 			//	coinValueSecretKey        []byte	//	this is skipped, to allow the caller to use a dummy one
 
 			//	check the public value
-			switch txoInstToSpend := txInputDescItem.ctxTxo.(type) {
-			case *CtxTxoPublic:
-				if txoInstToSpend.value != txInputDescItem.value {
-					return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].ctxTxo has value=%d, but txInputDescs[%d].value is %d", i, txoInstToSpend.value, i, txInputDescItem.value)
-				}
-			default:
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].ctxTxoType is CtxTxoTypePublic, but it is not a CtxTxoPublic", i)
+			value, _, _, err := pp.ExtractValueAndRandFromCtxTxo(txInputDescItem.ctxTxo, nil, nil)
+			if err != nil {
+				return nil, err
+			}
+			if value != txInputDescItem.value {
+				return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].value (%d) does not mathc that in txInputDescs[%d].ctxTxo (%d)",
+					i, txInputDescItem.value, i, value)
 			}
 
-			//	As the ring size must be 1, and the only ring member is the one to spend,
-			//	here we do not need to check:
-			// In one ring,
-			// (1) there should not be repeated lgrTxoId,
-			// (2) the txos should have the 'same' coinAddressType (which imply the same privacy-level)
-
 		} else {
-			return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].ctxTxo's CtxTxiType(%d) is not supported", i, inCtxTxoType)
+			return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].ctxTxo's CtxTxoType(%d) is not supported", i, inCtxTxoType)
 		}
 	}
 
 	if len(cmts_in) != inForRing || len(cmtrs_in) != inForRing || len(values_in) != inForRing {
 		//	assert
-		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of cmtrsIn (%d) is different from inForRing (%d)", len(cmtrs_in), inForRing)
+		return nil, fmt.Errorf("CtxTransferTxGen: it should not happen that the length of cmtrsIn (%d), values_in (%d), cmts_in (%d) is different from inForRing (%d)",
+			len(cmtrs_in), len(values_in), len(cmts_in), inForRing)
 	}
 
 	if inForRing > int(pp.paramI) {
-		return nil, fmt.Errorf("TransferTxMLPGen: the number of RingCT-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
+		return nil, fmt.Errorf("CtxTransferTxGen: the number of CtxTxoHidden coins to be spent (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
 	if inForSingle > int(pp.paramISingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: the number of Pseudonym-privacy coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
+		return nil, fmt.Errorf("CtxTransferTxGen: the number of CtxTxoPublic coins to be spent (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
 	}
 
 	if vOutTotal != vInTotal {
-		return nil, fmt.Errorf("TransferTxMLPGen: the total value on the output side (%d) is different that on the input side (%d)", vOutTotal, vInTotal)
+		return nil, fmt.Errorf("CtxTransferTxGen: the total value on the output side (%d) is different that on the input side (%d)", vOutTotal, vInTotal)
 	}
 
 	vPublic := int64(vOutPublic) - int64(vInPublic) // Note that V << uint64.
@@ -483,7 +445,8 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 			//values_out[j] = txOutputDescItem.value
 
 		default:
-			return nil, fmt.Errorf("TransferTxMLPGen: the %d -th coinAddresses of the input txOutputDescMLPs (%d) is not supported", j)
+			return nil, fmt.Errorf("CtxTransferTxGen: txOutputDescs[%d].ctxTxoType (%d) is not supported",
+				j, txOutputDescItem.ctxTxoType)
 		}
 	}
 
@@ -528,13 +491,16 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 
 }
 
-// TransferTxMLPVerify verifies TransferTxMLP.
+// CtxTransferTxVerify verifies CtxTransferTx.
 func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 
 	err := pp.CtxTransferTxSanityCheck(trTx, true)
 	if err != nil {
-		return fmt.Errorf("TransferTxMLPVerify: the input trTx *TransferTxMLP is not well-form: %s", err)
+		return fmt.Errorf("CtxTransferTxVerify: the input trTx *CtxTransferTx is not well-form: %s", err)
 	}
+
+	// Note that CtxTransferTxSanityCheck has guaranteed that trTx.txWitness has data
+	// that are consistent with trTx, e.g., inForRing.
 
 	//	collect cmts_in
 	cmts_in_p := make([]*ValueCommitment, trTx.txWitness.inForRing)
@@ -543,7 +509,7 @@ func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 		case *CtxTxoHidden:
 			cmts_in_p[i] = txoInst.valueCommitment
 		default:
-			return fmt.Errorf("TransferTxMLPVerify: This should not happen, where the %d -th (< outForRing (%d)) txo is not TxoRCTPre or TxoRCT", i, trTx.txWitness.outForRing)
+			return fmt.Errorf("CtxTransferTxVerify: This should not happen, where the %d -th (< inForRing (%d)) txo is not CtxTxoHidden", i, trTx.txWitness.inForRing)
 		}
 	}
 
@@ -554,7 +520,7 @@ func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 		case *CtxTxoHidden:
 			cmts_out[j] = txoInst.valueCommitment
 		default:
-			return fmt.Errorf("TransferTxMLPVerify: This should not happen, where the %d -th (< outForRing (%d)) txo is not TxoRCTPre or TxoRCT", j, trTx.txWitness.outForRing)
+			return fmt.Errorf("CtxTransferTxVerify: This should not happen, where the %d -th (< outForRing (%d)) txo is not CtxTxoPublic", j, trTx.txWitness.outForRing)
 		}
 	}
 
@@ -564,7 +530,7 @@ func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 		return err
 	}
 	if len(trTxCon) == 0 {
-		return fmt.Errorf("TransferTxMLPVerify: the serialzied trTxCon is empty")
+		return fmt.Errorf("CtxTransferTxVerify: the serialzied trTxCon is empty")
 	}
 
 	// use trTxConDigest
@@ -583,33 +549,6 @@ func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 }
 
 //	TxWitness		begin
-//
-// GetTxWitnessCbTxSerializeSizeByDesc returns the serialize size for TxWitnessCbTx according to the input coinAddressList.
-// reviewed on 2024.01.01, by Alice
-// reviewed by Alice, 2024.07.07
-func (pp *PublicParameter) GetCtxTxWitnessCbTxSerializeSizeByDesc(outForRing uint8) (int, error) {
-	if outForRing > pp.paramJ {
-		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the number of output coins for RingCT-privacy exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
-	}
-
-	return pp.CtxTxWitnessCbTxSerializeSize(outForRing)
-}
-
-// GetTxWitnessTrTxSerializeSizeByDesc returns the serialize size for TxWitnessTrTx according to the input description information, say (inForRing, inForSingleDistinct, outForRing, inRingSizes, vPublic).
-// reviewed by Alice, 2024.07.07
-// todo: review
-func (pp *PublicParameter) GetCtxTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
-	if inForRing > pp.paramI {
-		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
-	}
-
-	if outForRing > pp.paramJ {
-		return 0, fmt.Errorf("GetTxWitnessTrTxSerializeSizeByDesc: the input outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
-	}
-
-	return pp.CtxTxWitnessTrTxSerializeSize(inForRing, outForRing, vPublic)
-}
-
 //	TxWitness		end
 
 //	helper functions	begin
@@ -617,12 +556,11 @@ func (pp *PublicParameter) GetCtxTxWitnessTrTxSerializeSizeByDesc(inForRing uint
 
 //	Sanity-Check functions	begin
 //
-// CoinbaseTxMLPSanityCheck checks whether the input cbTx *CoinbaseTxMLP is well-from:
+// CtxCoinbaseTxSanityCheck checks whether the input cbTx *CtxCoinbaseTx is well-from:
 // (1) cbTx is not nil;
 // (2) cbTx.vin is in the allowed scope;
 // (3) 0-value-coin-rule is obeyed;
-// (4) cbTx.txMemo has the size in the allowed scope;
-// (5) cbTx.txWitness is well-form.
+// (4) cbTx.txWitness is well-form.
 func (pp *PublicParameter) CtxCoinbaseTxSanityCheck(cbTx *CtxCoinbaseTx, withWitness bool) bool {
 	if cbTx == nil {
 		return false
@@ -713,34 +651,33 @@ func (pp *PublicParameter) CtxCoinbaseTxSanityCheck(cbTx *CtxCoinbaseTx, withWit
 	return true
 }
 
-// TransferTxMLPSanityCheck checks whether the input trTx *TransferTxMLP is well-from:
+// CtxTransferTxSanityCheck checks whether the input trTx *CtxTransferTx is well-from:
 // (1) trTx is not nil;
-// (2) trTx.vin is in the allowed scope;
-// (3) 0-value-coin-rule is obeyed;
-// (4) trTx.txMemo has the size in the allowed scope;
-// (5) trTx.txWitness is well-form.
+// (2) trTx.txInputs is well-form;
+// (3) trTx.txos is well-form;
+// (4) trTx.txWitness is well-form.
 func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWitness bool) error {
 	if trTx == nil {
-		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx *TransferTxMLP is nil")
+		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx *CtxTransferTx is nil")
 	}
 
 	//	check the well-form of the inputs and outputs
 	inputNum := len(trTx.txInputs)
 	outputNum := len(trTx.txos)
 	if inputNum == 0 {
-		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txInputs is nil/empty")
+		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txInputs is nil/empty")
 	}
 
 	if outputNum == 0 {
-		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos is nil/empty")
+		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos is nil/empty")
 	}
 
 	if inputNum > int(pp.paramI)+int(pp.paramISingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txInputs has size (%d) exceeding the allowed maximum value pp.paramI + pp.paramISingle", inputNum)
+		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txInputs has size (%d) exceeding the allowed maximum value pp.paramI + pp.paramISingle", inputNum)
 	}
 
 	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos has size (%d) exceeding the allowed maximum value pp.paramJ + pp.paramJSingle", outputNum)
+		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos has size (%d) exceeding the allowed maximum value pp.paramJ + pp.paramJSingle", outputNum)
 	}
 
 	V := (uint64(1) << pp.paramN) - 1
@@ -752,7 +689,7 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 	for j := 0; j < outputNum; j++ {
 
 		if !pp.CtxTxoSanityCheck(trTx.txos[j]) {
-			return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos[%d] is not well-form", j)
+			return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos[%d] is not well-form", j)
 		}
 		//	Conduct the sanity-check firstly, to make the following codes run normally.
 
@@ -761,36 +698,36 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 			if j == outForRing {
 				outForRing += 1
 			} else {
-				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos[%d] is TxoRCT, but TxoSDN appeared previously", j)
+				//	The CtxTxoHidden should be at the fist successive positions.
+				return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos[%d] is CtxTxoHidden, but CtxTxoPublic appeared previously", j)
 			}
 
 		case *CtxTxoPublic:
 			outForSingle += 1
 
 			if txoInst.value > V || txoInst.value == 0 {
-				return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos[%d] is TxoSDN, but its value (%v) exceeds the allowed maximum value (%v)", j, txoInst.value, V)
+				return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos[%d] is CtxTxoPublic, but its value (%v) is not in the allowed scope [1, %d]", j, txoInst.value, V)
 			}
 
 			vOutPublic = vOutPublic + txoInst.value
 			if vOutPublic > V {
-				return fmt.Errorf("TransferTxMLPSanityCheck: the vOutPublic before and trTx.txos[%d] exceeds the allowed maximum value (%v)", j, V)
+				return fmt.Errorf("CtxTransferTxSanityCheck: the vOutPublic before and trTx.txos[%d] exceeds the allowed maximum value (%v)", j, V)
 			}
 
 		default:
-			return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txos[%d] is not TxoRCTPre, TxoRCT, or TxoSDN", j)
+			return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txos[%d] is not CtxTxoHidden or CtxTxoPublic", j)
 		}
 	}
 
 	if outForRing > int(pp.paramJ) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
+		return fmt.Errorf("CtxTransferTxSanityCheck: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 	if outForSingle > int(pp.paramJSingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJSingle)
+		return fmt.Errorf("CtxTransferTxSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
 	}
 	if outForRing+outForSingle != outputNum {
 		// assert
-		return fmt.Errorf("TransferTxMLPSanityCheck: (shoud not happen) outForRing (%d) + outForSingle (%d) != outputNum (%d)", outForRing, outForSingle, outputNum)
+		return fmt.Errorf("CtxTransferTxSanityCheck: (shoud not happen) outForRing (%d) + outForSingle (%d) != outputNum (%d)", outForRing, outForSingle, outputNum)
 	}
 
 	// check the txInputs []CtxTxo
@@ -799,7 +736,7 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 	vInPublic := uint64(0)
 	for i := 0; i < inputNum; i++ {
 		if !pp.CtxTxoSanityCheck(trTx.txInputs[i]) { // note that the CtxTxoType is checked in SanityCheck.
-			return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txInputs[%d] is not well-form", i)
+			return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txInputs[%d] is not well-form", i)
 		}
 
 		switch txoInst := trTx.txInputs[i].(type) {
@@ -807,39 +744,39 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 			if i == inForRing {
 				inForRing += 1
 			} else {
-				//	The coinAddresses for RingCT-Privacy should be at the fist successive positions.
-				return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txInputs[%d] is a ring, but pseudo-ring appeared before that", i)
+				//	The CtxTxoHidden should be at the fist successive positions.
+				return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx.txInputs[%d] is a CtxTxoHidden, but CtxTxoPublic appeared before that", i)
 			}
 
 		case *CtxTxoPublic:
 			inForSingle += 1
 
 			if txoInst.value > V || txoInst.value == 0 {
-				return fmt.Errorf("TransferTxMLPSanityCheck: (should not happen) the input trTx.txInputs[%d] is a TxoSDN, and its value (%v) exceeds tha allowed maximum value (%v)", i, txoInst.value, V)
+				return fmt.Errorf("CtxTransferTxSanityCheck: (should not happen) trTx.txInputs[%d] value (%d) is not in the allowed scope [1, %d]", i, txoInst.value, V)
 			}
 
 			vInPublic += txoInst.value
 			if vInPublic > V {
-				return fmt.Errorf("TransferTxMLPSanityCheck: the vInPublic (%v) before and trTx.txInputs[%d] exceeds tha allowed maximum value (%v)", vInPublic, i, V)
+				return fmt.Errorf("CtxTransferTxSanityCheck: the vInPublic (%v) before and trTx.txInputs[%d] exceeds tha allowed maximum value (%v)", vInPublic, i, V)
 			}
 
 		default:
 			// should not happen
-			return fmt.Errorf("TransferTxMLPSanityCheck: (should not happen) the input trTx.txInputs[%d] is a not TxoRCTPre, TxoRCT, or TxoSDN", i)
+			return fmt.Errorf("CtxTransferTxSanityCheck: (should not happen) the input trTx.txInputs[%d] is a not CtxTxoHidden or CtxTxoPublic", i)
 		}
 	}
 
 	if inForRing > int(pp.paramI) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
+		return fmt.Errorf("CtxTransferTxSanityCheck: inForRing (%d) exceeds the allowed maximum value (%d)", inForRing, pp.paramI)
 	}
 
 	if inForSingle > int(pp.paramISingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: inForSingle (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
+		return fmt.Errorf("CtxTransferTxSanityCheck: inForSingle (%d) exceeds the allowed maximum value (%d)", inForSingle, pp.paramISingle)
 	}
 
 	if inForRing+inForSingle != inputNum {
 		// assert
-		return fmt.Errorf("TransferTxMLPSanityCheck: (should not happen) inForRing (%d) + inForSingle (%d) != inputNum (%d)", inForRing, inForSingle, inputNum)
+		return fmt.Errorf("CtxTransferTxSanityCheck: (should not happen) inForRing (%d) + inForSingle (%d) != inputNum (%d)", inForRing, inForSingle, inputNum)
 	}
 
 	//	defer the 0-value-coin-rule to later witness sanity-check
@@ -851,27 +788,27 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 		//	(inForRing, outForRing, vPublic) will determine the balance proof type for the transaction.
 
 		if !pp.CtxTxWitnessTrTxSanityCheck(trTx.txWitness) {
-			return fmt.Errorf("TransferTxMLPSanityCheck: trTx.txWitness is not well-form")
+			return fmt.Errorf("CtxTransferTxSanityCheck: trTx.txWitness is not well-form")
 		}
 
 		if int(trTx.txWitness.inForRing) != inForRing {
-			return fmt.Errorf("TransferTxMLPSanityCheck: int(trTx.txWitness.inForRing) != inForRing")
+			return fmt.Errorf("CtxTransferTxSanityCheck: int(trTx.txWitness.inForRing) != inForRing")
 		}
 
 		if int(trTx.txWitness.inForSingle) != inForSingle {
-			return fmt.Errorf("TransferTxMLPSanityCheck: int(trTx.txWitness.inForSingle) != inForSingle")
+			return fmt.Errorf("CtxTransferTxSanityCheck: int(trTx.txWitness.inForSingle) != inForSingle")
 		}
 
 		if int(trTx.txWitness.outForRing) != outForRing {
-			return fmt.Errorf("TransferTxMLPSanityCheck: int(trTx.txWitness.outForRing) != outForRing")
+			return fmt.Errorf("CtxTransferTxSanityCheck: int(trTx.txWitness.outForRing) != outForRing")
 		}
 
 		if int(trTx.txWitness.outForSingle) != outForSingle {
-			return fmt.Errorf("TransferTxMLPSanityCheck: int(trTx.txWitness.outForSingle) != outForSingle")
+			return fmt.Errorf("CtxTransferTxSanityCheck: int(trTx.txWitness.outForSingle) != outForSingle")
 		}
 
 		if trTx.txWitness.vPublic != vPublic {
-			return fmt.Errorf("TransferTxMLPSanityCheck: trTx.txWitness.vPublic != vPublic")
+			return fmt.Errorf("CtxTransferTxSanityCheck: trTx.txWitness.vPublic != vPublic")
 		}
 
 	}

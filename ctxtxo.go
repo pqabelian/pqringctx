@@ -7,15 +7,15 @@ import (
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
-// TxoMLP is used as a component object for CoinbaseTxMLP and TransferTxMLP.
-// As the Txos in one CoinbaseTxMLP/TransferTxMLP could be hosted on addresses for different privacy-levels
+// CtxTxo is used as a component object for CtxCoinbaseTx and CtxTransferTx.
+// As the Txos in one CtxCoinbaseTx/CTxTransferTx could have different privacy-levels
 // and consequently have different structures,
-// here we use an interface to define TxoMLP.
+// here we use an interface to define CtxTxo.
 type CtxTxo interface {
 	CtxTxoType() CtxTxoType
 }
 
-// TxoRCT defines the TxoMLP with RingCT-privacy.
+// CtxTxoHidden defines the CtxTxo with value-hidden.
 type CtxTxoHidden struct {
 	ctxTxoType      CtxTxoType
 	valueCommitment *ValueCommitment
@@ -23,20 +23,18 @@ type CtxTxoHidden struct {
 	ctKemSerialized []byte //  ciphertext for kem
 }
 
-// CoinAddressType is the method that all TxoMLP instance shall implement, which returns the coinAddressType.
+// CtxTxoType is the method that all CtxTxo instance shall implement, which returns the ctxTxoType.
 func (ctxTxoHidden *CtxTxoHidden) CtxTxoType() CtxTxoType {
 	return ctxTxoHidden.ctxTxoType
 }
 
-// TxoSDN defines the TxoMLP with Pseudonym-privacy.
+// CtxTxoPublic defines the CtxTxo with value-public.
 type CtxTxoPublic struct {
 	ctxTxoType CtxTxoType
 	value      uint64
 }
 
-// CoinAddressType is the method that all TxoMLP instance shall implement, which returns the coinAddressType.
-// reviewed on 2023.12.05
-// reviewed by Alice, 2024.06.25
+// CtxTxoType is the method that all CtxTxo instance shall implement, which returns the ctxTxoType.
 func (ctxTxoPublic *CtxTxoPublic) CtxTxoType() CtxTxoType {
 	return ctxTxoPublic.ctxTxoType
 }
@@ -44,8 +42,7 @@ func (ctxTxoPublic *CtxTxoPublic) CtxTxoType() CtxTxoType {
 //	TXO	Gen		begin
 //
 
-// txoRCTGen() returns a transaction output and the randomness used to generate the commitment.
-// Note that the coinAddress should be 1 byte (CoinAddressType) + serializedAddressPublicKeyForRing.
+// ctxTxoHiddenGen() returns a CtxTxo and the randomness used to generate the commitment.
 func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint64) (ctxTxo *CtxTxoHidden, cmtr *PolyCNTTVec, err error) {
 
 	//	got (C, kappa) from key encapsulate mechanism
@@ -72,7 +69,7 @@ func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint
 	)
 
 	//	vc = m ^ sk
-	//	todo_done: the vc should have length only N, to prevent the unused D-N bits of leaking information
+	//	the vc should have length only N, to prevent the unused D-N bits of leaking information
 	sk, err := pp.expandValuePadRandomness(kappa)
 	if err != nil {
 		return nil, nil, err
@@ -88,7 +85,7 @@ func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint
 	// This is hard coded, based on the  value of N, and the algorithm encodeTxoValueToBytes().
 	//	N = 51, encodeTxoValueToBytes() uses only the lowest 3 bits of 7-th byte.
 	vct[6] = vct[6] & 0x07
-	// This is to make the 56th~52th bit always to be 0, while keeping the 51th,50th, 49th bits to be their real value.
+	// This is to make the 56th~52th bit always to be 0, while keeping the 51th, 50th, 49th bits to be their real value.
 	//	By this way, we can avoid the leaking the corresponding bits of pad.
 
 	retTxo := &CtxTxoHidden{
@@ -101,10 +98,7 @@ func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint
 	return retTxo, cmtr, nil
 }
 
-// txoSDNGen() returns a transaction output and the randomness used to generate the commitment.
-// Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
-// reviewed on 2023.12.07
-// reviewed by Alice, 2024.06.25
+// ctxTxoPublicGen() returns a CtxTxoPublic.
 func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, err error) {
 	return &CtxTxoPublic{
 		ctxTxoType: CtxTxoTypePublic,
@@ -114,7 +108,7 @@ func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, 
 
 //	TXO	Gen		end
 
-// ExtractValueAndRandFromTxoMLP extract the (value, randomness) pair for txoMLP.valueCommitment.
+// ExtractValueAndRandFromCtxTxo extract the (value, randomness, commitment) pair for input CtxTxo.
 func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, cmt *ValueCommitment, err error) {
 
 	if !pp.CtxTxoSanityCheck(ctxTxo) {
@@ -177,7 +171,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 		vpt[i] = vct[i] ^ sk[i]
 	}
 	vpt[6] = vpt[6] & 0x07
-	// This is to make the 56th~52th bit always to be 0, while keeping the 51th,50th, 49th bits to be their real value.
+	// This is to make the 56th~52th bit always to be 0, while keeping the 51th, 50th, 49th bits to be their real value.
 
 	value, err = pp.decodeTxoValueFromBytes(vpt)
 	if err != nil {
@@ -207,7 +201,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 	return value, cmtr, cmt, nil
 }
 
-// GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a TxoMLP for the input coinAddressType.
+// GetCtxTxoSerializeSizeByCtxTxoType returns the serialize size of a CtxTxo for the input CtxTxoType.
 func (pp *PublicParameter) GetCtxTxoSerializeSizeByCtxTxoType(ctxTxoType CtxTxoType) (int, error) {
 	switch ctxTxoType {
 	case CtxTxoTypeHidden:
@@ -219,8 +213,7 @@ func (pp *PublicParameter) GetCtxTxoSerializeSizeByCtxTxoType(ctxTxoType CtxTxoT
 	}
 }
 
-// TxoMLPSerializeSize returns the serializedSize for the input TxoMLP.
-// Note that for the case of txoMLP is a TxoRCTPre, this function must keep the same as pqringct.TxoSerializeSize.
+// CtxTxoSerializeSize returns the serializedSize for the input CtxTxo.
 func (pp *PublicParameter) CtxTxoSerializeSize(ctxTxo CtxTxo) (int, error) {
 	if ctxTxo == nil {
 		return 0, fmt.Errorf("CtxTxoSerializeSize: the input ctxTxo is nil")
@@ -244,8 +237,7 @@ func (pp *PublicParameter) CtxTxoSerializeSize(ctxTxo CtxTxo) (int, error) {
 	}
 }
 
-// SerializeTxoMLP serializes the input TxoMLP to []byte.
-// Note that, for the case of TxoRCTPre, this must keep the same as pqringct.SerializeTxo.
+// SerializeCtxTxo serializes the input CtxTxo to []byte.
 func (pp *PublicParameter) SerializeCtxTxo(ctxTxo CtxTxo) (serializedTxo []byte, err error) {
 	if ctxTxo == nil {
 		return nil, fmt.Errorf("SerializeCtxTxo: the input ctxTxo is nil")
@@ -268,7 +260,7 @@ func (pp *PublicParameter) SerializeCtxTxo(ctxTxo CtxTxo) (serializedTxo []byte,
 	}
 }
 
-// DeserializeTxoMLP deserialize the input []byte to a TxoMLP.
+// DeserializeCtxTxo deserialize the input []byte to a CtxTxo.
 func (pp *PublicParameter) DeserializeCtxTxo(serializedTxo []byte) (ctxTxo CtxTxo, err error) {
 	if len(serializedTxo) == 0 {
 		return nil, fmt.Errorf("DeserializeCtxTxo: the input serializedTxo is empty")
@@ -284,15 +276,16 @@ func (pp *PublicParameter) DeserializeCtxTxo(serializedTxo []byte) (ctxTxo CtxTx
 	}
 }
 
-// TxoRCTSerializeSize returns the serialize size for TxoRCT.
+// CtxTxoHiddenSerializeSize returns the serialize size for CtxTxoHidden.
 func (pp *PublicParameter) CtxTxoHiddenSerializeSize() int {
+	ctKemSerializedLen := pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 	return 1 + // for ctxTxoType
 		pp.ValueCommitmentSerializeSize() +
 		pp.TxoValueBytesLen() +
-		VarIntSerializeSize(uint64(pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem))) + pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
+		VarIntSerializeSize(uint64(ctKemSerializedLen)) + ctKemSerializedLen
 }
 
-// serializeCtxTxoHidden serialize the input TxoRCT to []byte.
+// serializeCtxTxoHidden serialize the input CtxTxoHidden to []byte.
 func (pp *PublicParameter) serializeCtxTxoHidden(ctxTxoHidden *CtxTxoHidden) ([]byte, error) {
 
 	if !pp.CtxTxoHiddenSanityCheck(ctxTxoHidden) {
@@ -334,10 +327,7 @@ func (pp *PublicParameter) serializeCtxTxoHidden(ctxTxoHidden *CtxTxoHidden) ([]
 	return w.Bytes(), nil
 }
 
-// deserializeTxoRCT deserialize the input []byte to a TxoRCT.
-// reviewed on 2023.12.05.
-// reviewed on 2023.12.07
-// reviewed by Alice, 2024.06.25
+// deserializeCtxTxoHidden deserialize the input []byte to a CtxTxoHidden.
 func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte) (*CtxTxoHidden, error) {
 	var err error
 	r := bytes.NewReader(serializedCtxTxoHidden)
@@ -381,13 +371,13 @@ func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte
 	}, nil
 }
 
-// TxoSDNSerializeSize returns the serialized size for TxoSDN.
+// CtxTxoPublicSerializeSize returns the serialized size for CtxTxoPublic.
 func (pp *PublicParameter) CtxTxoPublicSerializeSize() int {
 	return 1 + // for ctxTxoType
 		8 // for value
 }
 
-// serializeTxoSDN serialize the input TxoSDN to []byte.
+// serializeCtxTxoPublic serialize the input TxoSDN to []byte.
 func (pp *PublicParameter) serializeCtxTxoPublic(ctxTxoPublic *CtxTxoPublic) ([]byte, error) {
 
 	if !pp.CtxTxoPublicSanityCheck(ctxTxoPublic) {
@@ -413,7 +403,7 @@ func (pp *PublicParameter) serializeCtxTxoPublic(ctxTxoPublic *CtxTxoPublic) ([]
 	return w.Bytes(), nil
 }
 
-// deserializeTxoSDN deserialize the input []byte to a TxoSDN.
+// deserializeCtxTxoPublic deserialize the input []byte to a CtxTxoPublic.
 func (pp *PublicParameter) deserializeCtxTxoPublic(serializedCtxTxoPublic []byte) (*CtxTxoPublic, error) {
 	var err error
 	r := bytes.NewReader(serializedCtxTxoPublic)
@@ -442,10 +432,7 @@ func (pp *PublicParameter) deserializeCtxTxoPublic(serializedCtxTxoPublic []byte
 
 // sanity check functions	begin
 
-// TxoMLPSanityCheck conducts sanity-check on the input TxoMLP.
-// added and reviewed by Alice, 2024.07.01
-// todo: review by 2024.07
-// reviewed
+// CtxTxoSanityCheck conducts sanity-check on the input CtxTxo.
 func (pp *PublicParameter) CtxTxoSanityCheck(ctxTxo CtxTxo) bool {
 	if ctxTxo == nil {
 		return false
@@ -463,15 +450,12 @@ func (pp *PublicParameter) CtxTxoSanityCheck(ctxTxo CtxTxo) bool {
 	}
 }
 
-// TxoRCTSanityCheck checks whether the input TxoRCT is well-from.
+// CtxTxoHiddenSanityCheck checks whether the input CtxTxoHidden is well-from.
 // (1) not nil
-// (2) txoRCT.coinAddressType is correct
-// (3) txoRCT.addressPublicKeyForRing is well-form
-// (4) txoRCT.publicRand has the correct length
-// (5) txoRCT.detectorTag has the correct length
-// (6) txoRCT.valueCommitment is well-form
-// (7) txoRCT.vct has correct length
-// (8) txoRCT.ctKemSerialized has correct length.
+// (2) ctxTxoHidden.ctxTxoType is correct
+// (3) ctxTxoHidden.valueCommitment is well-form
+// (4) ctxTxoHidden.vct has correct length
+// (5) ctxTxoHidden.ctKemSerialized has correct length.
 func (pp *PublicParameter) CtxTxoHiddenSanityCheck(ctxTxoHidden *CtxTxoHidden) bool {
 	if ctxTxoHidden == nil {
 		return false
@@ -496,13 +480,10 @@ func (pp *PublicParameter) CtxTxoHiddenSanityCheck(ctxTxoHidden *CtxTxoHidden) b
 	return true
 }
 
-// TxoSDNSanityCheck checks whether the input TxoSDN is well-from.
+// CtxTxoPublicSanityCheck checks whether the input CtxTxoPublic is well-from.
 // (1) not nil
-// (2) TxoSDN.coinAddressType is correct
-// (3) TxoSDN.addressPublicKeyForSingleHash has the correct length
-// (4) TxoSDN.publicRand has the correct length
-// (5) TxoSDN.detectorTag has the correct length
-// (6) TxoSDN.value is in the correct scope [1, 2^N-1] (note that TxoSDN.value is public and could not be 0).
+// (2) ctxTxoPublic.ctxTxoType is correct
+// (3) TxoSDN.value is in the correct scope [1, 2^N-1] (note that CtxTxoPublic.value is public and could not be 0).
 func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) bool {
 	if ctxTxoPublic == nil {
 		return false
@@ -525,9 +506,11 @@ func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) b
 
 // common functions	begin
 
-// ValueSanityCheck checks whether the passed value in the scope [0, 2^N-1].
+// ValueMaxSanityCheck checks whether the passed value in the scope [0, 2^N-1].
 func (pp *PublicParameter) ValueMaxSanityCheck(value uint64) bool {
-	if value > ((uint64(1) << pp.paramN) - 1) {
+	V := (uint64(1) << pp.paramN) - 1
+
+	if value > V {
 		return false
 	}
 
