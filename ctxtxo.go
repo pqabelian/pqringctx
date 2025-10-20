@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
@@ -117,13 +118,12 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 
 	var ctKemSerialized []byte
 	var vct []byte
-	var valueCommitment *ValueCommitment
 	switch txoInst := ctxTxo.(type) {
 	case *CtxTxoHidden:
 
 		ctKemSerialized = txoInst.ctKemSerialized
 		vct = txoInst.vct
-		valueCommitment = txoInst.valueCommitment
+		cmt = txoInst.valueCommitment
 
 	case *CtxTxoPublic:
 		return txoInst.value, nil, nil, nil
@@ -194,7 +194,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 		m,
 	)
 
-	if !pp.PolyCNTTVecEqualCheck(b, valueCommitment.b) || !pp.PolyCNTTEqualCheck(c, valueCommitment.c) {
+	if !pp.PolyCNTTVecEqualCheck(b, cmt.b) || !pp.PolyCNTTEqualCheck(c, cmt.c) {
 		return 0, nil, nil, fmt.Errorf("ExtractValueAndRandFromCtxTxo: reject when using the recoverd (value, randomness) to open the commitment")
 	}
 
