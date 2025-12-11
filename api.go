@@ -22,7 +22,7 @@ const (
 	MaxAllowedLgrTxoMLPSize     uint32 = 1048576    // 2^20
 	MaxAllowedTxInputMLPSize    uint32 = 8388608    // 2^23, 8M bytes
 	MaxAllowedTxoMLPSize        uint32 = 1048576    // 2^20
-	MaxAllowedTxMemoMLPSize     uint32 = 65536      // 2^16
+	MaxAllowedTxMemoMLPSize     uint32 = 128 * 1024 // 2^16
 	MaxAllowedTxWitnessTrTxSize uint32 = 16777216   // 2^24, 16M bytes
 	MaxAllowedTxWitnessCbTxSize uint32 = 8388608    // 2^23, 8M bytes
 )
