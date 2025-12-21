@@ -11,6 +11,7 @@ import (
 // Note that with (outForRing),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
+// review 2025.12.21
 type CtxTxWitnessCbTx struct {
 	txCase       TxWitnessCbTxCase
 	vL           uint64
@@ -21,6 +22,7 @@ type CtxTxWitnessCbTx struct {
 }
 
 // TxCase returns CtxTxWitnessCbTx.txCase.
+// review 2025.12.21
 func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 	return txWitness.txCase
 }
@@ -38,6 +40,7 @@ func (txWitness *CtxTxWitnessCbTx) TxCase() TxWitnessCbTxCase {
 // Note that with (inForRing, inForSingle, outForRing, outForSingle, vPub),
 // we can deterministically decide txCase and balanceProof's case,
 // as well as the rpulp case of the balanceProof (if it has, say BalanceProofLmRnGeneral).
+// review done 2025.12.21
 type CtxTxWitnessTrTx struct {
 	txCase       TxWitnessTrTxCase
 	inForRing    uint8
@@ -49,6 +52,7 @@ type CtxTxWitnessTrTx struct {
 }
 
 // TxCase returns the txCase of CtxTxWitnessTrTx.
+// review done 2025.12.21
 func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 	return txWitness.txCase
 }
@@ -57,6 +61,7 @@ func (txWitness *CtxTxWitnessTrTx) TxCase() TxWitnessTrTxCase {
 
 // CtxTxWitnessCbTxSerializeSizeByDesc returns the serialized size CtxTxWitnessCbTx,
 // according to the input description information.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSizeByDesc(outForRing uint8) (int, error) {
 	if outForRing > pp.paramJ {
 		return 0, fmt.Errorf("CtxTxWitnessCbTxSerializeSizeByDesc: the input outForRing exceeds the max allowed value: %d vs %d", outForRing, pp.paramJ)
@@ -78,6 +83,7 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSerializeSizeByDesc(outForRing uint8)
 }
 
 // SerializeCtxTxWitnessCbTx serialize the input CtxTxWitnessCbTx to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.CtxTxWitnessCbTxSanityCheck(txWitness) {
@@ -146,6 +152,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessCbTx(txWitness *CtxTxWitnessCbTx
 }
 
 // DeserializeCtxTxWitnessCbTx deserialize the input []byte to CtxTxWitnessCbTx.
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byte) (txWitness *CtxTxWitnessCbTx, err error) {
 	if len(serializedTxWitness) == 0 {
 		return nil, fmt.Errorf("DeserializeCtxTxWitnessCbTx: the input serializedTxWitness is empty")
@@ -230,6 +237,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessCbTx(serializedTxWitness []byt
 
 // CtxTxWitnessTrTxSerializeSizeByDesc returns the serialize size for CtxTxWitnessTrTx,
 // according to the input description information.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, outForRing uint8, vPublic int64) (int, error) {
 
 	if inForRing > pp.paramI {
@@ -256,6 +264,7 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSerializeSizeByDesc(inForRing uint8, 
 }
 
 // SerializeCtxTxWitnessTrTx serialize CtxTxWitnessTrTx to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx) (serializedTxWitness []byte, err error) {
 
 	if !pp.CtxTxWitnessTrTxSanityCheck(txWitness) {
@@ -332,6 +341,7 @@ func (pp *PublicParameter) SerializeCtxTxWitnessTrTx(txWitness *CtxTxWitnessTrTx
 }
 
 // DeserializeCtxTxWitnessTrTx deserialize the input []byte to CtxTxWitnessTrTx.
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byte) (*CtxTxWitnessTrTx, error) {
 
 	if len(serializedTxWitness) == 0 {
@@ -431,6 +441,7 @@ func (pp *PublicParameter) DeserializeCtxTxWitnessTrTx(serializedTxWitness []byt
 // (4) txWitnessCbTx.outForSingle is in the allowed scope
 // (5) txWitnessCbTx.balanceProof is well-form
 // (6) (txWitnessCbTx.vL, txWitnessCbTx.outForRing, txWitnessCbTx.outForSingle, txWitnessCbTx.balanceProof.BalanceProofCase) match the rules.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *CtxTxWitnessCbTx) bool {
 	if txWitnessCbTx == nil {
 		return false
@@ -559,6 +570,7 @@ func (pp *PublicParameter) CtxTxWitnessCbTxSanityCheck(txWitnessCbTx *CtxTxWitne
 // (3) txWitnessTrTx.(outForRing, outForSingle) are in the allowed scope, and match with each other.
 // (4) txWitnessTrTx.balanceProof is well-form
 // (5) txWitnessTrTx.(inForRing, outForRing, vPublic) matches wih txCase and txWitnessTrTx.balanceProof.BalanceProofCase().
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *CtxTxWitnessTrTx) bool {
 
 	if txWitnessTrTx == nil {
@@ -862,3 +874,5 @@ func (pp *PublicParameter) CtxTxWitnessTrTxSanityCheck(txWitnessTrTx *CtxTxWitne
 //	helper functions 	begin
 
 //	helper functions 	end
+
+// ctx review done 2025.12.21

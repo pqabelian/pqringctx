@@ -1,6 +1,7 @@
 package pqringctx
 
 // CTX
+// reviewed done 2025.12.21
 const (
 	MaxAllowedCtxTxoSize           uint32 = 1024 * 1024      // 2^20, 1M bytes
 	MaxAllowedCtxTxWitnessCbTxSize uint32 = 8 * 1024 * 1024  // 2^23, 8M bytes
@@ -8,4 +9,4 @@ const (
 
 )
 
-// review done 2025.12.21
+// ctx review done 2025.12.21

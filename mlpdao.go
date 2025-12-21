@@ -2,6 +2,7 @@ package pqringctx
 
 type CoinAddressType uint8
 
+// review done 2025.12.21
 const (
 	CoinAddressTypePublicKeyForRingPre      CoinAddressType = 0
 	CoinAddressTypePublicKeyForRing         CoinAddressType = 1
@@ -196,3 +197,5 @@ func (txInput *TxInputMLP) GetSerialNumber() []byte {
 }
 
 //	New and Get functions for Transactions	end
+
+// ctx review done 2025.12.21 todo

@@ -337,6 +337,7 @@ func (pp *PublicParameter) CoinAddressForPKRingDetect(coinAddress []byte, coinDe
 // reviewed on 2023.12.30
 // REVIEWED ON 2023/12/31
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []byte, coinDetectorKey []byte, publicRand []byte, coinAddressType CoinAddressType) (coinAddress []byte, coinSpendSecretKey []byte, err error) {
 
 	if len(coinDetectorKey) != pp.GetParamMACKeyBytesLen() {
@@ -398,6 +399,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed []
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, coinSpendSecretKey []byte, coinDetectorKey []byte, coinAddressType CoinAddressType) (bool, error) {
 
 	//	not nil
@@ -514,6 +516,7 @@ func (pp *PublicParameter) CoinAddressKeyForPKHSingleVerify(coinAddress []byte, 
 // Note that err != nil implies that unexpected cases (such as incorrect call) happen,
 // and it is necessary for the caller to print the error to log and/or return the error to its caller.
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) CoinAddressForPKHSingleDetect(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 
 	//	not nil
@@ -593,6 +596,7 @@ func (pp *PublicParameter) CoinValueKeyVerify(coinValuePublicKey []byte, coinVal
 // reviewed on 2023.12.07
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []byte) (CoinAddressType, error) {
 	n := len(coinAddress)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -627,6 +631,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinAddress(coinAddress []b
 // ExtractPublicRandFromCoinAddress extracts the PublicRand from the input coinAddress.
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractPublicRandFromCoinAddress(coinAddress []byte) ([]byte, error) {
 
 	n := len(coinAddress)
@@ -668,6 +673,7 @@ func (pp *PublicParameter) ExtractPublicRandFromCoinAddress(coinAddress []byte) 
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpendSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSpendSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -703,6 +709,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSpendSecretKey(coinSpen
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(coinSnSecretKey []byte) (CoinAddressType, error) {
 	n := len(coinSnSecretKey)
 	//	Before Fork-MLP, the coinAddress is the serializedAPK by PQRingCT,
@@ -733,6 +740,7 @@ func (pp *PublicParameter) ExtractCoinAddressTypeFromCoinSerialNumberSecretKey(c
 // reviewed on 2023.12.05
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -750,6 +758,7 @@ func (pp *PublicParameter) GetCoinAddressSize(coinAddressType CoinAddressType) (
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -767,6 +776,7 @@ func (pp *PublicParameter) GetCoinSpendSecretKeySize(coinAddressType CoinAddress
 // reviewed on 2023.12.12
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) GetCoinSerialNumberSecretKeySize(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
@@ -798,6 +808,7 @@ func (pp *PublicParameter) GetCoinValueSecretKeySize() int {
 
 // DetectCoinAddress checks whether the input coinAddress contains a valid (message, mac) pair with respect the input coinDetectorKey.
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) DetectCoinAddress(coinAddress []byte, coinDetectorKey []byte) (bool, error) {
 	coinAddressType, err := pp.ExtractCoinAddressTypeFromCoinAddress(coinAddress)
 	if err != nil {
@@ -985,6 +996,7 @@ func (pp *PublicParameter) addressKeyForRingVerify(apk *AddressPublicKeyForRing,
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
 // todo: erase the memory?
+// review done 2025.12.21
 func (pp *PublicParameter) addressKeyForSingleGen(coinSpendKeyRandSeed []byte) (apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle, err error) {
 	// check the validity of the length of seed
 	if coinSpendKeyRandSeed != nil && len(coinSpendKeyRandSeed) != pp.paramKeyGenSeedBytesLen {
@@ -1038,6 +1050,7 @@ func (pp *PublicParameter) addressKeyForSingleGen(coinSpendKeyRandSeed []byte) (
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
 // refactored and reviewed by Alice, 2024.07.01
+// review done 2025.12.21
 func (pp *PublicParameter) addressKeyForSingleVerify(apk *AddressPublicKeyForSingle, ask *AddressSecretKeyForSingle) (valid bool, hints string) {
 
 	if !pp.AddressPublicKeyForSingleSanityCheck(apk) {
@@ -1293,6 +1306,7 @@ func (pp *PublicParameter) deserializeAddressSecretKeySn(serializedASKSn []byte)
 // reviewed on 2023.12.14
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) coinSpendSecretKeyForPKRingParse(coinSpendSecretKey []byte) (*AddressSecretKeySp, error) {
 	if len(coinSpendSecretKey) == 0 {
 		return nil, fmt.Errorf("coinSpendSecretKeyForPKRingParse: the input coinSpendSecretKey is nil/empty")
@@ -1340,6 +1354,7 @@ func (pp *PublicParameter) coinSpendSecretKeyForPKRingParse(coinSpendSecretKey [
 // added on 2023.12.14
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) coinSerialNumberSecretKeyForPKRingParse(coinSerialNumberSecretKey []byte) (*AddressSecretKeySn, error) {
 	if len(coinSerialNumberSecretKey) == 0 {
 		return nil, fmt.Errorf("coinSerialNumberSecretKeyForPKRingParse: the input coinSpendSecretKey is nil/empty")
@@ -1386,6 +1401,7 @@ func (pp *PublicParameter) coinSerialNumberSecretKeyForPKRingParse(coinSerialNum
 // added on 2023.12.14
 // reviewed on 2023.12.30
 // reviewed by Alice, 2024.06.24
+// review done 2025.12.21
 func (pp *PublicParameter) coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKey []byte) (*AddressPublicKeyForSingle, *AddressSecretKeySp, error) {
 	if len(coinSpendSecretKey) == 0 {
 		return nil, nil, fmt.Errorf("coinSpendSecretKeyForPKHSingleParse: the input coinSpendSecretKey is nil/empty")
@@ -1505,6 +1521,7 @@ func (pp *PublicParameter) AddressSecretKeyForRingSanityCheck(addressSecretKeyFo
 // (1) addressPublicKeyForSingle is not nil,
 // (2) addressPublicKeyForRing.t is not nil and is well-form
 // todo: review by 2024.06
+// review done 2025.12.21
 func (pp *PublicParameter) AddressPublicKeyForSingleSanityCheck(addressPublicKeyForSingle *AddressPublicKeyForSingle) bool {
 	if addressPublicKeyForSingle == nil {
 		return false
@@ -1531,6 +1548,7 @@ func (pp *PublicParameter) AddressPublicKeyForSingleSanityCheck(addressPublicKey
 // added by Alice, 2024.07.01
 // todo: review by 2024.07
 // reviewed by Ocean
+// review done 2025.12.21
 func (pp *PublicParameter) AddressSecretKeyForSingleSanityCheck(addressSecretKeyForSingle *AddressSecretKeyForSingle) bool {
 	if addressSecretKeyForSingle == nil {
 		return false
@@ -1557,3 +1575,5 @@ func (pp *PublicParameter) AddressSecretKeyForSingleSanityCheck(addressSecretKey
 }
 
 //	sanity check functions	end
+
+// ctx review done 2025.12.21

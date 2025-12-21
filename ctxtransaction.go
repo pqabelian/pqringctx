@@ -30,6 +30,7 @@ import (
 // Note: The 0-value-coin-rule is imposed on the transaction layer, including Witness Layer, not deep into BalanceProof Layer.
 
 // CtxCoinbaseTxGen generates a CtxCoinbaseTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOutputDesc) (*CtxCoinbaseTx, error) {
 
 	V := (uint64(1) << pp.paramN) - 1
@@ -172,6 +173,7 @@ func (pp *PublicParameter) CtxCoinbaseTxGen(vin uint64, txOutputDescs []*CtxTxOu
 }
 
 // CtxCoinbaseTxVerify verifies the input CtxCoinbaseTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 
 	if !pp.CtxCoinbaseTxSanityCheck(cbTx, true) {
@@ -224,6 +226,7 @@ func (pp *PublicParameter) CtxCoinbaseTxVerify(cbTx *CtxCoinbaseTx) error {
 }
 
 // CtxTransferTxGen generates CtxTransferTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOutputDescs []*CtxTxOutputDesc) (*CtxTransferTx, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -318,7 +321,6 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 			return nil, fmt.Errorf("CtxTransferTxGen: the vInTotal of the first %d txInputDescs[].value, say %d, exceeds V (%d)", i+1, vInTotal, V)
 		}
 
-		//	Note that here we do not know this is a ring for ring or pseudonym-ring.
 		if !pp.CtxTxoSanityCheck(txInputDescItem.ctxTxo) {
 			return nil, fmt.Errorf("CtxTransferTxGen: txInputDescs[%d].ctxTxo is not well-form", i)
 		}
@@ -492,6 +494,7 @@ func (pp *PublicParameter) CtxTransferTxGen(txInputDescs []*CtxTxInputDesc, txOu
 }
 
 // CtxTransferTxVerify verifies CtxTransferTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 
 	err := pp.CtxTransferTxSanityCheck(trTx, true)
@@ -561,6 +564,7 @@ func (pp *PublicParameter) CtxTransferTxVerify(trTx *CtxTransferTx) error {
 // (2) cbTx.vin is in the allowed scope;
 // (3) 0-value-coin-rule is obeyed;
 // (4) cbTx.txWitness is well-form.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxCoinbaseTxSanityCheck(cbTx *CtxCoinbaseTx, withWitness bool) bool {
 	if cbTx == nil {
 		return false
@@ -656,6 +660,7 @@ func (pp *PublicParameter) CtxCoinbaseTxSanityCheck(cbTx *CtxCoinbaseTx, withWit
 // (2) trTx.txInputs is well-form;
 // (3) trTx.txos is well-form;
 // (4) trTx.txWitness is well-form.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWitness bool) error {
 	if trTx == nil {
 		return fmt.Errorf("CtxTransferTxSanityCheck: the input trTx *CtxTransferTx is nil")
@@ -727,6 +732,7 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 	}
 	if outForRing+outForSingle != outputNum {
 		// assert
+		// todo: 2025.12.21 future add AssertError()
 		return fmt.Errorf("CtxTransferTxSanityCheck: (shoud not happen) outForRing (%d) + outForSingle (%d) != outputNum (%d)", outForRing, outForSingle, outputNum)
 	}
 
@@ -755,7 +761,7 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 				return fmt.Errorf("CtxTransferTxSanityCheck: (should not happen) trTx.txInputs[%d] value (%d) is not in the allowed scope [1, %d]", i, txoInst.value, V)
 			}
 
-			vInPublic += txoInst.value
+			vInPublic = vInPublic + txoInst.value
 			if vInPublic > V {
 				return fmt.Errorf("CtxTransferTxSanityCheck: the vInPublic (%v) before and trTx.txInputs[%d] exceeds tha allowed maximum value (%v)", vInPublic, i, V)
 			}
@@ -776,6 +782,7 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 
 	if inForRing+inForSingle != inputNum {
 		// assert
+		// todo: 2025.12.21 future AssertError
 		return fmt.Errorf("CtxTransferTxSanityCheck: (should not happen) inForRing (%d) + inForSingle (%d) != inputNum (%d)", inForRing, inForSingle, inputNum)
 	}
 
@@ -817,3 +824,5 @@ func (pp *PublicParameter) CtxTransferTxSanityCheck(trTx *CtxTransferTx, withWit
 }
 
 //	Sanity-Check functions	end
+
+// ctx review done 2025.12.21

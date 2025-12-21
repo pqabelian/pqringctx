@@ -297,6 +297,8 @@ func writeVarBytes(w io.Writer, b []byte) error {
 			return err
 		}
 	}
+	// todo: 2025.12.21 future research whether write [] works; whether better or worse than those in wire package.
+
 	return nil
 }
 
@@ -304,12 +306,14 @@ func writeVarBytes(w io.Writer, b []byte) error {
 // the length of the byte array is decided by the initial several byte
 // moved from serialization.go on 2024.06.21
 // reviewed by Alice, 2024.06.21
+// review 2025.12.21
 func readVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
 	count, err := ReadVarInt(r)
 	if err != nil {
 		return nil, err
 	}
 
+	// todo: 2025.12.21 future research Is this necessary? whether better or worse than those in wire package.
 	if count == 0 {
 		return nil, nil
 	}

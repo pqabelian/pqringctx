@@ -3343,3 +3343,5 @@ func (pp *PublicParameter) BalanceProofSanityCheck(balanceProof BalanceProof) bo
 }
 
 //	sanity-check functions	end
+
+// ctx review done 2025.12.21

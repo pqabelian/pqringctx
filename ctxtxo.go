@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
 	"github.com/cryptosuite/pqringctx/pqringctxkem"
+	"io"
 )
 
 // CtxTxo is used as a component object for CtxCoinbaseTx and CtxTransferTx.
 // As the Txos in one CtxCoinbaseTx/CTxTransferTx could have different privacy-levels
 // and consequently have different structures,
 // here we use an interface to define CtxTxo.
+// review done 2025.12.21
 type CtxTxo interface {
 	CtxTxoType() CtxTxoType
 }
 
 // CtxTxoHidden defines the CtxTxo with value-hidden.
+// review done 2025.12.21
 type CtxTxoHidden struct {
 	ctxTxoType      CtxTxoType
 	valueCommitment *ValueCommitment
@@ -25,17 +27,20 @@ type CtxTxoHidden struct {
 }
 
 // CtxTxoType is the method that all CtxTxo instance shall implement, which returns the ctxTxoType.
+// review done 2025.12.21
 func (ctxTxoHidden *CtxTxoHidden) CtxTxoType() CtxTxoType {
 	return ctxTxoHidden.ctxTxoType
 }
 
 // CtxTxoPublic defines the CtxTxo with value-public.
+// review done 2025.12.21
 type CtxTxoPublic struct {
 	ctxTxoType CtxTxoType
 	value      uint64
 }
 
 // CtxTxoType is the method that all CtxTxo instance shall implement, which returns the ctxTxoType.
+// review done 2025.12.21
 func (ctxTxoPublic *CtxTxoPublic) CtxTxoType() CtxTxoType {
 	return ctxTxoPublic.ctxTxoType
 }
@@ -44,6 +49,7 @@ func (ctxTxoPublic *CtxTxoPublic) CtxTxoType() CtxTxoType {
 //
 
 // ctxTxoHiddenGen() returns a CtxTxo and the randomness used to generate the commitment.
+// review done 2025.12.21
 func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint64) (ctxTxo *CtxTxoHidden, cmtr *PolyCNTTVec, err error) {
 
 	//	got (C, kappa) from key encapsulate mechanism
@@ -100,6 +106,7 @@ func (pp *PublicParameter) ctxTxoHiddenGen(coinValuePublicKey []byte, value uint
 }
 
 // ctxTxoPublicGen() returns a CtxTxoPublic.
+// review done 2025.12.21
 func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, err error) {
 	return &CtxTxoPublic{
 		ctxTxoType: CtxTxoTypePublic,
@@ -110,6 +117,7 @@ func (pp *PublicParameter) ctxTxoPublicGen(value uint64) (ctxTxo *CtxTxoPublic, 
 //	TXO	Gen		end
 
 // ExtractValueAndRandFromCtxTxo extract the (value, randomness, commitment) pair for input CtxTxo.
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, cmt *ValueCommitment, err error) {
 
 	if !pp.CtxTxoSanityCheck(ctxTxo) {
@@ -202,6 +210,7 @@ func (pp *PublicParameter) ExtractValueAndRandFromCtxTxo(ctxTxo CtxTxo, coinValu
 }
 
 // GetCtxTxoSerializeSizeByCtxTxoType returns the serialize size of a CtxTxo for the input CtxTxoType.
+// review done 2025.12.21
 func (pp *PublicParameter) GetCtxTxoSerializeSizeByCtxTxoType(ctxTxoType CtxTxoType) (int, error) {
 	switch ctxTxoType {
 	case CtxTxoTypeHidden:
@@ -214,6 +223,7 @@ func (pp *PublicParameter) GetCtxTxoSerializeSizeByCtxTxoType(ctxTxoType CtxTxoT
 }
 
 // CtxTxoSerializeSize returns the serializedSize for the input CtxTxo.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoSerializeSize(ctxTxo CtxTxo) (int, error) {
 	if ctxTxo == nil {
 		return 0, fmt.Errorf("CtxTxoSerializeSize: the input ctxTxo is nil")
@@ -238,6 +248,7 @@ func (pp *PublicParameter) CtxTxoSerializeSize(ctxTxo CtxTxo) (int, error) {
 }
 
 // SerializeCtxTxo serializes the input CtxTxo to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeCtxTxo(ctxTxo CtxTxo) (serializedTxo []byte, err error) {
 	if ctxTxo == nil {
 		return nil, fmt.Errorf("SerializeCtxTxo: the input ctxTxo is nil")
@@ -261,6 +272,7 @@ func (pp *PublicParameter) SerializeCtxTxo(ctxTxo CtxTxo) (serializedTxo []byte,
 }
 
 // DeserializeCtxTxo deserialize the input []byte to a CtxTxo.
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeCtxTxo(serializedTxo []byte) (ctxTxo CtxTxo, err error) {
 	if len(serializedTxo) == 0 {
 		return nil, fmt.Errorf("DeserializeCtxTxo: the input serializedTxo is empty")
@@ -277,6 +289,7 @@ func (pp *PublicParameter) DeserializeCtxTxo(serializedTxo []byte) (ctxTxo CtxTx
 }
 
 // CtxTxoHiddenSerializeSize returns the serialize size for CtxTxoHidden.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoHiddenSerializeSize() int {
 	ctKemSerializedLen := pqringctxkem.GetKemCiphertextBytesLen(pp.paramKem)
 	return 1 + // for ctxTxoType
@@ -286,6 +299,7 @@ func (pp *PublicParameter) CtxTxoHiddenSerializeSize() int {
 }
 
 // serializeCtxTxoHidden serialize the input CtxTxoHidden to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) serializeCtxTxoHidden(ctxTxoHidden *CtxTxoHidden) ([]byte, error) {
 
 	if !pp.CtxTxoHiddenSanityCheck(ctxTxoHidden) {
@@ -328,6 +342,7 @@ func (pp *PublicParameter) serializeCtxTxoHidden(ctxTxoHidden *CtxTxoHidden) ([]
 }
 
 // deserializeCtxTxoHidden deserialize the input []byte to a CtxTxoHidden.
+// review done 2025.12.21
 func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte) (*CtxTxoHidden, error) {
 	var err error
 	r := bytes.NewReader(serializedCtxTxoHidden)
@@ -343,7 +358,8 @@ func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte
 
 	var cmt *ValueCommitment
 	tmp := make([]byte, pp.ValueCommitmentSerializeSize())
-	_, err = r.Read(tmp)
+	// _, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +369,8 @@ func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte
 	}
 
 	vct := make([]byte, pp.TxoValueBytesLen())
-	_, err = r.Read(vct)
+	// _, err = r.Read(vct)
+	_, err = io.ReadFull(r, vct)
 	if err != nil {
 		return nil, err
 	}
@@ -372,12 +389,14 @@ func (pp *PublicParameter) deserializeCtxTxoHidden(serializedCtxTxoHidden []byte
 }
 
 // CtxTxoPublicSerializeSize returns the serialized size for CtxTxoPublic.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoPublicSerializeSize() int {
 	return 1 + // for ctxTxoType
 		8 // for value
 }
 
-// serializeCtxTxoPublic serialize the input TxoSDN to []byte.
+// serializeCtxTxoPublic serialize the input CtxTxoPublic to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) serializeCtxTxoPublic(ctxTxoPublic *CtxTxoPublic) ([]byte, error) {
 
 	if !pp.CtxTxoPublicSanityCheck(ctxTxoPublic) {
@@ -404,6 +423,7 @@ func (pp *PublicParameter) serializeCtxTxoPublic(ctxTxoPublic *CtxTxoPublic) ([]
 }
 
 // deserializeCtxTxoPublic deserialize the input []byte to a CtxTxoPublic.
+// review done 2025.12.21
 func (pp *PublicParameter) deserializeCtxTxoPublic(serializedCtxTxoPublic []byte) (*CtxTxoPublic, error) {
 	var err error
 	r := bytes.NewReader(serializedCtxTxoPublic)
@@ -433,6 +453,7 @@ func (pp *PublicParameter) deserializeCtxTxoPublic(serializedCtxTxoPublic []byte
 // sanity check functions	begin
 
 // CtxTxoSanityCheck conducts sanity-check on the input CtxTxo.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoSanityCheck(ctxTxo CtxTxo) bool {
 	if ctxTxo == nil {
 		return false
@@ -456,6 +477,7 @@ func (pp *PublicParameter) CtxTxoSanityCheck(ctxTxo CtxTxo) bool {
 // (3) ctxTxoHidden.valueCommitment is well-form
 // (4) ctxTxoHidden.vct has correct length
 // (5) ctxTxoHidden.ctKemSerialized has correct length.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoHiddenSanityCheck(ctxTxoHidden *CtxTxoHidden) bool {
 	if ctxTxoHidden == nil {
 		return false
@@ -484,6 +506,7 @@ func (pp *PublicParameter) CtxTxoHiddenSanityCheck(ctxTxoHidden *CtxTxoHidden) b
 // (1) not nil
 // (2) ctxTxoPublic.ctxTxoType is correct
 // (3) TxoSDN.value is in the correct scope [1, 2^N-1] (note that CtxTxoPublic.value is public and could not be 0).
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) bool {
 	if ctxTxoPublic == nil {
 		return false
@@ -507,6 +530,7 @@ func (pp *PublicParameter) CtxTxoPublicSanityCheck(ctxTxoPublic *CtxTxoPublic) b
 // common functions	begin
 
 // ValueMaxSanityCheck checks whether the passed value in the scope [0, 2^N-1].
+// review done 2025.12.21
 func (pp *PublicParameter) ValueMaxSanityCheck(value uint64) bool {
 	V := (uint64(1) << pp.paramN) - 1
 
@@ -518,3 +542,5 @@ func (pp *PublicParameter) ValueMaxSanityCheck(value uint64) bool {
 }
 
 // common functions	end
+
+// ctx review done 2025.12.21

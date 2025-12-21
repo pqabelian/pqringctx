@@ -9,6 +9,7 @@ import (
 // Tx Serialization	begin
 
 // CtxCoinbaseTxSerializeSize compute the serializedSize for CtxCoinbaseTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withWitness bool) (int, error) {
 
 	if !pp.CtxCoinbaseTxSanityCheck(cbTx, withWitness) {
@@ -47,6 +48,7 @@ func (pp *PublicParameter) CtxCoinbaseTxSerializeSize(cbTx *CtxCoinbaseTx, withW
 }
 
 // SerializeCtxCoinbaseTx serialize the input CtxCoinbaseTx to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeCtxCoinbaseTx(cbTx *CtxCoinbaseTx, withWitness bool) ([]byte, error) {
 
 	//// As CtxCoinbaseTxSerializeSize will call CtxCoinbaseTxSanityCheck, here we can skip CtxCoinbaseTxSanityCheck safely.
@@ -100,6 +102,7 @@ func (pp *PublicParameter) SerializeCtxCoinbaseTx(cbTx *CtxCoinbaseTx, withWitne
 }
 
 // DeserializeCtxCoinbaseTx deserialize []byte to CtxCoinbaseTx.
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []byte, withWitness bool) (*CtxCoinbaseTx, error) {
 	if len(serializedCtxCoinbaseTx) == 0 {
 		return nil, fmt.Errorf("DeserializeCtxCoinbaseTx: the input serializedCtxCoinbaseTx is empty")
@@ -171,6 +174,7 @@ func (pp *PublicParameter) DeserializeCtxCoinbaseTx(serializedCtxCoinbaseTx []by
 }
 
 // CtxTransferTxSerializeSize returns the serialize size for the input CtxTransferTx.
+// review done 2025.12.21
 func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withWitness bool) (int, error) {
 	err := pp.CtxTransferTxSanityCheck(trTx, withWitness)
 	if err != nil {
@@ -221,6 +225,7 @@ func (pp *PublicParameter) CtxTransferTxSerializeSize(trTx *CtxTransferTx, withW
 }
 
 // SerializeCtxTransferTx serialize the input CtxTransferTx to []byte.
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeCtxTransferTx(trTx *CtxTransferTx, withWitness bool) ([]byte, error) {
 
 	//// As CtxTransferTxSerializeSize will call CtxTransferTxSanityCheck, here we skip CtxTransferTxSanityCheck safely.
@@ -292,6 +297,7 @@ func (pp *PublicParameter) SerializeCtxTransferTx(trTx *CtxTransferTx, withWitne
 }
 
 // DeserializeCtxTransferTx deserialize []byte to CtxTransferTx.
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []byte, withWitness bool) (*CtxTransferTx, error) {
 	if len(serializedCtxTransferTx) == 0 {
 		return nil, fmt.Errorf("DeserializeCtxTransferTx: the input serializedCtxTransferTx is empty")
@@ -377,3 +383,5 @@ func (pp *PublicParameter) DeserializeCtxTransferTx(serializedCtxTransferTx []by
 }
 
 //	Tx Serialization	end
+
+// ctx review done 2025.12.21

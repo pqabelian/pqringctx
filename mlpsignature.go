@@ -1114,6 +1114,7 @@ func (pp *PublicParameter) newAddressSecretKeySnFromPolyANTT(maNTT *PolyANTT) (*
 // (4) Each Txo's coinAddressType is either CoinAddressTypePublicKeyForRingPre or CoinAddressTypePublicKeyForRing.
 // added by Alice, 2024.07.02
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) LgrTxoRingForRingSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
 
 	ringLen := len(lgrTxoList)
@@ -1151,6 +1152,7 @@ func (pp *PublicParameter) LgrTxoRingForRingSanityCheck(lgrTxoList []*LgrTxoMLP)
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
 // reviewed by Ocean
+// ctx review done 2025.12.21
 func (pp *PublicParameter) LgrTxoRingForSingleSanityCheck(lgrTxoList []*LgrTxoMLP) bool {
 
 	ringLen := len(lgrTxoList)
@@ -1314,3 +1316,4 @@ func (pp *PublicParameter) SimpleSignatureSanityCheck(simpleSignatureMLP *Simple
 }
 
 //	Sanity-checks	end
+// ctx review done 2025.12.21

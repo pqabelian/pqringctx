@@ -519,6 +519,7 @@ func (pp *PublicParameter) PolyCNTTEqualCheck(a *PolyCNTT, b *PolyCNTT) (eq bool
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
 // reviewed by Ocean
+// review done 2025.12.21
 func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 	if c == nil {
 		return false
@@ -527,6 +528,8 @@ func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 	if len(c.coeffs) != pp.paramDC {
 		return false
 	}
+
+	// todo: 2025.12.21 future: check c.coeffs[i] \in [-(p-1)/2, (p-1)/2].
 
 	return true
 }

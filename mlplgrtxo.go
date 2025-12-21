@@ -130,6 +130,7 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 // moved from mlptxo.go
 // moved from mlptransaction.go 2024.07.01
 // reviewed by Alice, 2024.07.01
+// ctx review done 2025.12.21
 func (pp *PublicParameter) LedgerTxoSerialNumberGen(lgrTxo *LgrTxoMLP, coinSerialNumberSecretKey []byte) ([]byte, error) {
 
 	if !pp.LgrTxoMLPSanityCheck(lgrTxo) {
@@ -317,3 +318,5 @@ func (pp *PublicParameter) LgrTxoMLPSanityCheck(lgrTxoMLP *LgrTxoMLP) bool {
 }
 
 //	Sanity-Check functions	end
+
+// ctx review done 2025.12.21

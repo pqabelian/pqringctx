@@ -37,6 +37,7 @@ import (
 // reviewed on 2023.12.20
 // REVIEWED on 2023/12/31
 // reviewed by Alice, 2024.07.06
+// review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
 
 	if int64(len(txMemo)) > int64(MaxAllowedTxMemoMLPSize) {
@@ -222,6 +223,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 
 	if !pp.CoinbaseTxMLPSanityCheck(cbTx, true) {
@@ -276,6 +278,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: review pp.CoinValueKeyVerify
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -803,6 +806,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: multi-round review
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 
 	err := pp.TransferTxMLPSanityCheck(trTx, true)
@@ -971,6 +975,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 // GetTxWitnessCbTxSerializeSizeByDesc returns the serialize size for TxWitnessCbTx according to the input coinAddressList.
 // reviewed on 2024.01.01, by Alice
 // reviewed by Alice, 2024.07.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
 	if len(coinAddressList) == 0 {
 		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the input coinAddressList is empty")
@@ -1738,6 +1743,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 // (5) cbTx.txWitness is well-form.
 // added by Alice, 2024.07.06
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWitness bool) bool {
 	if cbTx == nil {
 		return false
@@ -1873,6 +1879,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWit
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
 // reviewed by Ocean
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWitness bool) error {
 	if trTx == nil {
 		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx *TransferTxMLP is nil")
@@ -2109,6 +2116,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 // (3) txInputMLP.lgrTxoList is either a single-member-ring-for-pseudonym or a normal ring.
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
 	if txInputMLP == nil {
 		return false
@@ -2129,3 +2137,5 @@ func (pp *PublicParameter) TxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
 }
 
 //	Sanity-Check functions	end
+
+// ctx review done 2025.12.21
