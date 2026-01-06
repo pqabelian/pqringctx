@@ -34,18 +34,19 @@ func TestPublicParameter_CoinAddressKeyForPKRingGen_CoinAddressKeyForPKRingVerif
 func TestPublicParameter_CoinAddressKeyForPKHSingleGen_CoinAddressKeyForPKHSingleVerify(t *testing.T) {
 	pp := Initialize(nil)
 
+	coinAddressType := CoinAddressTypePublicKeyHashForSingle
 	for i := 0; i < 100; i++ {
 		coinSpendKeyRandSeed := RandomBytes(pp.paramKeyGenSeedBytesLen)
 
 		coinDetectorKey := RandomBytes(pp.GetParamMACKeyBytesLen())
 		publicRand := RandomBytes(pp.GetParamKeyGenPublicRandBytesLen())
 
-		coinAddress, coinSpendSecretKey, err := pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
+		coinAddress, coinSpendSecretKey, err := pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand, coinAddressType)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for j := 0; j < 10; j++ {
-			verify, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, coinSpendSecretKey, coinDetectorKey)
+			verify, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, coinSpendSecretKey, coinDetectorKey, coinAddressType)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,6 +89,7 @@ func TestPublicParameter_MLPKey_Sizes(t *testing.T) {
 		CoinAddressTypePublicKeyForRingPre,
 		CoinAddressTypePublicKeyForRing,
 		CoinAddressTypePublicKeyHashForSingle,
+		CoinAddressTypePublicKeyHashForSingleCT,
 	}
 
 	for i := 0; i < len(coinAddressTypes); i++ {

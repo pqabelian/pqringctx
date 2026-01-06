@@ -906,6 +906,8 @@ func (pp *PublicParameter) TxWitnessTrTxSanityCheck(txWitnessTrTx *TxWitnessTrTx
 		apkStr := hex.EncodeToString(serializedApk)
 		if _, exists := addressPublicKeyStrMap[apkStr]; exists {
 			return false
+		} else {
+			addressPublicKeyStrMap[apkStr] = int(i)
 		}
 	}
 

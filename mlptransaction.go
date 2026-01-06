@@ -37,6 +37,7 @@ import (
 // reviewed on 2023.12.20
 // REVIEWED on 2023/12/31
 // reviewed by Alice, 2024.07.06
+// review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOutputDescMLP, txMemo []byte) (*CoinbaseTxMLP, error) {
 
 	if int64(len(txMemo)) > int64(MaxAllowedTxMemoMLPSize) {
@@ -59,8 +60,9 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 		if err != nil {
 			return nil, err
 		}
-		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-			return nil, fmt.Errorf("CoinbaseTxMLPGen: vin = 0, but txOutputDescMLPs[0].coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
+			return nil, fmt.Errorf("CoinbaseTxMLPGen: vin = 0, but txOutputDescMLPs[0].coinAddressType (%d) is "+
+				"not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT", coinAddressType)
 		}
 
 		if txOutputDescMLPs[0].value != 0 {
@@ -92,7 +94,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 				return nil, fmt.Errorf("CoinbaseTxMLPGen: the coinAddresses for RingCT-Privacy should have coinValuePublicKey, but the %d -th one does not", i)
 			}
 
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle || coinAddressType == CoinAddressTypePublicKeyHashForSingleCT {
 			outForSingle += 1
 
 			// skip the nil-check on coinValuePublicKey, to allow the caller to use a dummy coinValuePublicKey
@@ -155,7 +157,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 			cmtrs[j] = cmtr
 			vRs[j] = txOutputDescMLP.value
 
-		case CoinAddressTypePublicKeyHashForSingle:
+		case CoinAddressTypePublicKeyHashForSingle, CoinAddressTypePublicKeyHashForSingleCT:
 			if txOutputDescMLP.value == 0 {
 				if vin != 0 {
 					// 0-value-coin-rule applies:
@@ -221,6 +223,7 @@ func (pp *PublicParameter) CoinbaseTxMLPGen(vin uint64, txOutputDescMLPs []*TxOu
 // refactored on 2024.01.08, using err == nil or not to denote valid or invalid
 // refactored and reviewed by Alice, 2024.07.06
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 
 	if !pp.CoinbaseTxMLPSanityCheck(cbTx, true) {
@@ -275,6 +278,7 @@ func (pp *PublicParameter) CoinbaseTxMLPVerify(cbTx *CoinbaseTxMLP) error {
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: review pp.CoinValueKeyVerify
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOutputDescs []*TxOutputDescMLP, fee uint64, txMemo []byte) (*TransferTxMLP, error) {
 
 	//	check the well-form of the inputs and outputs
@@ -288,7 +292,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	}
 
 	if outputNum > int(pp.paramJ)+int(pp.paramJSingle) {
-		return nil, fmt.Errorf("TransferTxMLPGen: The input txInputDescs []*TxInputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
+		return nil, fmt.Errorf("TransferTxMLPGen: The input txOutputDescs []*TxOutputDescMLP has a size (%d) exceeds the allowed maximum value (%d)", outputNum, int(pp.paramJ)+int(pp.paramJSingle))
 	}
 
 	V := (uint64(1) << pp.paramN) - 1
@@ -337,7 +341,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			// For RCT-privacy coin, we do not apply the 0-value-coin-rule here,
 			// and only apply it by public information.
 
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle || coinAddressType == CoinAddressTypePublicKeyHashForSingleCT {
 			outForSingle += 1
 			vOutPublic += txOutputDescItem.value
 
@@ -485,7 +489,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			//	}
 			//}
 
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle || coinAddressType == CoinAddressTypePublicKeyHashForSingleCT {
 			inForSingle += 1
 			vInPublic += txInputDescItem.value
 
@@ -502,7 +506,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			if len(txInputDescItem.coinSpendSecretKey) == 0 {
 				return nil, fmt.Errorf("TransferTxMLPGen: for %d-th the coin to spend, say txInputDescs[%d].lgrTxoList[%d], the corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, is nil", i, i, txInputDescItem.sidx, i)
 			}
-			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinDetectorKey)
+			validKey, err := pp.CoinAddressKeyForPKHSingleVerify(coinAddress, txInputDescItem.coinSpendSecretKey, txInputDescItem.coinDetectorKey, coinAddressType)
 			if err != nil {
 				return nil, err
 			}
@@ -616,7 +620,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 			cmtrs_out[j] = cmtr
 			values_out[j] = txOutputDescItem.value
 
-		case CoinAddressTypePublicKeyHashForSingle:
+		case CoinAddressTypePublicKeyHashForSingle, CoinAddressTypePublicKeyHashForSingleCT:
 			txoSDN, err := pp.txoSDNGen(txOutputDescItem.coinAddress, txOutputDescItem.value)
 			if err != nil {
 				return nil, err
@@ -802,6 +806,7 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 // refactored and reviewed by Alice, 2024.07.07
 // todo: review by 2024.07
 // todo: multi-round review
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 
 	err := pp.TransferTxMLPSanityCheck(trTx, true)
@@ -956,6 +961,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 		}
 	}
 
+	// Note that the validity between trTx.txWitness's fields and trTx's fields have been checked in TransferTxMLPSanityCheck.
 	err = pp.verifyBalanceProofTrTx(extTrTxConDigest, trTx.txWitness.inForRing, trTx.txWitness.outForRing, trTx.txWitness.cmts_in_p, cmts_out, trTx.txWitness.vPublic, trTx.txWitness.txCase, trTx.txWitness.balanceProof)
 	if err != nil {
 		return err
@@ -969,6 +975,7 @@ func (pp *PublicParameter) TransferTxMLPVerify(trTx *TransferTxMLP) error {
 // GetTxWitnessCbTxSerializeSizeByDesc returns the serialize size for TxWitnessCbTx according to the input coinAddressList.
 // reviewed on 2024.01.01, by Alice
 // reviewed by Alice, 2024.07.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [][]byte) (int, error) {
 	if len(coinAddressList) == 0 {
 		return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the input coinAddressList is empty")
@@ -988,7 +995,7 @@ func (pp *PublicParameter) GetTxWitnessCbTxSerializeSizeByDesc(coinAddressList [
 			} else {
 				return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: the coinAddresses for RingCT-Privacy should be at the fist successive positions")
 			}
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle || coinAddressType == CoinAddressTypePublicKeyHashForSingleCT {
 			outForSingle += 1
 		} else {
 			return 0, fmt.Errorf("GetTxWitnessCbTxSerializeSizeByDesc: unsupported coinAddress type appears in coinAddressList")
@@ -1736,6 +1743,7 @@ func (pp *PublicParameter) verifyBalanceProofTrTx(extTrTxCon []byte, inForRing u
 // (5) cbTx.txWitness is well-form.
 // added by Alice, 2024.07.06
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWitness bool) bool {
 	if cbTx == nil {
 		return false
@@ -1871,6 +1879,7 @@ func (pp *PublicParameter) CoinbaseTxMLPSanityCheck(cbTx *CoinbaseTxMLP, withWit
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
 // reviewed by Ocean
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWitness bool) error {
 	if trTx == nil {
 		return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx *TransferTxMLP is nil")
@@ -1959,7 +1968,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 		return fmt.Errorf("TransferTxMLPSanityCheck: outForRing (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJ)
 	}
 	if outForSingle > int(pp.paramJSingle) {
-		return fmt.Errorf("TransferTxMLPSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForRing, pp.paramJSingle)
+		return fmt.Errorf("TransferTxMLPSanityCheck: outForSingle (%d) exceeds the allowed maximum value (%d)", outForSingle, pp.paramJSingle)
 	}
 	if outForRing+outForSingle != outputNum {
 		// assert
@@ -1996,7 +2005,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 				return fmt.Errorf("TransferTxMLPSanityCheck: the input trTx.txInputs[%d] is a ring, but pseudo-ring appeared before that", i)
 			}
 
-		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle {
+		} else if coinAddressType == CoinAddressTypePublicKeyHashForSingle || coinAddressType == CoinAddressTypePublicKeyHashForSingleCT {
 			inForSingle += 1
 
 			switch txoInst := trTx.txInputs[i].lgrTxoList[0].txo.(type) {
@@ -2107,6 +2116,7 @@ func (pp *PublicParameter) TransferTxMLPSanityCheck(trTx *TransferTxMLP, withWit
 // (3) txInputMLP.lgrTxoList is either a single-member-ring-for-pseudonym or a normal ring.
 // added by Alice, 2024.07.07
 // todo: review by 2024.07
+// ctx review done 2025.12.21
 func (pp *PublicParameter) TxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
 	if txInputMLP == nil {
 		return false
@@ -2127,3 +2137,5 @@ func (pp *PublicParameter) TxInputMLPSanityCheck(txInputMLP *TxInputMLP) bool {
 }
 
 //	Sanity-Check functions	end
+
+// ctx review done 2025.12.21
