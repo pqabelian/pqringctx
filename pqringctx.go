@@ -2543,6 +2543,9 @@ func (pp *PublicParameter) transferTxVerify(trTx *TransferTx) (bool, error) {
 
 		preMsg := pp.collectBytesForTransferTx(msgTrTxCon, trTx.TxWitness.b_hat, trTx.TxWitness.c_hats)
 		seed_binM, err := Hash(preMsg) // todo_DONE: compute the seed using hash function on (b_hat, c_hats).
+		if err != nil {
+			return false, err
+		}
 		binM, err := expandBinaryMatrix(seed_binM, pp.paramDC, 2*pp.paramDC)
 		if err != nil {
 			return false, nil

@@ -70,6 +70,7 @@ type TxoSDN struct {
 // CoinAddressType is the method that all TxoMLP instance shall implement, which returns the coinAddressType.
 // reviewed on 2023.12.05
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (txoSDN *TxoSDN) CoinAddressType() CoinAddressType {
 	return txoSDN.coinAddressType
 }
@@ -251,6 +252,7 @@ func (pp *PublicParameter) txoRCTGen(coinAddress []byte, coinValuePublicKey []by
 // Note that coinAddress should be 1 byte (CoinAddressType) + AddressPublicKeyForSingleHash.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *TxoSDN, err error) {
 	// parse coinAddress
 	apkHashSize := HashOutputBytesLen
@@ -260,8 +262,9 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 		return nil, fmt.Errorf("txoSDNGen: the input coinAddress has an invalid length (%d)", len(coinAddress))
 	}
 	coinAddressType := CoinAddressType(coinAddress[0])
-	if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-		return nil, fmt.Errorf("txoSDNGen: the input coinAddress's coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+	if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
+		return nil, fmt.Errorf("txoSDNGen: the input coinAddress's coinAddressType (%d) is "+
+			"not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT", coinAddressType)
 	}
 
 	addressPublicKeyForSingleHash := make([]byte, apkHashSize)
@@ -273,7 +276,7 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 	copy(detectorTag, coinAddress[1+apkHashSize+publicRandSize:])
 
 	return &TxoSDN{
-		CoinAddressTypePublicKeyHashForSingle,
+		coinAddressType,
 		addressPublicKeyForSingleHash,
 		publicRand,
 		detectorTag,
@@ -288,6 +291,7 @@ func (pp *PublicParameter) txoSDNGen(coinAddress []byte, value uint64) (txo *Txo
 // reviewed by Alice, 2024.06.25
 // reviewed by Alice, 2024.07.07
 // todo: confirm the kem call, by 2024.06
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValuePublicKey []byte, coinValueSecretKey []byte) (value uint64, cmtr *PolyCNTTVec, err error) {
 
 	if !pp.TxoMLPSanityCheck(txoMLP) {
@@ -403,13 +407,14 @@ func (pp *PublicParameter) ExtractValueAndRandFromTxoMLP(txoMLP TxoMLP, coinValu
 // GetTxoMLPSerializeSizeByCoinAddressType returns the serialize size of a TxoMLP for the input coinAddressType.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressType CoinAddressType) (int, error) {
 	switch coinAddressType {
 	case CoinAddressTypePublicKeyForRingPre:
 		return pp.TxoRCTPreSerializeSize(), nil
 	case CoinAddressTypePublicKeyForRing:
 		return pp.TxoRCTSerializeSize(), nil
-	case CoinAddressTypePublicKeyHashForSingle:
+	case CoinAddressTypePublicKeyHashForSingle, CoinAddressTypePublicKeyHashForSingleCT:
 		return pp.TxoSDNSerializeSize(), nil
 	default:
 		return 0, fmt.Errorf("GetTxoMLPSerializeSizeByCoinAddressType: unsupported coinAddressType")
@@ -422,6 +427,7 @@ func (pp *PublicParameter) GetTxoMLPSerializeSizeByCoinAddressType(coinAddressTy
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 	if txoMLP == nil {
 		return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is nil")
@@ -441,7 +447,7 @@ func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 		return pp.TxoRCTSerializeSize(), nil
 
 	case *TxoSDN:
-		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
+		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle && txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingleCT {
 			return 0, fmt.Errorf("TxoMLPSerializeSize: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.TxoSDNSerializeSize(), nil
@@ -455,6 +461,7 @@ func (pp *PublicParameter) TxoMLPSerializeSize(txoMLP TxoMLP) (int, error) {
 // reviewed on 2023.12.07
 // reviewed on 2023.12.14
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte, err error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is nil")
@@ -474,7 +481,7 @@ func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte,
 		return pp.serializeTxoRCT(txoInst)
 
 	case *TxoSDN:
-		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle {
+		if txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingle && txoMLP.CoinAddressType() != CoinAddressTypePublicKeyHashForSingleCT {
 			return nil, fmt.Errorf("SerializeTxoMLP: the input TxoMLP is TxoSDN, but the CoinAddressType %d does not match", txoMLP.CoinAddressType())
 		}
 		return pp.serializeTxoSDN(txoInst)
@@ -486,6 +493,7 @@ func (pp *PublicParameter) SerializeTxoMLP(txoMLP TxoMLP) (serializedTxo []byte,
 // DeserializeTxoMLP deserialize the input []byte to a TxoMLP.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) DeserializeTxoMLP(serializedTxo []byte) (txoMLP TxoMLP, err error) {
 	if len(serializedTxo) == 0 {
 		return nil, fmt.Errorf("DeserializeTxoMLP: the input serializedTxo is empty")
@@ -776,6 +784,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) TxoSDNSerializeSize() int {
 	return 1 + // for coinAddressType
 		HashOutputBytesLen + //	for addressPublicKeyForSingleHash
@@ -788,6 +797,7 @@ func (pp *PublicParameter) TxoSDNSerializeSize() int {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 	if txoSDN == nil || len(txoSDN.addressPublicKeyForSingleHash) == 0 {
 		return nil, fmt.Errorf("serializeTxoSDN: there is nil pointer in the input txoSDN")
@@ -838,6 +848,7 @@ func (pp *PublicParameter) serializeTxoSDN(txoSDN *TxoSDN) ([]byte, error) {
 // reviewed on 2023.12.05.
 // reviewed on 2023.12.07
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, error) {
 	var err error
 	r := bytes.NewReader(serializedTxoSDN)
@@ -847,8 +858,9 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 	if err != nil {
 		return nil, err
 	}
-	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingle {
-		return nil, fmt.Errorf("deserializeTxoSDN: the deserialized coinAddressType is not CoinAddressTypePublicKeyHashForSingle")
+	if CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingle && CoinAddressType(coinAddressType) != CoinAddressTypePublicKeyHashForSingleCT {
+		return nil, fmt.Errorf("deserializeTxoSDN: the deserialized coinAddressType" +
+			"is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT")
 	}
 
 	apkHash := make([]byte, HashOutputBytesLen)
@@ -876,7 +888,7 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 	}
 
 	return &TxoSDN{
-		CoinAddressTypePublicKeyHashForSingle,
+		CoinAddressType(coinAddressType),
 		apkHash,
 		publicRand,
 		detectorTag,
@@ -886,6 +898,7 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 // ExtractCoinAddressFromSerializedTxo extracts the coinAddress from a serializedTxo, which was generated by SerializeTxoMLP.
 // reviewed on 2023.12.12
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) ExtractCoinAddressFromSerializedTxo(serializedTxo []byte) ([]byte, error) {
 	txoMLP, err := pp.DeserializeTxoMLP(serializedTxo)
 	// Note that here we did not "get CoinAddressSize from serializedTxo" then "substr the CoinAddress from serializedTxo".
@@ -908,6 +921,7 @@ func (pp *PublicParameter) ExtractCoinAddressFromSerializedTxo(serializedTxo []b
 // added on 2023.12.13
 // reviewed on 2023.12.14
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, error) {
 	if txoMLP == nil {
 		return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is nil")
@@ -971,8 +985,10 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 		}
 
 	case *TxoSDN:
-		if coinAddressType != CoinAddressTypePublicKeyHashForSingle {
-			return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is TxoSDN, but the coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle", coinAddressType)
+		if coinAddressType != CoinAddressTypePublicKeyHashForSingle && coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
+			return nil, fmt.Errorf("GetCoinAddressFromTxoMLP: the input txoMLP is TxoSDN, "+
+				"but the coinAddressType (%d) is not CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT",
+				coinAddressType)
 		}
 
 		//	For TxoSDN, coinAddress = coinAddressType (1 byte) + Hash(serializedApk) + publicRand + detectorTag
@@ -1010,9 +1026,14 @@ func (pp *PublicParameter) GetCoinAddressFromTxoMLP(txoMLP TxoMLP) ([]byte, erro
 // it extracts the value from txoMLP using the input (coinValuePublicKey, coinValueSecretKey) pair.
 // NOTE: the validity of (coinValuePublicKey, coinValueSecretKey) pair is checked during the value-extraction.
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, coinValuePublicKey []byte, coinValueSecretKey []byte) (valid bool, v uint64, err error) {
 	if txoMLP == nil {
 		return false, 0, fmt.Errorf("TxoMLPCoinReceive: the input txoMLP is nil")
+	}
+
+	if len(coinAddress) == 0 {
+		return false, 0, fmt.Errorf("TxoMLPCoinReceive: the input coinAddress is nil/empty")
 	}
 
 	coinAddressInTxo, err := pp.GetCoinAddressFromTxoMLP(txoMLP)
@@ -1037,6 +1058,7 @@ func (pp *PublicParameter) TxoMLPCoinReceive(txoMLP TxoMLP, coinAddress []byte, 
 // PseudonymTxoCoinParse parses the input (Pseudonym-Privacy) TxoMLP to its (coinAddress, coinValue) pair, and
 // return an err if it is not a Pseudonym-Privacy TxoMLP.
 // reviewed by Alice, 2024.06.25
+// review done 2025.12.21
 func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []byte, value uint64, err error) {
 	if txoMLP == nil {
 		return nil, 0, fmt.Errorf("PseudonymTxoCoinParse: the input txoMLP is nil")
@@ -1061,6 +1083,7 @@ func (pp *PublicParameter) PseudonymTxoCoinParse(txoMLP TxoMLP) (coinAddress []b
 // added and reviewed by Alice, 2024.07.01
 // todo: review by 2024.07
 // reviewed
+// review done 2025.12.21
 func (pp *PublicParameter) TxoMLPSanityCheck(txoMLP TxoMLP) bool {
 	if txoMLP == nil {
 		return false
@@ -1174,12 +1197,13 @@ func (pp *PublicParameter) TxoRCTSanityCheck(txoRCT *TxoRCT) bool {
 // (6) TxoSDN.value is in the correct scope [1, 2^N-1] (note that TxoSDN.value is public and could not be 0).
 // todo: review by 2024.06
 // reviewed by Ocean
+// review done 2025.12.21
 func (pp *PublicParameter) TxoSDNSanityCheck(txoSDN *TxoSDN) bool {
 	if txoSDN == nil {
 		return false
 	}
 
-	if txoSDN.coinAddressType != CoinAddressTypePublicKeyHashForSingle {
+	if txoSDN.coinAddressType != CoinAddressTypePublicKeyHashForSingle && txoSDN.coinAddressType != CoinAddressTypePublicKeyHashForSingleCT {
 		return false
 	}
 
@@ -1216,3 +1240,5 @@ func (pp *PublicParameter) TxoSDNSanityCheck(txoSDN *TxoSDN) bool {
 //
 //	return pp.ledgerTxoSerialNumberComputeMLP(ma_ps)
 //}
+
+// review done 2025.12.21

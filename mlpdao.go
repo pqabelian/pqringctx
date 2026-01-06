@@ -2,10 +2,13 @@ package pqringctx
 
 type CoinAddressType uint8
 
+// review done 2025.12.21
 const (
-	CoinAddressTypePublicKeyForRingPre    CoinAddressType = 0
-	CoinAddressTypePublicKeyForRing       CoinAddressType = 1
-	CoinAddressTypePublicKeyHashForSingle CoinAddressType = 2
+	CoinAddressTypePublicKeyForRingPre      CoinAddressType = 0
+	CoinAddressTypePublicKeyForRing         CoinAddressType = 1
+	CoinAddressTypePublicKeyHashForSingle   CoinAddressType = 2
+	CoinAddressTypePublicKeyHashForSingleCT CoinAddressType = 3
+	// CoinAddressTypePublicKeyHashForSingleCT can be regarded as an updated alias for CoinAddressTypePublicKeyHashForSingle.
 )
 
 // LgrTxoMLP consists of a TxoMLP and a txoId-in-ledger, which is the unique identifier of a TxoMLP in the ledger/blockchain/database.
@@ -194,3 +197,5 @@ func (txInput *TxInputMLP) GetSerialNumber() []byte {
 }
 
 //	New and Get functions for Transactions	end
+
+// ctx review done 2025.12.21 todo

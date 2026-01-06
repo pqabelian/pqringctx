@@ -124,6 +124,7 @@ func (pp *PublicParameter) decodeTxoValueFromBytes(serializedValue []byte) (uint
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
 // reviewed by Ocean
+// review done 2025.12.21
 func (pp *PublicParameter) ValueCommitmentSanityCheck(cmt *ValueCommitment) bool {
 	if cmt == nil {
 		return false
@@ -246,3 +247,5 @@ func (pp *PublicParameter) ValueCommitmentOpen(cmt *ValueCommitment, msgNTT *Pol
 
 	return true
 }
+
+// ctx review done 2025.12.21
