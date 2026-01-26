@@ -1,6 +1,6 @@
 package pqringctxapi
 
-import "github.com/cryptosuite/pqringctx"
+import "github.com/pqabelian/pqringctx"
 
 // CtxTxoType is defined for the types of CtxTxo.
 // review done 2025.12.21
