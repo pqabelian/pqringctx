@@ -531,8 +531,9 @@ func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 	}
 
 	// todo: 2025.12.21 future: check c.coeffs[i] \in [-(p-1)/2, (p-1)/2].
+	bound := (pp.paramQC - 1) / 2
 	for i := 0; i < len(c.coeffs); i++ {
-		if c.coeffs[i] < -(pp.paramQC-1)/2 || c.coeffs[i] > (pp.paramQC-1)/2 {
+		if c.coeffs[i] < -bound || c.coeffs[i] > bound {
 			return false
 		}
 	}
@@ -556,8 +557,9 @@ func (pp *PublicParameter) PolyCSanityCheck(c *PolyC) bool {
 		return false
 	}
 
+	bound := (pp.paramQC - 1) / 2
 	for i := 0; i < pp.paramDC; i++ {
-		if c.coeffs[i] < -(pp.paramQC-1)/2 || c.coeffs[i] > (pp.paramQC-1)/2 {
+		if c.coeffs[i] < -bound || c.coeffs[i] > bound {
 			return false
 		}
 	}

@@ -590,8 +590,9 @@ func (pp *PublicParameter) PolyASanityCheck(a *PolyA) (bl bool) {
 		return false
 	}
 
+	bound := (pp.paramQA - 1) / 2
 	for i := 0; i < pp.paramDA; i++ {
-		if a.coeffs[i] < -(pp.paramQA-1)/2 || a.coeffs[i] > (pp.paramQA-1)/2 {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
 			return false
 		}
 	}
@@ -615,8 +616,9 @@ func (pp *PublicParameter) PolyANTTSanityCheck(a *PolyANTT) (bl bool) {
 		return false
 	}
 
+	bound := (pp.paramQA - 1) / 2
 	for i := 0; i < pp.paramDA; i++ {
-		if a.coeffs[i] < -(pp.paramQA-1)/2 || a.coeffs[i] > (pp.paramQA-1)/2 {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
 			return false
 		}
 	}
