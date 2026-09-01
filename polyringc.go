@@ -516,6 +516,7 @@ func (pp *PublicParameter) PolyCNTTEqualCheck(a *PolyCNTT, b *PolyCNTT) (eq bool
 // PolyCNTTSanityCheck checks whether the input PolyCNTT is well-form:
 // (1) not nil
 // (2) has d_c coefficients
+// (3) the coefficients are in the range of [-(q_c-1)/2, (q_c-1)/2]
 // added and reviewed by Alice, 2024.06.25
 // todo: review, by 2024.06
 // reviewed by Ocean
@@ -530,6 +531,11 @@ func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 	}
 
 	// todo: 2025.12.21 future: check c.coeffs[i] \in [-(p-1)/2, (p-1)/2].
+	for i := 0; i < len(c.coeffs); i++ {
+		if c.coeffs[i] < -(pp.paramQC-1)/2 || c.coeffs[i] > (pp.paramQC-1)/2 {
+			return false
+		}
+	}
 
 	return true
 }
@@ -537,6 +543,7 @@ func (pp *PublicParameter) PolyCNTTSanityCheck(c *PolyCNTT) bool {
 // PolyCSanityCheck checks whether the input PolyC is well-form:
 // (1) not nil
 // (2) has d_c coefficients
+// (3) the coefficients are in the range of [-(q_c-1)/2, (q_c-1)/2]
 // Note that here the scope of the coefficients is not checked, since if needed, it will be checked by concrete rules.
 // added and reviewed by Alice, 2024.06.27
 // todo: review, by 2024.06
@@ -547,6 +554,12 @@ func (pp *PublicParameter) PolyCSanityCheck(c *PolyC) bool {
 
 	if len(c.coeffs) != pp.paramDC {
 		return false
+	}
+
+	for i := 0; i < pp.paramDC; i++ {
+		if c.coeffs[i] < -(pp.paramQC-1)/2 || c.coeffs[i] > (pp.paramQC-1)/2 {
+			return false
+		}
 	}
 
 	return true
