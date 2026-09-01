@@ -5,8 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cryptosuite/pqringctx/pqringctxkem"
 	"io"
+
+	"github.com/cryptosuite/pqringctx/pqringctxkem"
 )
 
 const (
@@ -92,6 +93,8 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 		return nil, err
 	}
 
+	bound := (pp.paramQA - 1) / 2
+
 	var signalHint byte
 	for i := 0; i < pp.paramDA; i++ {
 		signalHint = 1 << (i % 8)
@@ -99,6 +102,9 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 			//	- signal
 			coeff = retPolyANTT.coeffs[i]
 			retPolyANTT.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFF00000000)
+			if retPolyANTT.coeffs[i] < -bound || retPolyANTT.coeffs[i] > bound {
+				return nil, errors.New("readPolyANTT: invalid coefficient")
+			}
 		}
 	}
 
@@ -505,7 +511,7 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 
 	var coeff int64
 	tmp := make([]byte, 7)
-
+	bound := (pp.paramQC - 1) / 2
 	for i := 0; i < pp.paramDC; i++ {
 		_, err := r.Read(tmp)
 		if err != nil {
@@ -538,6 +544,9 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 			return nil, fmt.Errorf("readPolyCNTT: %d-th coefficient's serializaiton is not well-form", i)
 		}
 		polyCNTT.coeffs[i] = coeff
+		if polyCNTT.coeffs[i] < -bound || polyCNTT.coeffs[i] > bound {
+			return nil, errors.New("readPolyCNTT: invalid coefficient")
+		}
 	}
 	return polyCNTT, nil
 }
