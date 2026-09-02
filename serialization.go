@@ -93,8 +93,6 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 		return nil, err
 	}
 
-	bound := (pp.paramQA - 1) / 2
-
 	var signalHint byte
 	for i := 0; i < pp.paramDA; i++ {
 		signalHint = 1 << (i % 8)
@@ -102,10 +100,11 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 			//	- signal
 			coeff = retPolyANTT.coeffs[i]
 			retPolyANTT.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFF00000000)
-			if retPolyANTT.coeffs[i] < -bound || retPolyANTT.coeffs[i] > bound {
-				return nil, errors.New("readPolyANTT: invalid coefficient")
-			}
 		}
+	}
+
+	if !pp.PolyANTTSanityCheck(retPolyANTT) {
+		return nil, errors.New("readPolyANTT: invalid PolyANTT")
 	}
 
 	return retPolyANTT, nil
@@ -220,7 +219,6 @@ func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 	var err error
-	bound := pp.paramEtaA - int64(pp.paramBetaA)
 
 	polyA := pp.NewPolyA()
 
@@ -248,9 +246,6 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 			lowCoef = int64(uint64(lowCoef) | 0xFFFFFFFFFFF00000)
 		}
 		polyA.coeffs[i] = lowCoef
-		if polyA.coeffs[i] < -bound || polyA.coeffs[i] > bound {
-			return nil, errors.New("readPolyAEta: invalid coefficient")
-		}
 
 		highCoef |= int64(tmpHigh) << 16
 		if tmpHigh&0x08 == 0x08 {
@@ -258,10 +253,12 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 			highCoef = int64(uint64(highCoef) | 0xFFFFFFFFFFF00000)
 		}
 		polyA.coeffs[i+1] = highCoef
-		if polyA.coeffs[i+1] < -bound || polyA.coeffs[i+1] > bound {
-			return nil, errors.New("readPolyAEta: invalid coefficient")
-		}
 	}
+
+	if !pp.PolyAEtaSanityCheck(polyA) {
+		return nil, errors.New("readPolyAEta: invalid PolyAEta")
+	}
+
 	return polyA, nil
 }
 
@@ -393,7 +390,6 @@ func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 // readPolyAGamma
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
-	bound := int64(2)
 	polyA := pp.NewPolyA()
 
 	serialized := make([]byte, pp.paramDA/4)
@@ -429,10 +425,11 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 			//	- signal
 			coeff = polyA.coeffs[i]
 			polyA.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFFFFFFFC)
-			if polyA.coeffs[i] < -bound || polyA.coeffs[i] > bound {
-				return nil, errors.New("readPolyAGamma: invalid coefficient")
-			}
 		}
+	}
+
+	if !pp.PolyAGammaSanityCheck(polyA) {
+		return nil, errors.New("readPolyAGamma: invalid PolyAGamma")
 	}
 
 	return polyA, nil
@@ -521,7 +518,6 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 
 	var coeff int64
 	tmp := make([]byte, 7)
-	bound := (pp.paramQC - 1) / 2
 	for i := 0; i < pp.paramDC; i++ {
 		_, err := r.Read(tmp)
 		if err != nil {
@@ -554,10 +550,12 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 			return nil, fmt.Errorf("readPolyCNTT: %d-th coefficient's serializaiton is not well-form", i)
 		}
 		polyCNTT.coeffs[i] = coeff
-		if polyCNTT.coeffs[i] < -bound || polyCNTT.coeffs[i] > bound {
-			return nil, errors.New("readPolyCNTT: invalid coefficient")
-		}
 	}
+
+	if !pp.PolyCNTTSanityCheck(polyCNTT) {
+		return nil, errors.New("readPolyCNTT: invalid PolyCNTT")
+	}
+
 	return polyCNTT, nil
 }
 
@@ -690,7 +688,6 @@ func (pp *PublicParameter) writePolyCEta(w io.Writer, polyC *PolyC) error {
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	var err error
-	bound := pp.paramEtaC - int64(pp.paramBetaC)
 
 	rst := pp.NewPolyC()
 
@@ -724,12 +721,13 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 			//	- signal
 			coeff = rst.coeffs[i]
 			rst.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
-
-			if rst.coeffs[i] < -bound || rst.coeffs[i] > bound {
-				return nil, errors.New("readPolyCEta: invalid coefficient")
-			}
 		}
 	}
+
+	if !pp.PolyCEtaSanityCheck(rst) {
+		return nil, errors.New("readPolyCEta: invalid PolyCEta")
+	}
+
 	return rst, nil
 }
 

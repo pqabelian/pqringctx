@@ -558,7 +558,30 @@ func (pp *PublicParameter) PolyCSanityCheck(c *PolyC) bool {
 	}
 
 	bound := (pp.paramQC - 1) / 2
-	for i := 0; i < pp.paramDC; i++ {
+	for i := 0; i < len(c.coeffs); i++ {
+		if c.coeffs[i] < -bound || c.coeffs[i] > bound {
+			return false
+		}
+	}
+
+	return true
+}
+
+// PolyCEtaSanityCheck checks whether the input PolyC is well-form:
+// (1) not nil
+// (2) has d_c coefficients
+// (3) the coefficients are in the range of [-(\eta_c-\beta_c), (\eta_c-\beta_c)]
+func (pp *PublicParameter) PolyCEtaSanityCheck(c *PolyC) bool {
+	if c == nil {
+		return false
+	}
+
+	if len(c.coeffs) != pp.paramDC {
+		return false
+	}
+
+	bound := pp.paramEtaC - int64(pp.paramBetaC)
+	for i := 0; i < len(c.coeffs); i++ {
 		if c.coeffs[i] < -bound || c.coeffs[i] > bound {
 			return false
 		}
