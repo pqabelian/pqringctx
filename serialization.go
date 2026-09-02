@@ -220,6 +220,7 @@ func (pp *PublicParameter) writePolyAEta(w io.Writer, a *PolyA) error {
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 	var err error
+	bound := pp.paramEtaA - int64(pp.paramBetaA)
 
 	polyA := pp.NewPolyA()
 
@@ -247,6 +248,9 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 			lowCoef = int64(uint64(lowCoef) | 0xFFFFFFFFFFF00000)
 		}
 		polyA.coeffs[i] = lowCoef
+		if polyA.coeffs[i] < -bound || polyA.coeffs[i] > bound {
+			return nil, errors.New("readPolyAEta: invalid coefficient")
+		}
 
 		highCoef |= int64(tmpHigh) << 16
 		if tmpHigh&0x08 == 0x08 {
@@ -254,7 +258,9 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 			highCoef = int64(uint64(highCoef) | 0xFFFFFFFFFFF00000)
 		}
 		polyA.coeffs[i+1] = highCoef
-
+		if polyA.coeffs[i+1] < -bound || polyA.coeffs[i+1] > bound {
+			return nil, errors.New("readPolyAEta: invalid coefficient")
+		}
 	}
 	return polyA, nil
 }
@@ -387,6 +393,7 @@ func (pp *PublicParameter) writePolyAGamma(w io.Writer, polyA *PolyA) error {
 // readPolyAGamma
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
+	bound := int64(2)
 	polyA := pp.NewPolyA()
 
 	serialized := make([]byte, pp.paramDA/4)
@@ -422,6 +429,9 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 			//	- signal
 			coeff = polyA.coeffs[i]
 			polyA.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFFFFFFFC)
+			if polyA.coeffs[i] < -bound || polyA.coeffs[i] > bound {
+				return nil, errors.New("readPolyAGamma: invalid coefficient")
+			}
 		}
 	}
 
@@ -680,6 +690,7 @@ func (pp *PublicParameter) writePolyCEta(w io.Writer, polyC *PolyC) error {
 // reviewed by Alice, 2024.06.21
 func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	var err error
+	bound := pp.paramEtaC - int64(pp.paramBetaC)
 
 	rst := pp.NewPolyC()
 
@@ -713,6 +724,10 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 			//	- signal
 			coeff = rst.coeffs[i]
 			rst.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
+
+			if rst.coeffs[i] < -bound || rst.coeffs[i] > bound {
+				return nil, errors.New("readPolyCEta: invalid coefficient")
+			}
 		}
 	}
 	return rst, nil
