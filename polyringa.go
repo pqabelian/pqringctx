@@ -576,6 +576,7 @@ func (pp *PublicParameter) PolyANTTEqualCheck(a *PolyANTT, b *PolyANTT) (eq bool
 // PolyASanityCheck checks whether the input PolyA is well-form:
 // (1) not nil
 // (2) has d_a coefficients
+// (3) all coefficients are in [-(q_a-1)/2, (q_a-1)/2]
 // Note: It does not check the normal of the coefficients, since if necessary, there will be more concrete checks on the normal.
 // added and reviewed by Alice, 2024.06.24
 // todo: review, by 2024.06
@@ -589,12 +590,20 @@ func (pp *PublicParameter) PolyASanityCheck(a *PolyA) (bl bool) {
 		return false
 	}
 
+	bound := (pp.paramQA - 1) / 2
+	for i := 0; i < len(a.coeffs); i++ {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
+			return false
+		}
+	}
+
 	return true
 }
 
 // PolyANTTSanityCheck checks whether the input PolyANTT is well-form:
 // (1) not nil
 // (2) has d_a coefficients
+// (3) all coefficients are in [-(q_a-1)/2, (q_a-1)/2]
 // added and reviewed by Alice, 2024.06.24
 // todo: review, by 2024.06
 // reviewed by Ocean
@@ -605,6 +614,59 @@ func (pp *PublicParameter) PolyANTTSanityCheck(a *PolyANTT) (bl bool) {
 
 	if len(a.coeffs) != pp.paramDA {
 		return false
+	}
+
+	bound := (pp.paramQA - 1) / 2
+	for i := 0; i < len(a.coeffs); i++ {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
+			return false
+		}
+	}
+
+	return true
+}
+
+// PolyAEtaSanityCheck checks whether the input PolyA is well-form:
+// (1) not nil
+// (2) has d_a coefficients
+// (3) all coefficients are in [-(\eta_a-\beta_a), (\eta_a-\beta_a)]
+func (pp *PublicParameter) PolyAEtaSanityCheck(a *PolyA) (bl bool) {
+	if a == nil {
+		return false
+	}
+
+	if len(a.coeffs) != pp.paramDA {
+		return false
+	}
+
+	bound := pp.paramEtaA - int64(pp.paramBetaA)
+	for i := 0; i < len(a.coeffs); i++ {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
+			return false
+		}
+	}
+
+	return true
+}
+
+// PolyAGammaSanityCheck checks whether the input PolyA is well-form:
+// (1) not nil
+// (2) has d_a coefficients
+// (3) all coefficients are in [-2,2]
+func (pp *PublicParameter) PolyAGammaSanityCheck(a *PolyA) (bl bool) {
+	if a == nil {
+		return false
+	}
+
+	if len(a.coeffs) != pp.paramDA {
+		return false
+	}
+
+	bound := int64(2)
+	for i := 0; i < len(a.coeffs); i++ {
+		if a.coeffs[i] < -bound || a.coeffs[i] > bound {
+			return false
+		}
 	}
 
 	return true
