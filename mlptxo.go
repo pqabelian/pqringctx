@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
+
 	"github.com/pqabelian/pqringctx/pqringctxkem"
 )
 
@@ -586,7 +588,7 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 
 	var apk *AddressPublicKeyForRing
 	tmp := make([]byte, pp.addressPublicKeyForRingSerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +599,7 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 
 	var cmt *ValueCommitment
 	tmp = make([]byte, pp.ValueCommitmentSerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -607,7 +609,7 @@ func (pp *PublicParameter) deserializeTxoRCTPre(serializedTxoRCTPre []byte) (*Tx
 	}
 
 	vct := make([]byte, pp.TxoValueBytesLen())
-	_, err = r.Read(vct)
+	_, err = io.ReadFull(r, vct)
 	if err != nil {
 		return nil, err
 	}
@@ -726,7 +728,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 
 	var apk *AddressPublicKeyForRing
 	tmp := make([]byte, pp.addressPublicKeyForRingSerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -736,20 +738,20 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 	}
 
 	publicRand := make([]byte, pp.GetParamKeyGenPublicRandBytesLen())
-	_, err = r.Read(publicRand)
+	_, err = io.ReadFull(r, publicRand)
 	if err != nil {
 		return nil, err
 	}
 
 	detectorTag := make([]byte, pp.GetParamMACOutputBytesLen())
-	_, err = r.Read(detectorTag)
+	_, err = io.ReadFull(r, detectorTag)
 	if err != nil {
 		return nil, err
 	}
 
 	var cmt *ValueCommitment
 	tmp = make([]byte, pp.ValueCommitmentSerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +761,7 @@ func (pp *PublicParameter) deserializeTxoRCT(serializedTxoRCT []byte) (*TxoRCT, 
 	}
 
 	vct := make([]byte, pp.TxoValueBytesLen())
-	_, err = r.Read(vct)
+	_, err = io.ReadFull(r, vct)
 	if err != nil {
 		return nil, err
 	}
@@ -864,19 +866,19 @@ func (pp *PublicParameter) deserializeTxoSDN(serializedTxoSDN []byte) (*TxoSDN, 
 	}
 
 	apkHash := make([]byte, HashOutputBytesLen)
-	_, err = r.Read(apkHash)
+	_, err = io.ReadFull(r, apkHash)
 	if err != nil {
 		return nil, err
 	}
 
 	publicRand := make([]byte, pp.GetParamKeyGenPublicRandBytesLen())
-	_, err = r.Read(publicRand)
+	_, err = io.ReadFull(r, publicRand)
 	if err != nil {
 		return nil, err
 	}
 
 	detectorTag := make([]byte, pp.GetParamMACOutputBytesLen())
-	_, err = r.Read(detectorTag)
+	_, err = io.ReadFull(r, detectorTag)
 	if err != nil {
 		return nil, err
 	}
