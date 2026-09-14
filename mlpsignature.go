@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 )
 
 // ElrSignatureMLP defines the data structure for ELRSSignature.
@@ -763,7 +764,7 @@ func (pp *PublicParameter) deserializeElrSignatureMLP(serializedSig []byte) (*El
 	//	seeds [][]byte
 	for i := uint8(0); i < ringSize; i++ {
 		seeds[i] = make([]byte, HashOutputBytesLen)
-		_, err = r.Read(seeds[i])
+		_, err = io.ReadFull(r, seeds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -985,7 +986,7 @@ func (pp *PublicParameter) deserializeSimpleSignature(serializedSig []byte) (*Si
 
 	//	seed_ch []byte
 	seed_ch := make([]byte, HashOutputBytesLen)
-	_, err := r.Read(seed_ch)
+	_, err := io.ReadFull(r, seed_ch)
 	if err != nil {
 		return nil, err
 	}
