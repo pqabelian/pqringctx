@@ -95,7 +95,7 @@ func TestPublicParameter_ExtractValueAndRandFromTxoMLP(t *testing.T) {
 		coinDetectorKey := RandomBytes(pp.GetParamMACKeyBytesLen())
 		publicRand := RandomBytes(pp.GetParamKeyGenPublicRandBytesLen())
 
-		coinAddress, _, err := pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
+		coinAddress, _, err := pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand, CoinAddressTypePublicKeyHashForSingle)
 		if err != nil {
 			panic(err)
 		}

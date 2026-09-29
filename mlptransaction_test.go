@@ -125,7 +125,7 @@ func InitialAddress() {
 		publicRand := RandomBytes(pp.GetParamKeyGenPublicRandBytesLen())
 
 		var err error
-		coinAddress, coinSpendSecretKey, err = pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand)
+		coinAddress, coinSpendSecretKey, err = pp.CoinAddressKeyForPKHSingleGen(coinSpendKeyRandSeed, coinDetectorKey, publicRand, CoinAddressTypePublicKeyHashForSingle)
 		if err != nil {
 			panic(err)
 		}

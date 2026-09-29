@@ -2910,7 +2910,7 @@ func (pp *PublicParameter) readCarryVectorRProof(r io.Reader) ([]int64, error) {
 	var coeff int64
 	tmp := make([]byte, 3)
 	for i := 0; i < pp.paramDC; i++ {
-		_, err := r.Read(tmp)
+		_, err := io.ReadFull(r, tmp)
 		if err != nil {
 			return nil, err
 		}

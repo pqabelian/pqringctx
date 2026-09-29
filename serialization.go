@@ -5,8 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/pqabelian/pqringctx/pqringctxkem"
 	"io"
+
+	"github.com/pqabelian/pqringctx/pqringctxkem"
 )
 
 const (
@@ -74,7 +75,7 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 
 	retPolyANTT := pp.NewPolyANTT()
 	for i := 0; i < pp.paramDA; i++ {
-		_, err := r.Read(tmp)
+		_, err := io.ReadFull(r, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +88,7 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 	}
 
 	signalBytes := make([]byte, pp.paramDA/8)
-	_, err := r.Read(signalBytes)
+	_, err := io.ReadFull(r, signalBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +101,10 @@ func (pp *PublicParameter) readPolyANTT(r io.Reader) (*PolyANTT, error) {
 			coeff = retPolyANTT.coeffs[i]
 			retPolyANTT.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFF00000000)
 		}
+	}
+
+	if !pp.PolyANTTSanityCheck(retPolyANTT) {
+		return nil, errors.New("readPolyANTT: invalid PolyANTT")
 	}
 
 	return retPolyANTT, nil
@@ -222,7 +227,7 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 	var tmpLow, tmpHigh byte
 
 	for i := 0; i < pp.paramDA; i = i + 2 {
-		_, err = r.Read(tmp)
+		_, err = io.ReadFull(r, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -248,8 +253,12 @@ func (pp *PublicParameter) readPolyAEta(r io.Reader) (*PolyA, error) {
 			highCoef = int64(uint64(highCoef) | 0xFFFFFFFFFFF00000)
 		}
 		polyA.coeffs[i+1] = highCoef
-
 	}
+
+	if !pp.PolyAEtaSanityCheck(polyA) {
+		return nil, errors.New("readPolyAEta: invalid PolyAEta")
+	}
+
 	return polyA, nil
 }
 
@@ -384,7 +393,7 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 	polyA := pp.NewPolyA()
 
 	serialized := make([]byte, pp.paramDA/4)
-	_, err := r.Read(serialized)
+	_, err := io.ReadFull(r, serialized)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +412,7 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 	}
 
 	signalBytes := make([]byte, pp.paramDA/8)
-	_, err = r.Read(signalBytes)
+	_, err = io.ReadFull(r, signalBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -417,6 +426,10 @@ func (pp *PublicParameter) readPolyAGamma(r io.Reader) (*PolyA, error) {
 			coeff = polyA.coeffs[i]
 			polyA.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFFFFFFFC)
 		}
+	}
+
+	if !pp.PolyAGammaSanityCheck(polyA) {
+		return nil, errors.New("readPolyAGamma: invalid PolyAGamma")
 	}
 
 	return polyA, nil
@@ -505,9 +518,8 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 
 	var coeff int64
 	tmp := make([]byte, 7)
-
 	for i := 0; i < pp.paramDC; i++ {
-		_, err := r.Read(tmp)
+		_, err := io.ReadFull(r, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -539,6 +551,11 @@ func (pp *PublicParameter) readPolyCNTT(r io.Reader) (*PolyCNTT, error) {
 		}
 		polyCNTT.coeffs[i] = coeff
 	}
+
+	if !pp.PolyCNTTSanityCheck(polyCNTT) {
+		return nil, errors.New("readPolyCNTT: invalid PolyCNTT")
+	}
+
 	return polyCNTT, nil
 }
 
@@ -678,7 +695,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	var coeff int64
 
 	for i := 0; i < pp.paramDC; i++ {
-		_, err = r.Read(tmp)
+		_, err = io.ReadFull(r, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -691,7 +708,7 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 	}
 
 	signalBytes := make([]byte, pp.paramDC/8)
-	_, err = r.Read(signalBytes)
+	_, err = io.ReadFull(r, signalBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -706,6 +723,11 @@ func (pp *PublicParameter) readPolyCEta(r io.Reader) (*PolyC, error) {
 			rst.coeffs[i] = int64(uint64(coeff) | 0xFFFFFFFFFF000000)
 		}
 	}
+
+	if !pp.PolyCEtaSanityCheck(rst) {
+		return nil, errors.New("readPolyCEta: invalid PolyCEta")
+	}
+
 	return rst, nil
 }
 
@@ -1012,7 +1034,7 @@ func (pp *PublicParameter) DeserializeTxo(serializedTxo []byte) (*Txo, error) {
 
 	var apk *AddressPublicKey
 	tmp := make([]byte, pp.AddressPublicKeySerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -1023,7 +1045,7 @@ func (pp *PublicParameter) DeserializeTxo(serializedTxo []byte) (*Txo, error) {
 
 	var cmt *ValueCommitment
 	tmp = make([]byte, pp.ValueCommitmentSerializeSize())
-	_, err = r.Read(tmp)
+	_, err = io.ReadFull(r, tmp)
 	if err != nil {
 		return nil, err
 	}
@@ -1033,7 +1055,7 @@ func (pp *PublicParameter) DeserializeTxo(serializedTxo []byte) (*Txo, error) {
 	}
 
 	vct := make([]byte, pp.TxoValueBytesLen())
-	_, err = r.Read(vct)
+	_, err = io.ReadFull(r, vct)
 	if err != nil {
 		return nil, err
 	}
@@ -1096,7 +1118,7 @@ func (pp *PublicParameter) DeserializeLgrTxo(serializedLgrTxo []byte) (*LgrTxo, 
 	r := bytes.NewReader(serializedLgrTxo)
 
 	serializedTxo := make([]byte, pp.TxoSerializeSize())
-	_, err := r.Read(serializedTxo)
+	_, err := io.ReadFull(r, serializedTxo)
 	if err != nil {
 		return nil, err
 	}
@@ -1106,7 +1128,7 @@ func (pp *PublicParameter) DeserializeLgrTxo(serializedLgrTxo []byte) (*LgrTxo, 
 	}
 
 	id := make([]byte, pp.LgrTxoIdSerializeSize())
-	_, err = r.Read(id)
+	_, err = io.ReadFull(r, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1702,7 +1724,7 @@ func (pp *PublicParameter) DeserializeCoinbaseTx(serializedCbTx []byte, withWitn
 		OutputTxos = make([]*Txo, outTxoNum)
 		tmp := make([]byte, pp.TxoSerializeSize())
 		for i := uint64(0); i < outTxoNum; i++ {
-			_, err = r.Read(tmp)
+			_, err = io.ReadFull(r, tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -2199,7 +2221,7 @@ func (pp *PublicParameter) DeserializeTrTxWitness(serializedTrTxWitness []byte) 
 		cmt_ps = make([]*ValueCommitment, count)
 		tmp := make([]byte, pp.ValueCommitmentSerializeSize())
 		for i := uint64(0); i < count; i++ {
-			_, err = r.Read(tmp)
+			_, err = io.ReadFull(r, tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -2352,7 +2374,7 @@ func (pp *PublicParameter) deserializeTrTxInput(serialziedTrTxInput []byte) (*Tr
 		TxoList = make([]*LgrTxo, count)
 		tmp := make([]byte, pp.LgrTxoSerializeSize())
 		for i := uint64(0); i < count; i++ {
-			_, err = r.Read(tmp)
+			_, err = io.ReadFull(r, tmp)
 			if err != nil {
 				return nil, err
 			}
@@ -2516,7 +2538,7 @@ func (pp *PublicParameter) DeserializeTransferTx(serializedTrTx []byte, withWitn
 		OutputTxos = make([]*Txo, count)
 		tmp := make([]byte, pp.TxoSerializeSize())
 		for i := uint64(0); i < count; i++ {
-			_, err = r.Read(tmp)
+			_, err = io.ReadFull(r, tmp)
 			if err != nil {
 				return nil, err
 			}

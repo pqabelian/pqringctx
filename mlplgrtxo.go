@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"bytes"
 	"fmt"
+	"io"
 )
 
 //	LgrTxoMLP	begin
@@ -99,7 +100,7 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 	}
 
 	serializedTxo := make([]byte, serializedTxoLen)
-	_, err := r.Read(serializedTxo)
+	_, err := io.ReadFull(r, serializedTxo)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (pp *PublicParameter) DeserializeLgrTxoMLP(serializedLgrTxo []byte) (*LgrTx
 	}
 
 	id := make([]byte, pp.LgrTxoMLPIdSerializeSize())
-	_, err = r.Read(id)
+	_, err = io.ReadFull(r, id)
 	if err != nil {
 		return nil, err
 	}

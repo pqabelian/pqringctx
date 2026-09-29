@@ -368,9 +368,9 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	inForRing := 0
 	inForSingle := 0
 	inForSingleDistinct := 0
-	cmtrs_in := make([]*PolyCNTTVec, 0, inputNum)                   // This is used to collect the cmtr for the coin-to-spend in inForRing.
-	coinAddressForSingleDistinctList := make([][]byte, 0, inputNum) // This is used to collect the set of distinct coinAddress for the coin-to-spend in outForSingle.
-	coinAddressSpendSecretKeyMap := make(map[string][]byte)         // This is used to map the (distinct) coinAddress for the coin-to-spend in outForSingle to the corresponding SpendSecretKey.
+	cmtrs_in := make([]*PolyCNTTVec, 0, inputNum)                            // This is used to collect the cmtr for the coin-to-spend in inForRing.
+	apkHashDistinctListInCoinAddressForSingle := make([][]byte, 0, inputNum) // This is used to collect the set of distinct apkHash in coinAddress for the coin-to-spend in outForSingle.
+	spendSecretKeyForPKHSingleMap := make(map[string][]byte)                 // This is used to map the (distinct) apkHash in coinAddress for the coin-to-spend in outForSingle to the corresponding SpendSecretKey.
 	vInTotal := uint64(0)
 	vInPublic := uint64(0)
 	lgrTxoIdsToSpendMap := make(map[string]int) // There should not be double spending in one transaction.
@@ -514,21 +514,21 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] and corresponding coinSpendSecretKey, say txInputDescs[%d].coinSpendSecretKey, do not match", i, txInputDescItem.sidx, i)
 			}
 
+			txoSDNToSpend, ok := lgrTxoToSpend.txo.(*TxoSDN)
+			if !ok {
+				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has CoinAddressType (%d), but it is not a TxoSDN", i, txInputDescItem.sidx, coinAddressType)
+			}
 			//	check the public value
-			switch txoInstToSpend := lgrTxoToSpend.txo.(type) {
-			case *TxoSDN:
-				if txoInstToSpend.value != txInputDescItem.value {
-					return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has value=%d, but txInputDescs[%d].value is %d", i, txInputDescItem.sidx, txoInstToSpend.value, i, txInputDescItem.value)
-				}
-			default:
-				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has CoinAddressTypePublicKeyHashForSingle, but it is not a TxoSDN", i, txInputDescItem.sidx)
+			if txoSDNToSpend.value != txInputDescItem.value {
+				return nil, fmt.Errorf("TransferTxMLPGen: the coin to spend, say txInputDescs[%d].lgrTxoList[%d] has value=%d, but txInputDescs[%d].value is %d", i, txInputDescItem.sidx, txoSDNToSpend.value, i, txInputDescItem.value)
 			}
 
-			//	collect the distinct coinAddress with CoinAddressTypePublicKeyHashForSingle
-			coinAddressString := hex.EncodeToString(coinAddress)
-			if _, exists := coinAddressSpendSecretKeyMap[coinAddressString]; !exists {
-				coinAddressForSingleDistinctList = append(coinAddressForSingleDistinctList, coinAddress)
-				coinAddressSpendSecretKeyMap[coinAddressString] = txInputDescItem.coinSpendSecretKey
+			// collect the distinct apkHash in coinAddress with CoinAddressTypePublicKeyHashForSingle or CoinAddressTypePublicKeyHashForSingleCT
+			apkHash := txoSDNToSpend.addressPublicKeyForSingleHash
+			apkHashString := hex.EncodeToString(apkHash)
+			if _, exists := spendSecretKeyForPKHSingleMap[apkHashString]; !exists {
+				apkHashDistinctListInCoinAddressForSingle = append(apkHashDistinctListInCoinAddressForSingle, apkHash)
+				spendSecretKeyForPKHSingleMap[apkHashString] = txInputDescItem.coinSpendSecretKey
 				inForSingleDistinct += 1
 			}
 
@@ -548,14 +548,14 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of cmtrsIn (%d) is different from inForRing (%d)", len(cmtrs_in), inForRing)
 	}
 
-	if len(coinAddressForSingleDistinctList) != inForSingleDistinct {
+	if len(apkHashDistinctListInCoinAddressForSingle) != inForSingleDistinct {
 		//	assert
-		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of coinAddressForSingleDistinctList (%d) is different from inForSingleDistinct (%d)", len(coinAddressForSingleDistinctList), inForSingleDistinct)
+		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of apkHashDistinctListInCoinAddressForSingle (%d) is different from inForSingleDistinct (%d)", len(apkHashDistinctListInCoinAddressForSingle), inForSingleDistinct)
 	}
 
-	if len(coinAddressSpendSecretKeyMap) != inForSingleDistinct {
+	if len(spendSecretKeyForPKHSingleMap) != inForSingleDistinct {
 		//	assert
-		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of coinAddressSpendSecretKeyMap (%d) is different from inForSingleDistinct (%d)", len(coinAddressSpendSecretKeyMap), inForSingleDistinct)
+		return nil, fmt.Errorf("TransferTxMLPGen: it should not happen that the length of spendSecretKeyForPKHSingleMap (%d) is different from inForSingleDistinct (%d)", len(spendSecretKeyForPKHSingleMap), inForSingleDistinct)
 	}
 
 	if inForRing > int(pp.paramI) {
@@ -752,12 +752,12 @@ func (pp *PublicParameter) TransferTxMLPGen(txInputDescs []*TxInputDescMLP, txOu
 	addressPublicKeyForSingles := make([]*AddressPublicKeyForSingle, inForSingleDistinct)
 	simpleSigs := make([]*SimpleSignatureMLP, inForSingleDistinct)
 	for i := 0; i < inForSingleDistinct; i++ {
-		coinAddress := coinAddressForSingleDistinctList[i]
-		coinAddressString := hex.EncodeToString(coinAddress)
-		coinSpendSecretKey, exists := coinAddressSpendSecretKeyMap[coinAddressString]
+		apkHash := apkHashDistinctListInCoinAddressForSingle[i]
+		apkHashString := hex.EncodeToString(apkHash)
+		coinSpendSecretKey, exists := spendSecretKeyForPKHSingleMap[apkHashString]
 		if !exists {
 			// just assert
-			return nil, fmt.Errorf("TransferTxMLPGen: This should not happen, where a coinAddress with CoinAddressTypePublicKeyHashForSingle does not have corresponding coinSpendSecretKey")
+			return nil, fmt.Errorf("TransferTxMLPGen: This should not happen, where a coinAddress with CoinAddressTypePublicKeyHashForSingle(CT) (apkHash=%v)does not have corresponding coinSpendSecretKey", apkHashString)
 		}
 		apkForSingle, askSp, err := pp.coinSpendSecretKeyForPKHSingleParse(coinSpendSecretKey)
 		if err != nil {

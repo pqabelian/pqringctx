@@ -3,6 +3,7 @@ package pqringctx
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/big"
 )
 
@@ -1918,7 +1919,7 @@ func (pp *PublicParameter) deserializeRpulpProofMLP(serializedRpulpProofMLP []by
 
 	//chseed  []byte
 	chseed := make([]byte, HashOutputBytesLen)
-	_, err = r.Read(chseed)
+	_, err = io.ReadFull(r, chseed)
 	if err != nil {
 		return nil, err
 	}
